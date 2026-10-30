@@ -612,3 +612,65 @@ table.tab{width:100%;border-collapse:collapse;background:var(--surface);border:1
 .chips-forma button.on{background:var(--brand-deep);color:#fff;border-color:var(--brand-deep)}
 #rec-prev .mini{font-size:14px}
 @container (max-width: 980px){ .resumo-grade{grid-template-columns:1fr 1fr} .pl-linha{grid-template-columns:130px minmax(0,1fr) 100px} .pl-acao{grid-column:2/4;text-align:left} }
+/* inativar / excluir paciente (30/10) */
+.zona-remover{border-color:#f0d3cf}
+.zona-duas{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.zona-duas>div{display:flex;flex-direction:column;gap:6px}
+.zona-duas>div>b{color:var(--navy)}
+.zona-duas .chips{margin:4px 0}
+.btn-perigo-cheio{background:var(--erro);color:#fff;border-color:var(--erro)}
+.faixa-inativo{display:flex;align-items:center;gap:8px;padding:10px 16px;background:#eceff3;color:var(--ink-soft);font-size:14.5px;border-radius:0 0 12px 12px;margin-bottom:12px}
+.faixa-inativo .btn{margin-left:auto}
+.tag.inativo{background:#eceff3;color:var(--ink-soft)}
+/* re-verificação da ronda 4 */
+.tab-fin{table-layout:fixed}
+.tab-fin th:nth-child(1){width:110px}.tab-fin th:nth-child(2){width:90px}.tab-fin th:nth-child(3),.tab-fin th:nth-child(4),.tab-fin th:nth-child(5){width:130px}
+.chips-forma{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.anam-resp{font-size:14px;padding:4px 0}
+.cel .grupo-tit{font-size:15px}
+.cel .est,.cel .pl-est{font-size:15px}
+.cel .cel-abas button{font-size:15px}
+.cel .mini{font-size:16px}
+.cel-cab .sub{font-size:16px}
+.cel .cx-status{font-size:15px}
+.cel-link-item{min-height:48px}
+.cel-quem-al{display:flex;align-items:center;gap:5px;color:var(--erro);font-weight:700;font-size:15px;margin-bottom:2px}
+.modo-cel #toast{left:12px;right:12px;transform:none;bottom:96px}
+.modo-cel .toast{justify-content:space-between}
+/* Configurações → Procedimentos e preços */
+.cfg-item{text-align:left;font-weight:700}
+.cfg-item.ativo{border-color:var(--brand);background:var(--info-bg);color:var(--brand-deep)}
+.precos-topo{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--rule);flex-wrap:wrap}
+.precos-topo>div:first-child{flex:1;min-width:280px}
+.precos-busca{padding:9px 12px;border:1px solid var(--rule);border-radius:8px;min-width:220px}
+.precos-rolagem{overflow:auto;max-height:520px}
+.precos-tab{margin:0}
+.precos-tab th{position:sticky;top:0;z-index:1}
+.precos-tab tr.sub td{border-bottom-color:#eef2f7}
+.precos-faces{display:inline-block;margin-left:14px;color:var(--ink-soft);font-size:14px}
+.preco-in{width:96px;text-align:right;padding:6px 8px;border:1px solid transparent;border-radius:6px;background:var(--bg);font-variant-numeric:tabular-nums;font-size:14px}
+.preco-in:hover{border-color:var(--rule)}
+.preco-in:focus{border-color:var(--brand);background:#fff;outline:none}
+.preco-in.mudou{background:var(--aviso-bg);border-color:#e2b33a;font-weight:700}
+.precos-rodape{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:12px 16px;border-top:1px solid var(--rule);background:var(--paper);position:sticky;bottom:0}
+.cel-item .cel-link-item{min-height:48px}
+.cel .grupo-tit,.cel .est,.cel .pl-est,.cel .cel-abas button{font-size:16px}
+.faixa-inativo.excluido{background:var(--erro-bg);color:var(--erro)}
+.link-perigo{color:var(--erro);font-weight:700;align-self:flex-start}
+.precos-tab td:first-child,.precos-tab th:first-child{white-space:nowrap;min-width:230px}
+.precos-tab td:nth-child(2),.precos-tab td:nth-child(3),.precos-tab td:nth-child(4){white-space:nowrap}
+.precos-tab tr.grupo td{border-bottom:0;padding-bottom:2px}
+.precos-faces{margin-left:18px}
+.precos-filtro{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--rule);flex-wrap:wrap;background:var(--bg)}
+.precos-filtro label{font-weight:700;color:var(--navy)}
+.precos-filtro select{padding:9px 12px;border:1px solid var(--rule);border-radius:8px;font-weight:700;min-width:200px;background:#fff}
+.precos-tab td:first-child,.precos-tab th:first-child{min-width:0}
+.preco-in{width:120px}
+/* re-verificação: excluído só para ver, preços, letras do celular */
+fieldset.so-ver{border:0;padding:0;margin:0;min-width:0}
+fieldset.so-ver .btn,fieldset.so-ver input,fieldset.so-ver select,fieldset.so-ver textarea{opacity:.55;cursor:not-allowed}
+.precos-rolagem{max-height:none;overflow-x:auto}
+.preco-in.erro{background:var(--erro-bg);border-color:var(--erro);color:var(--erro);font-weight:700}
+.cel .seg-cel.seg-peq button,.cel .cel-legenda summary,.cel .cel-arc-tit,.cel .cel-dente-num{font-size:16px}
+.cel .cel-dente-num small{font-size:12px}
+.cel .seg button,.dono-topo .quando,.cel .cel-al{font-size:16px}

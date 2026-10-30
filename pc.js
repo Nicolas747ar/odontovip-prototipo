@@ -5,7 +5,7 @@ function pode(acao, u = usuPC()) {
   const p = u.papel;
   return {
     caixa: ['recepcao', 'dono'], clinico: ['dentista', 'dono'], indicar: ['dentista'], alerta: ['dentista'],
-    finPac: ['recepcao', 'dono'], config: ['dono'], evolucao: ['dentista'], recusar: ['dentista', 'recepcao'],
+    finPac: ['recepcao', 'dono'], config: ['dono'], evolucao: ['dentista'], recusar: ['dentista', 'recepcao'], cadastro: ['recepcao', 'dono'],
   }[acao].includes(p);
 }
 
@@ -45,7 +45,7 @@ A.fecharModal = () => { E.ui.pc.modal = null; render(); };
 function resultadoPac(p, acao, extra = '') {
   const prox = proximaConsulta(p.id);
   return `<div class="res-item" data-a="${acao}" data-id="${p.id}" ${extra}>
-    <span class="res-num">nº ${p.numero}</span><span><b>${esc(p.nome)}</b> · ${idade(p.nasc)} anos ${alertas(p.id).length ? `<span class="alerta-ico">${ic('alerta', 15)}</span>` : ''}</span>
+    <span class="res-num">nº ${p.numero}</span><span><b>${esc(p.nome)}</b> · ${idade(p.nasc)} anos${p.inativo ? ' <span class="tag inativo">inativo</span>' : ''} ${alertas(p.id).length ? `<span class="alerta-ico">${ic('alerta', 15)}</span>` : ''}</span>
     <span class="res-meta">${ult4(p.cel)}<br>${prox ? 'hoje ' + hhmm(prox.ini) : conv(p.conv).nome}</span></div>`;
 }
 A.buscaGlobal = (ds, el) => {
@@ -311,6 +311,8 @@ function validarNovo(n) {
   if (iso > E.d.hoje || iso < '1900') return 'Data de nascimento fora do possível.';
   return '';
 }
+const situacaoPac = p => p.excluido ? ` <span class="tag vencida">excluído em ${dataBR(p.excluido.data)}</span>` : p.inativo ? ' <span class="tag inativo">inativo</span>' : '';
+A.restaurarEAbrir = ds => { const p = pac(ds.id); delete p.excluido; delete p.inativo; A.abrirFicha({ id: p.id }); toast(`${numNome(p)} voltou a ficar ativo.`); };
 function acharDuplicado(n) {
   const iso = isoDeBR(n.nasc), cpf = (n.cpf || '').replace(/\D/g, '');
   return E.d.pacientes.find(p => (cpf.length === 11 && p.cpf.replace(/\D/g, '') === cpf) ||
@@ -333,7 +335,9 @@ A.usarDup = () => { const f = fAg(); f.pac = f.cadNovo.dup; f.cadNovo = null; re
 A.salvarAg = () => {
   const f = fAg(), s = estadoBotaoAg(f); if (s.falta) return;
   const ini = paraMin(f.horaTxt), p = pac(f.pac);
-  comDesfazer(`Agendado: ${esc(p.nome)} · ${f.horaTxt} com ${esc(prof(f.prof).curto)}.`, () => {
+  const voltou = p.inativo || p.excluido;
+  comDesfazer(`Agendado: ${esc(p.nome)} · ${f.horaTxt} com ${esc(prof(f.prof).curto)}.${voltou ? ' O cadastro voltou a ficar ativo.' : ''}`, () => {
+    delete p.inativo; delete p.excluido;
     const novo = { id: uid(), pac: f.pac, prof: f.prof, cad: f.cad, ini, dur: Number(f.dur), proc: f.proc || null, tipo: f.tipo, origem: f.origem, estado: 'a_confirmar', obs: f.obs };
     E.d.agendamentos.push(novo);
     if (f.remarcaDe) { const v = E.d.agendamentos.find(a => a.id === f.remarcaDe); v.estado = 'remarcado'; v.novo = novo.id; }
@@ -360,8 +364,8 @@ function painelNovoAg() {
       ${ehMenor(n.nasc) ? `<div class="campo"><label>Responsável <span class="obrig">*</span> <span class="muted">(menor de 18)</span></label><input value="${esc(n.resp)}" data-campo="pc.painel.f.cadNovo.resp"></div>` : ''}
       <div class="campo"><label>Como chegou? <span class="obrig">*</span></label><select data-campo="pc.painel.f.cadNovo.origem">${E.d.origens.map(x => `<option ${x === n.origem ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
       ${n.erro ? `<div class="aviso-box erro">${n.erro}</div>` : ''}
-      ${n.dup ? `<div class="aviso-box aviso">Já existe <b>nº ${pac(n.dup).numero} ${esc(pac(n.dup).nome)}</b>, ${idade(pac(n.dup).nasc)} anos, ${ult4(pac(n.dup).cel)}. É a mesma pessoa?<br>
-        <button class="btn btn-peq btn-pri" data-a="usarDup" style="margin-top:6px">Sim, usar nº ${pac(n.dup).numero}</button> <button class="btn btn-peq" data-a="salvarCadNovo" data-forcar="1" style="margin-top:6px">Não, cadastrar outra pessoa</button></div>` : ''}
+      ${n.dup ? `<div class="aviso-box aviso">Já existe <b>${numNome(pac(n.dup))}</b>${situacaoPac(pac(n.dup))}, ${idade(pac(n.dup).nasc)} anos, ${ult4(pac(n.dup).cel)}. É a mesma pessoa?<br>
+        <button class="btn btn-peq btn-pri" data-a="usarDup" style="margin-top:6px">Sim, usar nº ${pac(n.dup).numero}${pac(n.dup).excluido ? ' (restaura o cadastro)' : pac(n.dup).inativo ? ' (reativa)' : ''}</button> <button class="btn btn-peq" data-a="salvarCadNovo" data-forcar="1" style="margin-top:6px">Não, cadastrar outra pessoa</button></div>` : ''}
       <button class="btn btn-pri" data-a="salvarCadNovo">Cadastrar paciente</button> <button class="btn-link" data-a="cancelarCadNovo">Cancelar</button></div>`;
   } else if (p) {
     pacHTML = `<div class="chip-pac"><span class="res-num">nº ${p.numero}</span><span><b>${esc(p.nome)}</b> · ${idade(p.nasc)} anos<br><span class="mini muted">${conv(p.conv).nome} · ${ult4(p.cel)}</span></span>
@@ -429,17 +433,27 @@ A.agendarRetorno = ds => { const r = E.d.pedidosRetorno.find(x => x.id === ds.id
 
 /* ---------- PACIENTES ---------- */
 function linhasPacs(t) {
-  const lista = t && t.trim().length >= 2 ? buscarPacientes(t) : [...E.d.pacientes].sort((a, b) => b.numero - a.numero);
+  const aba = E.ui.pc.abaPacs || 'ativos';
+  if (aba === 'excluidos') return E.d.pacientes.filter(p => p.excluido).map(p => `<tr><td><b>${numNome(p)}</b></td><td colspan="3" class="muted">excluído em ${dataBR(p.excluido.data)} por ${esc(usu(p.excluido.por).nome)} · some de vez em ${dataBR(somaDias(p.excluido.data, 30))}</td>
+    <td class="dir">${pode('cadastro') ? `<button class="btn btn-peq" data-a="restaurarPac" data-id="${p.id}">Restaurar</button>` : ''}</td></tr>`).join('')
+    || '<tr><td colspan="5" class="vazio">Nenhum cadastro excluído. Cadastros excluídos ficam aqui 30 dias e podem ser restaurados.</td></tr>';
+  const daAba = p => !p.excluido && (aba === 'inativos' ? !!p.inativo : !p.inativo);
+  const lista = t && t.trim().length >= 2 ? buscarPacientes(t).filter(daAba) : E.d.pacientes.filter(daAba).sort((a, b) => b.numero - a.numero);
   return lista.map(p => { const prox = proximaConsulta(p.id);
-    return `<tr class="clic" data-a="abrirFicha" data-id="${p.id}"><td><b>${numNome(p)}</b> ${alertas(p.id).length ? `<span class="alerta-ico">${ic('alerta', 15)}</span>` : ''}</td>
+    return `<tr class="clic" data-a="abrirFicha" data-id="${p.id}"><td><b>${numNome(p)}</b>${p.inativo ? ` <span class="tag inativo">inativo · ${esc(p.inativo.motivo.toLowerCase())}</span>` : ''} ${alertas(p.id).length ? `<span class="alerta-ico">${ic('alerta', 15)}</span>` : ''}</td>
     <td>${idade(p.nasc)}</td><td class="num">${esc(p.cel)}</td><td>${conv(p.conv).nome}</td><td>${prox ? 'hoje ' + hhmm(prox.ini) : '—'}</td></tr>`; }).join('')
     || `<tr><td colspan="5" class="vazio">Ninguém com “${esc(t)}”. <button class="btn-link" data-a="novoPaciente" data-nome="${esc(t)}">+ Cadastrar</button></td></tr>`;
 }
 function telaPacientes() {
-  return `<div class="titulo-tela"><h1>Pacientes</h1><span class="sub">${E.d.pacientes.length} ativos</span><button class="btn btn-pri" style="margin-left:auto" data-a="novoPaciente">${ic('mais', 16)} Novo paciente</button></div>
+  const n = k => E.d.pacientes.filter(p => k === 'excluidos' ? p.excluido : !p.excluido && (k === 'inativos' ? p.inativo : !p.inativo)).length, aba = E.ui.pc.abaPacs || 'ativos';
+  const bot = (k, t) => `<button class="${aba === k ? 'ativo' : ''}" data-a="abaPacs" data-v="${k}">${t} <span class="mini">${n(k)}</span></button>`;
+  return `<div class="titulo-tela"><h1>Pacientes</h1><span class="seg">${bot('ativos', 'Ativos')}${bot('inativos', 'Inativos')}${bot('excluidos', 'Excluídos')}</span><button class="btn btn-pri" style="margin-left:auto" data-a="novoPaciente">${ic('mais', 16)} Novo paciente</button></div>
   <input id="busca-pacs" placeholder="Buscar por nome, CPF, telefone ou nº" value="${esc(E.ui.pc.buscaPac)}" data-campo="pc.buscaPac" data-ao="filtraPacs" style="width:100%;max-width:520px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;margin-bottom:12px">
   <table class="tab"><thead><tr><th>Paciente</th><th>Idade</th><th>Celular</th><th>Convênio</th><th>Próxima consulta</th></tr></thead><tbody id="tab-pacs">${linhasPacs(E.ui.pc.buscaPac)}</tbody></table>`;
 }
+A.abaPacs = ds => { E.ui.pc.abaPacs = ds.v; render(); };
+A.restaurarPac = ds => { const p = pac(ds.id); comDesfazer(`Cadastro restaurado: ${numNome(p)}.`, () => { delete p.excluido; }); };
+const somaDias = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 A.filtraPacs = (ds, el) => { document.getElementById('tab-pacs').innerHTML = linhasPacs(el.value); };
 A.novoPaciente = ds => {
   E.ui.pc.tela = 'novoPac'; E.ui.pc.painel = null;
@@ -449,24 +463,24 @@ A.novoPaciente = ds => {
 function telaNovoPac() {
   const n = E.ui.pc.novoPac;
   if (n.ok) { const p = pac(n.ok); return `<div class="titulo-tela"><h1>Paciente cadastrado</h1></div>
-    <div class="cartao" style="max-width:560px"><div class="aviso-box ok">${ic('check', 16)} <b>nº ${p.numero} ${esc(p.nome)}</b> foi cadastrado.</div>
+    <div class="cartao" style="max-width:560px"><div class="aviso-box ok">${ic('check', 16)} <b>${numNome(p)}</b> foi cadastrado.</div>
     <button class="btn btn-pri" data-a="novoAg" data-pac="${p.id}">Agendar agora</button> <button class="btn" data-a="abrirFicha" data-id="${p.id}">Abrir ficha</button></div>`; }
   const iso = isoDeBR(n.nasc), menor = iso && idade(iso) < 18;
-  return `<div class="titulo-tela"><h1>Novo paciente</h1><span class="sub">Só 3 campos obrigatórios</span></div>
+  return `<div class="titulo-tela"><h1>Novo paciente</h1><span class="sub">Os campos com * são obrigatórios</span></div>
   <div class="cartao" style="max-width:640px">
     <div class="campo"><label>Nome completo <span class="obrig">*</span></label><input id="np-nome" class="${campoErro(n) === 'nome' ? 'com-erro' : ''}" value="${esc(n.nome)}" data-campo="pc.novoPac.nome">${campoErro(n) === 'nome' ? `<em class="cel-erro">${n.erro}</em>` : ''}</div>
     <div class="duas"><div class="campo"><label>Celular <span class="obrig">*</span></label><input id="np-cel" class="${campoErro(n) === 'cel' ? 'com-erro' : ''}" placeholder="(81) 9____-____" value="${esc(n.cel)}" data-ao="mCel" data-campo="pc.novoPac.cel">${campoErro(n) === 'cel' ? `<em class="cel-erro">${n.erro}</em>` : ''}</div>
-      <div class="campo"><label>Data de nascimento <span class="obrig">*</span> <span id="np-idade" class="muted">${iso ? '→ ' + idade(iso) + ' anos' : ''}</span></label><input id="np-nasc" placeholder="dd/mm/aaaa" value="${esc(n.nasc)}" data-ao="mDataNP" data-idade="np-idade" data-campo="pc.novoPac.nasc"></div></div>
+      <div class="campo"><label>Data de nascimento <span class="obrig">*</span> <span id="np-idade" class="muted">${iso ? '→ ' + idade(iso) + ' anos' : ''}</span></label><input id="np-nasc" class="${campoErro(n) === 'nasc' ? 'com-erro' : ''}" placeholder="dd/mm/aaaa" value="${esc(n.nasc)}" data-ao="mDataNP" data-idade="np-idade" data-campo="pc.novoPac.nasc">${campoErro(n) === 'nasc' ? `<em class="cel-erro">${n.erro}</em>` : ''}</div></div>
     <div class="duas"><div class="campo"><label>CPF <span class="muted">(recomendado)</span></label><input placeholder="___.___.___-__" value="${esc(n.cpf)}" data-ao="mCpf" data-campo="pc.novoPac.cpf"></div>
       <div class="campo"><label>Convênio</label><select data-campo="pc.novoPac.conv" data-ao="reNP">${E.d.convenios.map(c => `<option value="${c.id}" ${c.id === n.conv ? 'selected' : ''}>${c.nome}</option>`).join('')}</select></div></div>
     ${n.conv !== 'part' ? `<div class="duas"><div class="campo"><label>Nº da carteirinha</label><input value="${esc(n.cart)}" data-campo="pc.novoPac.cart"></div><div class="campo"><label>Validade</label><input placeholder="dd/mm/aaaa" value="${esc(n.valid)}" data-ao="mData" data-campo="pc.novoPac.valid"></div></div>` : ''}
     ${menor ? `<div class="campo"><label>Responsável <span class="obrig">*</span> <span class="muted">(menor de 18)</span></label><input value="${esc(n.resp)}" data-campo="pc.novoPac.resp"></div>` : ''}
     <div class="campo"><label>Como chegou? <span class="obrig">*</span></label><select data-campo="pc.novoPac.origem">${E.d.origens.map(x => `<option ${x === n.origem ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
-    <button class="btn-link" data-a="maisDados">${ic(n.mais ? 'baixo' : 'dir', 15)} Mais dados (endereço, RG, CNS, família, observações)</button>
+    <button class="btn-link" data-a="maisDados">${ic(n.mais ? 'baixo' : 'dir', 15)} Mais dados (endereço, RG, CNS, nº no Dental Office, observações)</button>
     ${n.mais ? `<div class="campo" style="margin-top:8px"><label>Nº no Dental Office <span class="muted">(se veio de Prazeres ou Norte)</span></label><input value="${esc(n.numDO || '')}" data-campo="pc.novoPac.numDO" inputmode="numeric"></div><div class="duas"><div class="campo"><label>CEP</label><input value="${esc(n.cep || '')}" data-campo="pc.novoPac.cep" ></div><div class="campo"><label>Endereço</label><input value="${esc(n.end || '')}" data-campo="pc.novoPac.end" ></div><div class="campo"><label>RG</label><input value="${esc(n.rg || '')}" data-campo="pc.novoPac.rg" ></div><div class="campo"><label>Nº do CNS</label><input value="${esc(n.cns || '')}" data-campo="pc.novoPac.cns" ></div></div><div class="campo"><label>Observações</label><textarea rows="2" data-campo="pc.novoPac.obs">${esc(n.obs || '')}</textarea></div>` : ''}
-    ${n.dup ? `<div class="aviso-box aviso">Já existe <b>nº ${pac(n.dup).numero} ${esc(pac(n.dup).nome)}</b>, ${idade(pac(n.dup).nasc)} anos, ${ult4(pac(n.dup).cel)}. É a mesma pessoa?<br>
-      <button class="btn btn-peq btn-pri" data-a="abrirFicha" data-id="${n.dup}" style="margin-top:6px">Sim, abrir nº ${pac(n.dup).numero}</button> <button class="btn btn-peq" data-a="salvarNP" data-forcar="1" style="margin-top:6px">Não, cadastrar outra pessoa</button></div>` : ''}
-    ${n.erro && !['nome', 'cel'].includes(campoErro(n)) ? `<div class="aviso-box erro">${n.erro}</div>` : ''}
+    ${n.dup ? `<div class="aviso-box aviso">Já existe <b>${numNome(pac(n.dup))}</b>${situacaoPac(pac(n.dup))}, ${idade(pac(n.dup).nasc)} anos, ${ult4(pac(n.dup).cel)}. É a mesma pessoa?<br>
+      <button class="btn btn-peq btn-pri" data-a="${pac(n.dup).excluido || pac(n.dup).inativo ? 'restaurarEAbrir' : 'abrirFicha'}" data-id="${n.dup}" style="margin-top:6px">${pac(n.dup).excluido ? 'Sim, restaurar e abrir' : pac(n.dup).inativo ? 'Sim, reativar e abrir' : 'Sim, abrir'} nº ${pac(n.dup).numero}</button> <button class="btn btn-peq" data-a="salvarNP" data-forcar="1" style="margin-top:6px">Não, cadastrar outra pessoa</button></div>` : ''}
+    ${n.erro && !['nome', 'cel', 'nasc'].includes(campoErro(n)) ? `<div class="aviso-box erro">${n.erro}</div>` : ''}
     <div style="margin-top:12px"><button class="btn btn-pri" data-a="salvarNP">Cadastrar paciente</button></div>
   </div>`;
 }
@@ -499,10 +513,12 @@ function telaFicha() {
     : `<div class="sem-alerta">${ic('check', 15)} Sem alertas ${pode('alerta') ? '<button class="btn btn-peq" data-a="novoAlerta">+ Alerta</button>' : ''}</div>`;
   return `<div class="ficha-cab" style="${al.length || pc.novoAlerta != null ? 'border-radius:12px 12px 0 0' : ''}"><div style="display:flex;align-items:center;gap:14px">
     <div><div class="nome">${numNome(p)}</div><div class="muted">${idade(p.nasc)} anos · ${esc(p.cel)} · ${conv(p.conv).nome}${p.responsavel ? ' · resp.: ' + esc(p.responsavel) : ''}</div></div>
-    <div class="acoes" style="margin-left:auto"><button class="btn" data-a="novoAg" data-pac="${p.id}">${ic('agenda', 16)} Agendar</button>${pode('caixa') && pc.aba !== 'financeiro' ? `<button class="btn" data-a="abrirReceber" data-pac="${p.id}">${ic('caixa', 16)} Receber</button>` : ''}</div></div></div>
+    <div class="acoes" style="margin-left:auto">${p.excluido ? '' : `<button class="btn" data-a="novoAg" data-pac="${p.id}">${ic('agenda', 16)} ${p.inativo ? 'Reativar e agendar' : 'Agendar'}</button>${pode('caixa') && pc.aba !== 'financeiro' ? `<button class="btn" data-a="abrirReceber" data-pac="${p.id}">${ic('caixa', 16)} Receber</button>` : ''}`}</div></div></div>
+  ${p.excluido ? `<div class="faixa-inativo excluido">${ic('x', 16)} Cadastro <b>excluído</b> em ${dataBR(p.excluido.data)} — some de vez em ${dataBR(somaDias(p.excluido.data, 30))}. Só para ver.${pode('cadastro') ? ` <button class="btn btn-peq" data-a="restaurarPac" data-id="${p.id}">Restaurar</button>` : ''}</div>` : ''}
+  ${p.inativo ? `<div class="faixa-inativo">${ic('cadeado', 16)} Paciente <b>inativo</b> desde ${dataBR(p.inativo.data)} · ${esc(p.inativo.motivo)}${pode('cadastro') ? ' <button class="btn btn-peq" data-a="reativarPac">Reativar</button>' : ''}</div>` : ''}
   ${faixa}
   <div class="abas">${abas.map(([id, n]) => `<button class="aba ${pc.aba === id ? 'ativo' : ''}" data-a="aba" data-id="${id}">${n}${travada(id) ? ` <span class="cadeado">${ic('cadeado', 13)}</span>` : ''}</button>`).join('')}</div>
-  ${({ resumo: abaResumo, anamnese: abaAnamnese, odonto: abaOdonto, evolucao: abaEvolucao, arquivos: abaArquivos, financeiro: abaFinanceiro, dados: abaDados })[pc.aba](p)}`;
+  ${p.excluido ? '<fieldset class="so-ver" disabled>' : ''}${({ resumo: abaResumo, anamnese: abaAnamnese, odonto: abaOdonto, evolucao: abaEvolucao, arquivos: abaArquivos, financeiro: abaFinanceiro, dados: abaDados })[pc.aba](p)}${p.excluido ? '</fieldset>' : ''}`;
 }
 A.aba = ds => { const pc = E.ui.pc; pc.aba = ds.id; pc.anamForm = null; pc.evoForm = null; render(); };
 A.novoAlerta = () => { E.ui.pc.novoAlerta = ''; E.ui.foco = 'novo-alerta'; render(); };
@@ -518,7 +534,7 @@ function abaResumo(p) {
   const an = (E.d.anamneses[p.id] || []).slice(-1)[0];
   return `<div class="resumo-grade">
     <div class="cartao"><h3>Próxima consulta</h3>${prox ? `<b>hoje ${hhmm(prox.ini)}</b> · ${esc(prof(prox.prof).curto)} ${estadoHTML(prox.estado)}` : '<span class="muted">Nenhuma agendada.</span> <button class="btn-link" data-a="novoAg" data-pac="' + p.id + '">Agendar</button>'}</div>
-    <div class="cartao"><h3>Plano de tratamento</h3>${pl.length ? `<b>${feitos} de ${pl.length}</b> feitos<div class="prog"><i style="width:${pl.length ? feitos / pl.length * 100 : 0}%"></i></div>` : '<span class="muted">Sem plano.</span>'}</div>
+    <div class="cartao"><h3>Plano de tratamento</h3>${pl.length ? `<b>${feitos} de ${pl.length}</b> feitos${(n => n ? ` · <b>${n}</b> ${n === 1 ? 'espera' : 'esperam'} orçamento` : '')(pl.filter(i => i.estado === 'indicado').length)}<div class="prog"><i style="width:${pl.length ? feitos / pl.length * 100 : 0}%"></i></div>` : '<span class="muted">Sem plano.</span>'}</div>
     <div class="cartao"><h3>${pode('clinico') ? 'Última evolução' : 'Última consulta'}</h3>${ult ? `<b>${dataBR(ult.data)}</b> · ${esc(prof(ult.por).curto)}${pode('clinico') ? '<br>' + esc(ult.texto) : ''}` : '<span class="muted">Nenhuma.</span>'}</div>
     <div class="cartao"><h3>Financeiro</h3>${pode('finPac') ? (saldo ? `Em aberto: <b>${brl(saldo)}</b>` : '<span class="muted">Nada em aberto.</span>') : '<span class="muted">—</span>'}</div>
     <div class="cartao"><h3>Anamnese</h3>${an ? `Última: <b>${dataBR(an.data)}</b> (${E.d.modelos.find(m => m.id === an.modelo).nome}) · ${an.assinada ? `<span style="color:var(--ok)">${ic('assinar', 14)} assinada</span>` : '<span class="muted">sem assinatura</span>'}` : '<span class="muted">Nenhuma ficha preenchida.</span>'}</div>
@@ -545,8 +561,8 @@ function abaAnamnese(p) {
   }
   const lista = (E.d.anamneses[p.id] || []).slice().reverse();
   return `<button class="btn btn-pri" data-a="anamNova" style="margin-bottom:12px">+ Preencher ficha</button>
-    ${lista.map(an => { const m = E.d.modelos.find(x => x.id === an.modelo); return `<div class="cartao" style="margin-bottom:10px"><h3>${m.nome} · ${dataBR(an.data)} · ${esc(prof(an.por).curto)}</h3>
-      ${m.perguntas.map(q => { const r = an.respostas[q.id] || {}; return `<div class="mini" style="padding:3px 0">${q.texto} <b>${r.sim === true ? 'Sim' : r.sim === false ? 'Não' : ''}${r.texto ? ' — ' + esc(r.texto) : ''}</b></div>`; }).join('')}</div>`; }).join('') || '<div class="vazio">Nenhuma ficha preenchida.</div>'}`;
+    ${lista.map(an => { const m = E.d.modelos.find(x => x.id === an.modelo); return `<div class="cartao" style="margin-bottom:10px"><h3>${m.nome} · ${dataBR(an.data)} · ${esc(prof(an.por).curto)} · ${an.assinada ? `<span style="color:var(--ok)">${ic('assinar', 14)} assinada</span>` : 'sem assinatura'}</h3>
+      ${m.perguntas.map(q => { const r = an.respostas[q.id] || {}; return `<div class="anam-resp">${q.texto} <b>${r.sim === true ? 'Sim' : r.sim === false ? 'Não' : ''}${r.texto ? ' — ' + esc(r.texto) : ''}</b></div>`; }).join('')}</div>`; }).join('') || '<div class="vazio">Nenhuma ficha preenchida.</div>'}`;
 }
 A.anamNova = () => { E.ui.pc.anamForm = { modelo: null, resp: {} }; render(); };
 A.anamModelo = ds => { E.ui.pc.anamForm.modelo = ds.id; render(); };
@@ -587,7 +603,8 @@ A.recusarItem = ds => { const i = plano(E.ui.pc.fichaId).find(x => x.id === ds.i
   comDesfazer('Marcado: paciente não quis.', () => { i.estado = 'recusado'; }); };
 
 /* orçamento */
-A.abrirOrc = () => { const pl = plano(E.ui.pc.fichaId).filter(i => i.estado === 'indicado');
+A.abrirOrc = () => { const pid = E.ui.pc.fichaId, pl = plano(pid).filter(i => i.estado === 'indicado');
+  pl.forEach(i => { i.valor = precoDe(proc(i.proc), pid, i.faces.length); }); // tabela mudou depois de indicar? vale a de hoje
   E.ui.pc.modal = { tipo: 'orc', sel: Object.fromEntries(pl.map(i => [i.id, true])), desc: '', forma: 'vista', n: 3, primeiro: 'hoje' }; render(); };
 /* aceita "50", "50,00", "50.00", "1.234,56" e "1234.5" */
 const lerReais = t => { let s = String(t || '').trim().replace(/[^\d.,]/g, ''); if (!s) return 0; let int = s, dec = '';
@@ -607,8 +624,8 @@ function modalOrc() {
     ${c.pl.map(i => `<label class="item-plano" style="cursor:pointer"><input type="checkbox" ${m.sel[i.id] ? 'checked' : ''} data-a="orcSel" data-id="${i.id}" style="width:20px;height:20px"><span><b>${esc(nomeItem(i))}</b><br><span class="quem">indicado por ${prof(i.indicadoPor).curto}</span></span><span class="valor num">${brl(i.valor)}</span></label>`).join('')}
     <div class="campo" style="margin-top:12px"><label>Forma</label><span class="seg"><button class="${m.forma === 'vista' ? 'ativo' : ''}" data-a="orcForma" data-v="vista">À vista</button><button class="${m.forma === 'parc' ? 'ativo' : ''}" data-a="orcForma" data-v="parc">Parcelado</button></span>
       ${m.forma === 'parc' ? ` em <select data-campo="pc.modal.n" data-ao="orcRe" style="width:auto;display:inline-block;padding:6px 8px">${[2, 3, 4, 5, 6, 8, 10, 12].map(n => `<option ${n == m.n ? 'selected' : ''}>${n}</option>`).join('')}</select> vezes` : ''}</div>
-    <div class="duas">${m.forma === 'parc' ? `<div class="campo"><label>1ª parcela vence</label><select data-campo="pc.modal.primeiro" data-ao="orcRe"><option value="hoje" ${m.primeiro === 'hoje' ? 'selected' : ''}>Hoje (29/10)</option><option value="30" ${m.primeiro === '30' ? 'selected' : ''}>Em 30 dias (29/11)</option></select></div>` : ''}
-      <div class="campo"><label>Desconto (R$)</label><input id="orc-desc" data-selecionar inputmode="decimal" value="${esc(m.desc)}" placeholder="0,00" data-campo="pc.modal.desc" data-ao="orcRecalc"></div></div>
+    <div class="duas"><div class="campo"><label>Desconto (R$)</label><input id="orc-desc" data-selecionar inputmode="decimal" value="${esc(m.desc)}" placeholder="0,00" data-campo="pc.modal.desc" data-ao="orcRecalc"></div>
+      ${m.forma === 'parc' ? `<div class="campo"><label>1ª parcela vence</label><select data-campo="pc.modal.primeiro" data-ao="orcRe"><option value="hoje" ${m.primeiro === 'hoje' ? 'selected' : ''}>Hoje (29/10)</option><option value="30" ${m.primeiro === '30' ? 'selected' : ''}>Em 30 dias (29/11)</option></select></div>` : '<div></div>'}</div>
     <div id="orc-tot" class="aviso-box info">${orcResumo(c)}</div>
   </div><div class="painel-rodape rodape-dir"><button class="btn" data-a="imprimirOrc">Imprimir para o paciente</button><button id="btn-orc" class="btn btn-pri" style="min-height:46px" data-a="aprovarOrc" ${c.total ? '' : 'disabled'}>Aprovar orçamento de ${brl(c.total)}</button></div></div>`;
 }
@@ -681,8 +698,44 @@ function abaDados(p) {
   return `<div class="cartao" style="max-width:760px"><div class="dados-grade">${CAMPOS_DADOS.map(campo).join('')}
     <div class="campo"><label>Convênio</label><select data-campo="pc.dados.f.conv" data-ao="dadosMudou">${E.d.convenios.map(c => `<option value="${c.id}" ${c.id === f.conv ? 'selected' : ''}>${c.nome}</option>`).join('')}</select></div>
     <div class="campo"><label>Como chegou</label><select data-campo="pc.dados.f.origem" data-ao="dadosMudou">${E.d.origens.map(x => `<option ${x === f.origem ? 'selected' : ''}>${x}</option>`).join('')}</select></div></div>
-    <div class="rodape-dir" style="margin-top:12px"><button class="btn btn-pri" id="btn-dados-pc" data-a="salvarDadosPC" ${mudou ? '' : 'disabled'}>${mudou ? 'Salvar alterações' : 'Nada alterado'}</button></div></div>`;
+    <div class="rodape-dir" style="margin-top:12px"><button class="btn btn-pri" id="btn-dados-pc" data-a="salvarDadosPC" ${mudou ? '' : 'disabled'}>${mudou ? 'Salvar alterações' : 'Nada alterado'}</button></div></div>
+  ${pode('cadastro') ? zonaRemover(p) : ''}`;
 }
+/* o que o paciente já tem no sistema: com qualquer histórico, o prontuário fica guardado */
+function historico(pid) {
+  const h = [[['consulta', 'consultas'], E.d.agendamentos.filter(a => a.pac === pid).length + E.d.pendentesAnteriores.filter(a => a.pac === pid).length],
+    [['ficha de anamnese', 'fichas de anamnese'], (E.d.anamneses[pid] || []).length], [['evolução', 'evoluções'], (E.d.evolucoes[pid] || []).length],
+    [['item no plano', 'itens no plano'], plano(pid).length], [['parcela', 'parcelas'], parcelas(pid).length],
+    [['pagamento', 'pagamentos'], E.d.recebimentos.filter(r => r.pac === pid).length], [['arquivo', 'arquivos'], (E.d.arquivos[pid] || []).length]];
+  return h.filter(([, n]) => n).map(([[um, varios], n]) => `${n} ${n === 1 ? um : varios}`);
+}
+const MOTIVOS_INATIVO = ['Mudou de cidade', 'Não quer mais tratar aqui', 'Faleceu', 'Outro'];
+function zonaRemover(p) {
+  const z = E.ui.pc.zona && E.ui.pc.zona.id === p.id ? E.ui.pc.zona : null, hist = historico(p.id);
+  const hoje = E.d.agendamentos.find(a => a.pac === p.id && ATIVOS.includes(a.estado));
+  const inativar = p.inativo ? `<p class="muted" style="margin:0">Já está inativo desde ${dataBR(p.inativo.data)}.</p>`
+    : z && z.modo === 'inativar' ? `<div class="grupo-tit">Por quê?</div><div class="chips">${MOTIVOS_INATIVO.map(m => `<button class="${z.motivo === m ? 'on' : ''}" data-a="zonaMotivo" data-v="${m}">${m}</button>`).join('')}</div>
+        ${hoje ? `<div class="aviso-box aviso">Tem consulta hoje às ${hhmm(hoje.ini)}. Desmarque a consulta antes de inativar.</div>` : ''}
+        ${(d => d ? `<div class="aviso-box aviso">Tem <b>${brl(d)}</b> em aberto. As parcelas continuam valendo e aparecendo no Caixa.</div>` : '')(parcelasAbertas(p.id).reduce((t, x) => t + saldoParcela(x), 0))}
+        <div class="rodape-dir"><button class="btn" data-a="zonaCancelar">Cancelar</button><button class="btn btn-pri" data-a="inativarPac" ${z.motivo && !hoje ? '' : 'disabled'}>${z.motivo ? `Inativar ${numNome(p)}` : 'Escolha o motivo'}</button></div>`
+    : `<p class="muted" style="margin:0 0 8px">Sai das listas e da agenda, mas a ficha, os pagamentos e as radiografias <b>ficam guardados</b>. Dá para reativar a qualquer momento.</p><button class="btn" data-a="zonaAbrir" data-m="inativar">Inativar paciente</button>`;
+  const excluir = hist.length ? `<p class="muted" style="margin:0">Não dá para excluir: tem ${hist.join(', ')}. O prontuário precisa ser guardado — use <b>Inativar</b>.</p>`
+    : z && z.modo === 'excluir' ? `<div class="aviso-box erro">O cadastro de <b>${numNome(p)}</b> vai para <b>Excluídos</b>. Fica lá 30 dias e pode ser restaurado.</div>
+        <div class="rodape-dir"><button class="btn" data-a="zonaCancelar">Cancelar</button><button class="btn btn-perigo-cheio" data-a="excluirPac">Sim, excluir o cadastro</button></div>`
+    : `<p class="muted" style="margin:0 0 8px">Para um cadastro feito por engano ou repetido. Só é possível porque ${esc(p.nome.split(' ')[0])} ainda não tem nenhuma consulta, ficha ou pagamento.</p><button class="btn-link link-perigo" data-a="zonaAbrir" data-m="excluir">Excluir cadastro</button>`;
+  return `<div class="cartao zona-remover" style="max-width:760px;margin-top:16px"><h3>Inativar ou excluir</h3>
+    <div class="zona-duas"><div><b>Inativar</b>${inativar}</div><div><b>Excluir cadastro</b>${excluir}</div></div></div>`;
+}
+A.zonaAbrir = ds => { E.ui.pc.zona = { id: E.ui.pc.fichaId, modo: ds.m, motivo: null, desde: Date.now() }; render(); };
+A.zonaCancelar = () => { E.ui.pc.zona = null; render(); };
+A.zonaMotivo = ds => { E.ui.pc.zona.motivo = ds.v; render(); };
+A.inativarPac = () => { const z = E.ui.pc.zona, p = pac(z.id); if (!z.motivo) return; E.ui.pc.zona = null;
+  comDesfazer(`${numNome(p)} inativado.`, () => { p.inativo = { motivo: z.motivo, data: E.d.hoje, por: E.ui.pc.usuario }; }); };
+A.reativarPac = () => { const p = pac(E.ui.pc.fichaId); comDesfazer(`${numNome(p)} reativado.`, () => { delete p.inativo; }); };
+// duplo clique: o "Sim, excluir" aparece perto de onde estava "Excluir cadastro"
+A.excluirPac = () => { const z = E.ui.pc.zona, p = pac(z.id); if (historico(p.id).length || Date.now() - z.desde < 700) return; E.ui.pc.zona = null;
+  comDesfazer(`Cadastro de ${numNome(p)} excluído. Fica 30 dias em Pacientes → Excluídos.`, () => {
+    p.excluido = { data: E.d.hoje, por: E.ui.pc.usuario }; E.ui.pc.tela = 'pacientes'; E.ui.pc.abaPacs = 'ativos'; E.ui.pc.fichaId = null; }); };
 A.dadosMudou = () => { const pc = E.ui.pc, b = document.getElementById('btn-dados-pc'), m = JSON.stringify(pc.dados.f) !== JSON.stringify(dadosPC(pac(pc.dados.id)));
   if (b) { b.disabled = !m; b.textContent = m ? 'Salvar alterações' : 'Nada alterado'; } };
 A.salvarDadosPC = () => { const pc = E.ui.pc, p = pac(pc.dados.id), f = pc.dados.f, iso = isoDeBR(f.nascBR);
@@ -791,12 +844,93 @@ A.fecharCaixa = () => { const m = E.ui.pc.modal, { dif } = difGaveta(m);
 function telaConfig() {
   const itens = ['Unidade', 'Cadeiras e salas', 'Pessoas e acessos', 'Procedimentos e preços', 'Convênios', 'Fichas de anamnese', 'Origens', 'Etiquetas', 'Aparelhos', 'Backup', 'Sistema'];
   return `<div class="titulo-tela"><h1>Configurações</h1></div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:820px">${itens.map(i => `<button class="cartao" style="text-align:left;font-weight:700" data-a="cfg" data-i="${i}">${i}</button>`).join('')}</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:820px">${itens.map(i => `<button class="cartao cfg-item ${E.ui.pc.cfg === i ? 'ativo' : ''}" data-a="cfg" data-i="${i}">${i}</button>`).join('')}</div>
+  ${E.ui.pc.cfg === 'Procedimentos e preços' ? telaPrecos() : ''}
   ${E.ui.pc.cfg === 'Aparelhos' ? `<div class="cartao" style="margin-top:16px;max-width:820px;display:flex;gap:20px;align-items:center">
     <div style="width:150px;height:150px;flex:none;background:repeating-conic-gradient(#0B1F3F 0 25%,#fff 0 50%) 0 0/18px 18px;border:10px solid #fff;outline:1px solid var(--rule)"></div>
-    <div><b>Emparelhar um celular</b><p>1. Instale o app OdontoVip no celular.<br>2. Abra o app e aponte a câmera para este código.<br>3. Pronto: o celular já sabe onde está o computador da clínica.</p><div class="mini muted">Celulares emparelhados: Dra. Marcelly · Dra. Helena · Dr. Rafael</div></div></div>` : ''}`;
+    <div><b>Emparelhar um celular</b><p>1. Instale o app OdontoVip no celular.<br>2. Abra o app e aponte a câmera para este código.<br>3. Pronto: o celular já sabe onde está o computador da clínica.</p></div></div>
+  <div class="cartao" style="margin-top:12px;max-width:820px"><b>Celulares emparelhados</b>
+    <p class="muted" style="margin:4px 0 8px">Se um celular for perdido ou roubado, tire o acesso aqui: ele para de abrir a agenda e as fichas na hora.</p>
+    ${[['Dra. Marcelly', 'Xiaomi', '20/10'], ['Dra. Helena', 'Samsung', '20/10'], ['Dr. Rafael', 'Motorola', '21/10'], ['Sr. Austregesilo (dono)', 'iPhone · só Caixa do dia', '22/10']].map(([q, a, d]) => `<div class="linha"><span>${ic('camera', 16)}</span><span><b>${q}</b><br><span class="h-meta">${a} · emparelhado em ${d} por Nicolas</span></span><span class="acoes"><button class="btn btn-peq" data-a="cfgTirar">Tirar acesso</button></span></div>`).join('')}</div>
+  <div class="cartao" style="margin-top:12px;max-width:820px"><b>Computadores autorizados</b>
+    <p class="muted" style="margin:4px 0 8px">Computador não usa QR: o Nicolas autoriza uma vez e deixa o atalho "OdontoVip" na área de trabalho. Depois a pessoa toca no nome dela e digita a senha (ou o PIN, se o computador é dela). Só funciona no Wi-Fi da clínica.</p>
+    ${[['Recepção (servidor)', '20/10', true], ['Notebook Dra. Marcelly', '28/10', false]].map(([n, d, este]) => `<div class="linha"><span>${ic('config', 16)}</span><span><b>${n}</b><br><span class="h-meta">autorizado em ${d} por Nicolas${este ? ' · é este computador' : ''}</span></span><span class="acoes">${este ? '' : '<button class="btn btn-peq" data-a="cfgTirar">Tirar acesso</button>'}</span></div>`).join('')}
+    <p class="mini muted" style="margin:8px 0 0">Para autorizar outro computador, abra o OdontoVip nele e entre com a senha de administrador.</p></div>` : ''}`;
 }
-A.cfg = ds => { E.ui.pc.cfg = ds.i; if (ds.i !== 'Aparelhos') toast(`“${ds.i}” não faz parte deste protótipo.`); render(); };
+A.cfgTirar = () => toast('No sistema real, pede a senha de administrador e corta o acesso na hora.');
+A.cfg = ds => { E.ui.pc.cfg = ds.i; if (!['Aparelhos', 'Procedimentos e preços'].includes(ds.i)) toast(`“${ds.i}” não faz parte deste protótipo.`); render(); };
+
+/* ---------- CONFIGURAÇÕES → PROCEDIMENTOS E PREÇOS ---------- */
+const TIPOS_PROC = { geral: 'Sem dente', dente: 'Um dente', faces: 'Faces do dente', canal: 'Canal', arcada: 'Arcada' };
+const precoTxt = c => c == null ? '' : (c / 100).toFixed(2).replace('.', ',');
+function linhasPreco() {
+  return E.d.procedimentos.flatMap(pr => pr.tipo === 'faces'
+    ? [1, 2, 3, 4, 5].map(n => ({ pr, k: `${pr.id}#${n}`, rotulo: `${n} face${n > 1 ? 's' : ''}`, primeira: n === 1 }))
+    : [{ pr, k: pr.id, rotulo: '', primeira: true }]);
+}
+/* um convênio por vez: com 20 convênios, uma grade de 20 colunas não se lê */
+function telaPrecos() {
+  const pc = E.ui.pc, ed = pc.precosEd = pc.precosEd || {}, cv = pc.precoConv || 'part', ehPart = cv === 'part';
+  const linhas = linhasPreco();
+  const pend = k => Object.keys(ed).filter(id => id.endsWith('|' + k)).length;
+  const input = l => { const id = `${l.k}|${cv}`, mud = id in ed, v = mud ? ed[id] : precoTxt(E.d.precos[l.k][cv]);
+    return `<input class="preco-in ${mud ? 'mudou' : ''}" inputmode="decimal" value="${esc(v)}" placeholder="${ehPart ? '0,00' : 'não cobre'}" data-ao="precoEd" data-id="${id}" aria-label="${esc(l.pr.nome)} ${l.rotulo} · ${esc(conv(cv).nome)}">`; };
+  const pct = l => { const p = E.d.precos[l.k].part, v = E.d.precos[l.k][cv]; return ehPart ? '' : v == null ? '<span class="tag inativo">paga particular</span>' : p ? `${Math.round(v / p * 100)}%` : ''; };
+  const meta = l => `<td class="muted">${TIPOS_PROC[l.pr.tipo]}</td><td class="dir muted">${l.pr.dur} min</td><td class="dir muted">${l.pr.lab ? brl(l.pr.lab) : '—'}</td>`;
+  const vazias = l => `<td></td><td></td><td></td>`;
+  return `<div class="cartao" style="margin-top:16px;padding:0">
+    <div class="precos-topo"><div><h3 style="margin:0">Procedimentos e preços</h3>
+      <div class="mini muted">Os preços do odontograma e do orçamento saem desta tabela. Mudar aqui vale para tudo que <b>ainda não foi aprovado</b>; orçamentos já aprovados não mudam.</div></div>
+      <button class="btn" data-a="importarPrecos">${ic('arquivo', 16)} Importar do Dental Office (Excel)</button></div>
+    <div class="precos-filtro"><label>Preços de:</label><select data-campo="pc.precoConv" data-ao="precoConvTroca">${E.d.convenios.map(c => `<option value="${c.id}" ${c.id === cv ? 'selected' : ''}>${esc(c.nome)}${pend(c.id) ? ` (${pend(c.id)} sem salvar)` : ''}</option>`).join('')}</select>
+      <input class="precos-busca" placeholder="Buscar procedimento" data-ao="precoBusca">
+      ${ehPart ? '' : `<span class="mini muted">Vazio = ${esc(conv(cv).nome)} não cobre; o paciente paga o preço particular.</span>`}</div>
+    <div class="precos-rolagem"><table class="tab precos-tab"><thead><tr><th>Procedimento</th><th>Tipo</th><th class="dir">Duração</th><th class="dir">Laboratório</th>
+      ${ehPart ? '' : '<th class="dir">Particular</th>'}<th class="dir">${ehPart ? 'Preço particular' : 'Preço ' + esc(conv(cv).nome)}</th>${ehPart ? '' : '<th class="dir">do particular</th>'}</tr></thead>
+    <tbody>${linhas.map(l => (l.rotulo && l.primeira ? `<tr class="grupo" data-proc="${esc(l.pr.nome)}"><td><b>${esc(l.pr.nome)}</b> <span class="mini muted">· por nº de faces</span></td>${meta(l)}<td colspan="${ehPart ? 1 : 3}"></td></tr>` : '')
+      + `<tr class="${l.rotulo ? 'sub' : ''}" data-proc="${esc(l.pr.nome)}"><td>${l.rotulo ? `<span class="precos-faces">${l.rotulo}</span>` : `<b>${esc(l.pr.nome)}</b>`}</td>${l.rotulo ? vazias(l) : meta(l)}
+      ${ehPart ? '' : `<td class="dir muted num">${brl(E.d.precos[l.k].part || 0)}</td>`}<td class="dir">${input(l)}</td>${ehPart ? '' : `<td class="dir mini preco-pct">${pct(l)}</td>`}</tr>`).join('')}</tbody></table></div>
+    <div class="precos-rodape" id="precos-rodape">${rodapePrecos()}</div></div>`;
+}
+/* erro de digitação comum: um zero a mais ou a menos, ou zero. Mudança grande pede confirmação. */
+function lerPreco(txt) { const t = String(txt).trim(); if (!t) return { vazio: true }; if (!/\d/.test(t)) return { erro: 'Isso não é um valor' }; return { v: lerReais(t) }; }
+function mudancasPreco() {
+  const ed = E.ui.pc.precosEd || {};
+  return Object.entries(ed).map(([id, txt]) => { const [k, c] = id.split('|'), antes = E.d.precos[k][c], lp = lerPreco(txt);
+    const erro = lp.erro || (lp.vazio && c === 'part' ? 'O particular não pode ficar vazio' : '');
+    const novo = lp.vazio ? null : lp.v;
+    return { id, k, c, antes, novo, erro, grande: !erro && novo != null && (novo === 0 || (antes && (novo > antes * 2 || novo < antes / 2))) }; })
+    .filter(m => m.erro || m.novo !== m.antes);
+}
+const nomeLinhaPreco = m => { const l = linhasPreco().find(x => x.k === m.k); return `${l.pr.nome}${l.rotulo ? ' · ' + l.rotulo : ''} (${conv(m.c).nome})`; };
+function rodapePrecos() {
+  const ms = mudancasPreco(), pc = E.ui.pc, grandes = ms.filter(m => m.grande), erros = ms.filter(m => m.erro);
+  if (!ms.length) return '<span class="muted">Toque num preço para mudar. Nada alterado.</span>';
+  const porConv = Object.entries(ms.reduce((a, m) => (a[m.c] = (a[m.c] || 0) + 1, a), {})).map(([c, n]) => `${n} em ${conv(c).nome}`).join(', ');
+  return `<span><b>${ms.length} ${ms.length === 1 ? 'preço alterado' : 'preços alterados'}</b> (${porConv}). Vale para o que ainda não foi aprovado; orçamentos já aprovados não mudam.
+    ${erros.length ? `<br><span class="res-ruim">${erros.map(m => `${esc(nomeLinhaPreco(m))}: ${m.erro}`).join(' · ')}</span>` : ''}
+    ${grandes.length && pc.precosConfirmar ? `<br><span class="res-ruim">Confira: ${grandes.map(m => `${esc(nomeLinhaPreco(m))} de ${m.antes != null ? brl(m.antes) : 'particular'} para ${brl(m.novo)}`).join(' · ')}</span>` : ''}</span>
+    <span class="rodape-dir"><button class="btn" data-a="descartarPrecos">Descartar</button><button class="btn btn-pri" data-a="salvarPrecos" ${erros.length ? 'disabled' : ''}>${erros.length ? 'Corrija o valor em vermelho' : grandes.length && pc.precosConfirmar ? 'Sim, está certo — salvar' : 'Salvar preços'}</button></span>`;
+}
+A.precoEd = (ds, el) => { const pc = E.ui.pc; pc.precosEd[ds.id] = el.value; pc.precosConfirmar = false;
+  const [k, c] = ds.id.split('|'), lp = lerPreco(el.value), erro = lp.erro || (lp.vazio && c === 'part');
+  el.classList.toggle('erro', !!erro); el.classList.toggle('mudou', !erro && (lp.vazio ? null : lp.v) !== E.d.precos[k][c]);
+  const pct = el.closest('tr').querySelector('.preco-pct'), part = E.d.precos[k].part;
+  if (pct && part) pct.innerHTML = lp.vazio ? '<span class="tag inativo">paga particular</span>' : lp.v != null ? Math.round(lp.v / part * 100) + '%' : '';
+  document.getElementById('precos-rodape').innerHTML = rodapePrecos(); };
+/* busca: só esconde linhas, não redesenha (assim o teclado não perde o foco) */
+A.precoBusca = (ds, el) => { const q = semAcento(el.value || '');
+  document.querySelectorAll('.precos-tab tbody tr[data-proc]').forEach(tr => { tr.style.display = !q || semAcento(tr.dataset.proc).includes(q) ? '' : 'none'; }); };
+A.precoConvTroca = () => render();
+A.descartarPrecos = () => { const pc = E.ui.pc, antes = { ...pc.precosEd }; pc.precosEd = {}; pc.precosConfirmar = false; render();
+  desfazivel('Alterações descartadas.', () => { pc.precosEd = antes; }); };
+A.salvarPrecos = () => { const pc = E.ui.pc, ms = mudancasPreco(); if (ms.some(m => m.erro)) return;
+  if (ms.some(m => m.grande) && !pc.precosConfirmar) { pc.precosConfirmar = Date.now(); document.getElementById('precos-rodape').innerHTML = rodapePrecos(); return; }
+  if (pc.precosConfirmar && Date.now() - pc.precosConfirmar < 700) return; // duplo toque não confirma
+  pc.precosEd = {}; pc.precosConfirmar = false;
+  comDesfazer(`${ms.length} ${ms.length === 1 ? 'preço salvo' : 'preços salvos'}. Vale para o que ainda não foi aprovado.`, () => {
+    ms.forEach(m => { if (m.novo == null) delete E.d.precos[m.k][m.c]; else E.d.precos[m.k][m.c] = m.novo; }); }); };
+A.importarPrecos = () => toast('No sistema real: escolha o arquivo Excel exportado do Dental Office (Personalizar → Procedimentos). Antes de salvar, mostra o que vai mudar.');
 
 /* ---------- modais ---------- */
 function modalHTML() { return ({ orc: modalOrc, rec: modalRec, fechar: modalFechar })[E.ui.pc.modal.tipo](); }

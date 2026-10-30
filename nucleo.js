@@ -56,10 +56,22 @@ const pilulaPlano = e => `<span class="pl-est pl-${e}">${ic(PLANO_EST[e][0], 13)
 const MODO_CEL = matchMedia('(max-width: 520px)').matches;
 if (MODO_CEL) { E.ui.vista = 'cel'; document.documentElement.classList.add('modo-cel'); }
 
+/* tabela de preços: um valor por procedimento e por convênio (no sistema real vem do Excel do
+   Dental Office). A restauração tem uma linha por número de faces: chave "restauracao#2".
+   Sem valor num convênio = o convênio não cobre → o paciente paga o preço particular. */
+const chavePreco = (pr, nFaces) => pr.tipo === 'faces' ? `${pr.id}#${Math.max(1, Math.min(5, nFaces || 1))}` : pr.id;
+function montarPrecos() {
+  const t = {};
+  E.d.procedimentos.forEach(pr => {
+    const linhas = pr.tipo === 'faces' ? [1, 2, 3, 4, 5].map(n => [`${pr.id}#${n}`, pr.precoFaces[n]]) : [[pr.id, pr.preco]];
+    linhas.forEach(([k, base]) => { t[k] = {}; E.d.convenios.forEach(c => { t[k][c.id] = Math.round(base * c.fator / 100) * 100; }); });
+  });
+  return t;
+}
+if (!E.d.precos) E.d.precos = montarPrecos();
 function precoDe(pr, pid, nFaces) {
-  const f = conv(pac(pid).conv).fator;
-  const base = pr.tipo === 'faces' ? pr.precoFaces[Math.max(1, Math.min(5, nFaces || 1))] : pr.preco;
-  return Math.round(base * f / 100) * 100;
+  const linha = E.d.precos[chavePreco(pr, nFaces)] || {}, c = pac(pid).conv;
+  return linha[c] ?? linha.part ?? 0;
 }
 function nomeItem(it) {
   const pr = proc(it.proc);
@@ -113,8 +125,9 @@ const semAcento = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').
 function buscarPacientes(t) {
   const q = semAcento(t).trim(); if (q.length < 2) return [];
   const num = q.replace(/^n[ºo°.]?\s*/, '').trim(), so = q.replace(/\D/g, '');
-  const exato = /^\d+$/.test(num) ? E.d.pacientes.filter(p => String(p.numero) === num) : [];
-  const outros = E.d.pacientes.filter(p => !exato.includes(p) && (semAcento(p.nome).includes(q) ||
+  const vivos = E.d.pacientes.filter(p => !p.excluido); // excluído só aparece em Pacientes → Excluídos
+  const exato = /^\d+$/.test(num) ? vivos.filter(p => String(p.numero) === num) : [];
+  const outros = vivos.filter(p => !exato.includes(p) && (semAcento(p.nome).includes(q) ||
     (so.length >= 3 && (p.cel.replace(/\D/g, '').includes(so) || p.cpf.replace(/\D/g, '').includes(so)))));
   return [...exato, ...outros].slice(0, 7);
 }
@@ -145,7 +158,8 @@ function render() {
   if (v === 'pc' || v === 'lado') h += pcHTML();
   if (v === 'cel' || v === 'lado') h += `<div class="cel-moldura">${celHTML()}</div>`;
   document.getElementById('palco').innerHTML = h;
-  document.querySelectorAll('[data-scroll]').forEach(el => { if (keep[el.dataset.scroll] != null) el.scrollTop = keep[el.dataset.scroll]; });
+  document.querySelectorAll('[data-scroll]').forEach(el => { if (E.ui.zerarScroll === el.dataset.scroll) el.scrollTop = 0; else if (keep[el.dataset.scroll] != null) el.scrollTop = keep[el.dataset.scroll]; });
+  E.ui.zerarScroll = null;
   const ag = document.querySelector('[data-scroll="agenda"]');
   if (ag && keep.agenda == null) ag.scrollTop = Math.max(0, (E.d.agoraMin - 480) * K - 120);
   if (E.ui.foco) { const f = document.getElementById(E.ui.foco); if (f) { f.focus(); if (f.dataset.selecionar != null) f.select(); else if (f.setSelectionRange && f.type === 'text') f.setSelectionRange(f.value.length, f.value.length); } E.ui.foco = null; }

@@ -83,7 +83,7 @@ const DADOS = {
       alertas: [{ id: 'al1', texto: 'Hipertenso — medir pressão antes da anestesia', nivel: 'atencao' }] },
     { id: 'pa103', numero: 103, nome: 'Rita Moura', nasc: '1989-07-21', cel: '(81) 98854-1290', cpf: '345.678.901-23', conv: 'part', origem: 'Indicação (funcionário)' },
     { id: 'pa104', numero: 104, nome: 'Camila Duarte', nasc: '1994-02-09', cel: '(81) 99102-7733', cpf: '456.789.012-34', conv: 'oprev', origem: 'Demanda espontânea (ligação)',
-      alertas: [{ id: 'al2', texto: 'ALERGIA A DIPIRONA', nivel: 'grave' }] },
+      alertas: [{ id: 'al2', texto: 'ALERGIA: DIPIRONA', nivel: 'grave' }] },
     { id: 'pa105', numero: 105, nome: 'Thiago Melo', nasc: '2001-09-30', cel: '(81) 99230-4410', cpf: '567.890.123-45', conv: 'part', origem: 'Instagram (link da bio)' },
     { id: 'pa106', numero: 106, nome: 'José Almeida', nasc: '1952-01-18', cel: '(81) 98701-5566', cpf: '678.901.234-56', conv: 'unimed', origem: 'Continuação de tratamento',
       alertas: [{ id: 'al3', texto: 'Diabético', nivel: 'atencao' }, { id: 'al4', texto: 'USA ANTICOAGULANTE', nivel: 'grave' }] },
@@ -93,13 +93,15 @@ const DADOS = {
     { id: 'pa110', numero: 110, nome: 'Luiza Farias', nasc: '1975-03-03', cel: '(81) 99456-3321', cpf: '901.234.567-89', conv: 'part', origem: 'Redes sociais (Facebook)' },
     { id: 'pa111', numero: 111, nome: 'Fernanda Rocha', nasc: '1998-08-08', cel: '(81) 99567-8899', cpf: '012.345.678-90', conv: 'amil', origem: 'Levantamento (aniversariante)' },
     { id: 'pa112', numero: 112, nome: 'Ana Lima', nasc: '1992-04-17', cel: '(81) 99812-4521', cpf: '135.792.468-00', conv: 'part', origem: 'Redes sociais (Instagram)',
-      alertas: [{ id: 'al5', texto: 'ALERGIA A PENICILINA', nivel: 'grave' }] },
+      alertas: [{ id: 'al5', texto: 'ALERGIA: PENICILINA', nivel: 'grave' }] },
     { id: 'pa113', numero: 113, nome: 'Beatriz Santos', nasc: '1974-05-30', cel: '(81) 99678-1144', cpf: '246.813.579-11', conv: 'oprev', origem: 'Levantamento (6 meses)' },
     { id: 'pa114', numero: 114, nome: 'Beatriz Santos', nasc: '2007-01-11', cel: '(81) 98432-7781', cpf: '357.924.681-22', conv: 'part', origem: 'Manutenção (em tratamento)' },
     { id: 'pa115', numero: 115, nome: 'Paula Gomes', nasc: '1987-10-10', cel: '(81) 99789-0012', cpf: '468.135.792-33', conv: 'part', origem: 'Demanda espontânea (WhatsApp)' },
     { id: 'pa116', numero: 116, nome: 'Diego Ramos', nasc: '2005-12-01', cel: '(81) 99890-1123', cpf: '579.246.813-44', conv: 'part', origem: 'Instalação (ortodontia)' },
     { id: 'pa117', numero: 117, nome: 'Larissa Pinto', nasc: '1999-02-14', cel: '(81) 99901-2234', cpf: '681.357.924-55', conv: 'unimed', origem: 'Encaixe (WhatsApp)' },
     { id: 'pa118', numero: 118, nome: 'Bruno Castro', nasc: '1990-06-06', cel: '(81) 98012-3345', cpf: '792.468.135-66', conv: 'part', origem: 'Redes sociais (Instagram)' },
+    /* cadastrada hoje por engano (era para outra clínica): sem nenhum histórico, dá para excluir */
+    { id: 'pa119', numero: 119, nome: 'Joana Pires', nasc: '1996-03-14', cel: '(81) 99234-5560', cpf: '', conv: 'part', origem: 'Demanda espontânea (WhatsApp)' },
   ],
 
   /* plano: itens do plano de tratamento por paciente */

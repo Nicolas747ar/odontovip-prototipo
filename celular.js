@@ -77,7 +77,7 @@ function celPaciente() {
         <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" style="flex:1" data-a="celCancelarAlerta">Cancelar</button><button class="btn btn-pri" style="flex:1" data-a="celSalvarAlerta">Salvar alerta</button></div></div>`
     : al.length ? `<div class="cel-alertas">${al.map(x => `<div>${ic('alerta', 16)} ${esc(x.texto)}</div>`).join('')}<button class="cel-alerta-mais" data-a="celNovoAlerta">+ Alerta</button></div>`
     : `<div class="cel-sem-alerta"><span>Sem alertas</span><button class="btn cel-btn-alerta" data-a="celNovoAlerta">+ Alerta</button></div>`;
-  return `<div class="cel-cab"><button class="cel-voltar" data-a="celTela" data-t="agenda">${ic('esq', 18)} Agenda</button><h2>${esc(p.nome)}</h2><div class="sub">nº ${p.numero} · ${idade(p.nasc)} anos · ${conv(p.conv).nome}</div></div>
+  return `<div class="cel-cab"><button class="cel-voltar" data-a="celTela" data-t="agenda">${ic('esq', 18)} Agenda</button><h2>${numNomeCel(p)}</h2><div class="sub">${idade(p.nasc)} anos · ${conv(p.conv).nome}</div></div>
   ${faixaAl}
   <div class="cel-corpo" data-scroll="cel-pac">
     <button class="cel-card cel-ir" data-a="celTela" data-t="odonto"><span class="cel-ir-txt"><b>Odontograma e plano</b>
@@ -103,7 +103,7 @@ const numNomeCel = p => `nº&nbsp;${p.numero}&nbsp;· ${esc(p.nome)}`;
 function cabSub(titulo, volta = { t: 'paciente', txt: 'Ficha' }, extra = '') {
   const p = pac(E.ui.cel.pacId);
   return `<div class="cel-cab"><button class="cel-voltar" data-a="celTela" data-t="${volta.t}">${ic('esq', 18)} ${volta.txt}</button>
-    <div class="cel-quem">${numNomeCel(p)}${alertas(p.id).length ? ` <span class="alerta-ico">${ic('alerta', 15)}</span>` : ''}</div><h2>${titulo}</h2>${extra}</div>`;
+    <div class="cel-quem">${numNomeCel(p)}</div>${alertas(p.id).length ? `<div class="cel-quem-al">${ic('alerta', 15)} ${esc(alertas(p.id).map(a => a.texto).join(' · '))}</div>` : ''}<h2>${titulo}</h2>${extra}</div>`;
 }
 function celOdonto() {
   const c = E.ui.cel, p = pac(c.pacId), den = c.denticao || denticaoPadrao(p.id), arc = c.arcada;
@@ -133,7 +133,7 @@ function celOdonto() {
   </div>`;
 }
 function celItemPlano(i) {
-  const quem = i.feitoPor ? `feito por ${prof(i.feitoPor).curto} · ${dataBR(i.dataFeito)}` : `indicado por ${prof(i.indicadoPor).curto} · ${dataBR(i.dataInd)}`;
+  const quem = i.feitoPor ? `${prof(i.feitoPor).curto} · ${dataBR(i.dataFeito)}` : `${prof(i.indicadoPor).curto} · ${dataBR(i.dataInd)}${i.dataApr ? ` · aprovado ${dataBR(i.dataApr)}` : ''}`;
   return `<div class="cel-item"><span class="cel-item-txt"><span class="cel-item-l1"><b>${esc(nomeItem(i))}</b><b class="num">${brl(i.valor)}</b></span>${pilulaPlano(i.estado)}<span class="mini muted">${quem}</span>
     ${i.estado === 'indicado' ? `<button class="btn-link cel-link-item" data-a="celRecusar" data-id="${i.id}">Paciente não quis</button>` : ''}
     ${i.estado === 'recusado' ? `<button class="btn-link cel-link-item" data-a="celReindicar" data-id="${i.id}">Voltar a indicar</button>` : ''}</span></div>`;
@@ -205,7 +205,7 @@ A.celSalvarDente = () => {
   const c = E.ui.cel, pid = c.pacId, n = c.dente, sv = rotuloSalvarDente(pid, n, c); if (!sv.ok) return;
   const cond = c.denteCond, pr = c.denteProc, faces = [...c.denteFaces], por = profCel();
   Object.assign(c, { denteCond: null, denteProc: null, denteFaces: [], salvoAgora: Date.now() });
-  E.ui.rolarPara = '.cel-cab';
+  E.ui.zerarScroll = 'cel-dente';
   celGravar(`Salvo no ${ehRegiao(n) ? REGIOES[n] : 'dente ' + n}.`, () => {
     if (cond) condicoesPac(pid).push({ id: uid(), n, cond, faces, data: E.d.hoje, por });
     if (pr) novoItem(pid, pr, n, faces, por);
@@ -412,14 +412,14 @@ A.celRetorno = () => { const c = E.ui.cel;
 A.celFoto = () => { E.ui.cel.foto = { tipo: 'Foto clínica', momento: '', tirada: false }; E.ui.cel.voltaFoto = E.ui.cel.tela; E.ui.cel.tela = 'foto'; render(); };
 function celFoto() {
   const f = E.ui.cel.foto, p = pac(E.ui.cel.pacId);
-  return `${cabSub('Foto', { t: E.ui.cel.voltaFoto, txt: 'Voltar' })}
+  return `${cabSub('Foto', { t: E.ui.cel.voltaFoto, txt: { paciente: 'Ficha', evolucao: 'Evolução', arquivos: 'Arquivos' }[E.ui.cel.voltaFoto] || 'Voltar' })}
   <div class="cel-corpo"><div class="cam">${f.tirada ? `<span style="color:#cfe6d6">${ic('check', 54)}</span>` : ic('camera', 54)}</div>
     ${f.tirada ? '' : `<button class="btn btn-pri" style="width:100%;min-height:56px;margin-top:10px" data-a="celDisparar">${ic('camera', 20)} Tirar foto</button>`}
     <div class="grupo-tit">Tipo</div>
     <div class="chips">${['Foto clínica', 'Radiografia', 'Ficha em papel', 'Documento'].map(t => `<button class="${f.tipo === t ? 'on' : ''}" data-a="celFotoTipo" data-v="${t}">${t}</button>`).join('')}</div>
     <div class="grupo-tit">Momento <span class="muted">(opcional)</span></div>
     <div class="chips">${['Antes', 'Depois'].map(t => `<button class="${f.momento === t ? 'on' : ''}" data-a="celFotoMom" data-v="${t}">${t}</button>`).join('')}</div>
-  </div><div class="cel-rodape"><button class="btn btn-pri" data-a="celEnviarFoto" ${f.tirada ? '' : 'disabled'}>${f.tirada ? `Enviar para a ficha de ${esc(p.nome.split(' ')[0])}` : 'Tire a foto primeiro'}</button></div>`;
+  </div><div class="cel-rodape"><button class="btn ${f.tirada ? 'btn-pri' : ''}" data-a="celEnviarFoto" ${f.tirada ? '' : 'disabled'}>${f.tirada ? `Enviar para a ficha de ${esc(p.nome.split(' ')[0])}` : 'Tire a foto primeiro'}</button></div>`;
 }
 A.celDisparar = () => { E.ui.cel.foto.tirada = true; render(); };
 A.celFotoTipo = ds => { E.ui.cel.foto.tipo = ds.v; render(); };
@@ -434,7 +434,7 @@ function celListaPacs(t) {
   const u = usu(E.ui.cel.usuario);
   let lista = t && t.trim().length >= 2 ? buscarPacientes(t)
     : E.d.agendamentos.filter(a => a.prof === u.prof && a.pac).map(a => pac(a.pac));
-  return [...new Set(lista)].map(p => `<div class="cel-card" data-a="celAbrirPac" data-id="${p.id}"><b>${numNomeCel(p)}</b> <span class="muted">· ${idade(p.nasc)} anos</span>${alertas(p.id).length ? ` <span class="alerta-ico">${ic('alerta', 15)}</span>` : ''}</div>`).join('') || '<div class="vazio">Ninguém encontrado.</div>';
+  return [...new Set(lista)].map(p => `<div class="cel-card" data-a="celAbrirPac" data-id="${p.id}"><b>${numNomeCel(p)}</b> <span class="muted">· ${idade(p.nasc)} anos</span>${p.inativo ? ' <span class="tag inativo">inativo</span>' : ''}${alertas(p.id).length ? ` <span class="alerta-ico">${ic('alerta', 15)}</span>` : ''}</div>`).join('') || '<div class="vazio">Ninguém encontrado.</div>';
 }
 function celPacientes() {
   return `<div class="cel-cab"><h2>Pacientes</h2><input placeholder="Nome, nº ou celular" value="${esc(E.ui.cel.busca)}" data-campo="cel.busca" data-ao="celBusca" style="width:100%;margin-top:8px;padding:12px;border:1px solid var(--rule);border-radius:10px;font-size:16px"></div>
@@ -480,6 +480,7 @@ function telaDono() {
       ${cx.fechado && cx.dif ? `<div class="dono-linha" style="color:var(--erro)"><span>Gaveta</span><b>${cx.dif > 0 ? 'sobrou' : 'faltou'} ${brl(Math.abs(cx.dif))}</b></div>` : ''}</div>` : ''}
     <div class="mini muted" style="text-align:center">Aqui aparecem só números. Nomes e fichas de pacientes nunca saem da clínica.</div>
     <button class="btn" style="width:100%;margin-top:12px" data-a="celSair">Sair</button>
+    ${MODO_CEL ? '<button class="btn" style="width:100%;margin-top:10px;background:var(--gold-light)" data-a="abrirTestes">Tarefas de teste do protótipo</button>' : ''}
   </div>`;
 }
 A.donoDia = ds => { E.ui.cel.diaDono = ds.v; render(); };
