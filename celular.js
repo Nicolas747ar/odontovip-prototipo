@@ -134,7 +134,7 @@ function celOdonto() {
 }
 function celItemPlano(i) {
   const quem = i.feitoPor ? `${prof(i.feitoPor).curto} · ${dataBR(i.dataFeito)}` : `${prof(i.indicadoPor).curto} · ${dataBR(i.dataInd)}${i.dataApr ? ` · aprovado ${dataBR(i.dataApr)}` : ''}`;
-  return `<div class="cel-item"><span class="cel-item-txt"><span class="cel-item-l1"><b>${esc(nomeItem(i))}</b><b class="num">${brl(i.valor)}</b></span>${pilulaPlano(i.estado)}<span class="mini muted">${quem}</span>
+  return `<div class="cel-item"><span class="cel-item-txt"><span class="cel-item-l1"><b>${esc(nomeItem(i))}</b><b class="num">${brl(valorItem(i, E.ui.cel.pacId))}</b></span>${pilulaPlano(i.estado)}<span class="mini muted">${quem}</span>
     ${i.estado === 'indicado' ? `<button class="btn-link cel-link-item" data-a="celRecusar" data-id="${i.id}">Paciente não quis</button>` : ''}
     ${i.estado === 'recusado' ? `<button class="btn-link cel-link-item" data-a="celReindicar" data-id="${i.id}">Voltar a indicar</button>` : ''}</span></div>`;
 }

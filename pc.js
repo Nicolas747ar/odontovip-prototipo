@@ -583,7 +583,7 @@ function itemPlano(i) {
   const quem = i.feitoPor ? (i.feitoPor !== i.indicadoPor ? `indicado por ${prof(i.indicadoPor).curto} · <b>feito por ${prof(i.feitoPor).curto}</b> em ${dataBR(i.dataFeito)}` : `indicado e feito por ${prof(i.feitoPor).curto} · ${dataBR(i.dataFeito)}`)
     : `indicado por ${prof(i.indicadoPor).curto} em ${dataBR(i.dataInd)}${i.dataApr ? ` · aprovado em ${dataBR(i.dataApr)}` : ''}`;
   return `<div class="item-plano pl-linha">${pilulaPlano(i.estado)}
-    <span><b>${esc(nomeItem(i))}</b><br><span class="quem">${quem}</span></span><span class="valor num">${brl(i.valor)}</span>
+    <span><b>${esc(nomeItem(i))}</b><br><span class="quem">${quem}</span></span><span class="valor num">${brl(valorItem(i, E.ui.pc.fichaId))}</span>
     <span class="pl-acao">${i.estado === 'indicado' && pode('recusar') ? `<button class="btn-link" data-a="recusarItem" data-id="${i.id}">Paciente não quis</button>` : ''}</span></div>`;
 }
 A.dente = ds => { const pc = E.ui.pc; if (pc.dente === ds.n) { pc.dente = null; } else { pc.dente = ds.n; pc.denteFaces = []; pc.denteProc = null; } render(); };

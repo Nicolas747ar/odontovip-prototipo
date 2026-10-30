@@ -73,6 +73,8 @@ function precoDe(pr, pid, nFaces) {
   const linha = E.d.precos[chavePreco(pr, nFaces)] || {}, c = pac(pid).conv;
   return linha[c] ?? linha.part ?? 0;
 }
+/* o que ainda não foi aprovado mostra sempre o preço de hoje da tabela */
+const valorItem = (i, pid) => i.estado === 'indicado' ? precoDe(proc(i.proc), pid, i.faces.length) : i.valor;
 function nomeItem(it) {
   const pr = proc(it.proc);
   let n = pr.tipo === 'faces' ? `Restauração ${it.faces.length} face${it.faces.length > 1 ? 's' : ''}` : pr.nome;
