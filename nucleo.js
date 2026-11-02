@@ -24,7 +24,10 @@ const paraMin = s => { const [h, m] = String(s || '0:0').split(':').map(Number);
 const dataBR = iso => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '';
 const dataBRc = iso => iso ? dataBR(iso) + '/' + iso.slice(0, 4) : '';
 const idade = nasc => { const h = E.d.hoje; let a = +h.slice(0, 4) - +nasc.slice(0, 4); if (h.slice(5) < nasc.slice(5)) a--; return a; };
-const somaMeses = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
+/* dia 29/30/31 num mês mais curto cai no último dia do mês (29/10 + 4 meses = 28/02, não 01/03) */
+const somaMeses = (iso, n) => { const [a, m, d] = iso.split('-').map(Number), alvo = new Date(a, m - 1 + n, 1);
+  const ultimo = new Date(alvo.getFullYear(), alvo.getMonth() + 1, 0).getDate();
+  return `${alvo.getFullYear()}-${String(alvo.getMonth() + 1).padStart(2, '0')}-${String(Math.min(d, ultimo)).padStart(2, '0')}`; };
 const ult4 = cel => '···-' + String(cel).slice(-4);
 const iniciais = n => n.replace(/^(Dra?\.|Sr\.)\s*/, '').split(' ').map(p => p[0]).slice(0, 2).join('');
 const DIA = 'qui 29/10';
@@ -106,12 +109,25 @@ function distribuir(pid, valor) { // aplica do mais antigo ao mais novo
   }
   return { res, sobra: resto };
 }
+/* de qual profissional é o pagamento (conta para "Por profissional" e comissão):
+   1º quem atendeu hoje; 2º quem fez o último item do plano; 3º quem indicou o último aprovado.
+   No sistema real o pagamento deve apontar para os itens do orçamento — ver AUDITORIA-QA.md */
+function profDoPagamento(pid) {
+  const hoje = E.d.agendamentos.filter(a => a.pac === pid && ['atendido', 'em_atendimento', 'chegou'].includes(a.estado)).sort((a, b) => b.ini - a.ini)[0];
+  if (hoje) return hoje.prof;
+  const pl = plano(pid).filter(i => i.estado !== 'recusado');
+  const feito = pl.filter(i => i.feitoPor).sort((a, b) => (b.dataFeito || '').localeCompare(a.dataFeito || ''))[0];
+  if (feito) return feito.feitoPor;
+  const aprov = pl.filter(i => i.estado === 'aprovado').sort((a, b) => (b.dataApr || b.dataInd || '').localeCompare(a.dataApr || a.dataInd || ''))[0];
+  return aprov ? aprov.indicadoPor : null;
+}
 function receber(pid, valor, forma) {
-  const { res } = distribuir(pid, valor);
+  const { res, sobra } = distribuir(pid, valor);
   res.forEach(r => { r.p.pago += r.usa; });
-  const pl = plano(pid);
-  const profRef = (pl.find(i => i.feitoPor) || pl[0] || {}).feitoPor || (pl[0] || {}).indicadoPor || null;
-  E.d.recebimentos.push({ id: uid(), hora: E.d.agoraMin, pac: pid, valor, forma, por: E.ui.pc.usuario, prof: profRef, depoisFechamento: E.d.caixa.fechado });
+  // pagou mais do que devia: a sobra fica como crédito (a tela avisa "ficam como crédito").
+  // Sem nada em aberto é um pagamento avulso, não crédito.
+  if (sobra > 0 && res.length) { const p = pac(pid); p.credito = (p.credito || 0) + sobra; }
+  E.d.recebimentos.push({ id: uid(), hora: E.d.agoraMin, pac: pid, valor, forma, por: E.ui.pc.usuario, prof: profDoPagamento(pid), depoisFechamento: E.d.caixa.fechado });
 }
 function gerarParcelas(pid, total, n, primeiro) {
   const base = Math.floor(total / n / 100) * 100;
@@ -122,6 +138,12 @@ function gerarParcelas(pid, total, n, primeiro) {
 }
 function hojeDoPaciente(pid) { return E.d.agendamentos.filter(a => a.pac === pid).sort((a, b) => a.ini - b.ini); }
 function proximaConsulta(pid) { return hojeDoPaciente(pid).find(a => ATIVOS.includes(a.estado) && a.ini >= E.d.agoraMin - 60); }
+/* dígitos verificadores do CPF (recusa 111.111.111-11 e números digitados errado) */
+function cpfValido(cpf) {
+  const d = String(cpf || '').replace(/\D/g, ''); if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  const dv = n => { let s = 0; for (let i = 0; i < n; i++) s += +d[i] * (n + 1 - i); return (s * 10) % 11 % 10; };
+  return dv(9) === +d[9] && dv(10) === +d[10];
+}
 const semAcento = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 /* número exato primeiro; sem acento; telefone/CPF só com 3+ dígitos */
 function buscarPacientes(t) {
@@ -178,6 +200,13 @@ function toast(texto, desfazer, extra) {
   el.innerHTML = `<div class="toast"><span>${texto}</span>${desfazer ? '<button data-a="desfazer">Desfazer</button>' : ''}${extra || ''}</div>`;
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.innerHTML = ''; E.undo = null; E.undoFn = null; E.undoExtra = null; }, desfazer ? 10000 : 4000);
 }
+/* depois de desfazer, um painel ou ficha aberta pode apontar para algo que deixou de existir */
+function limparTelasOrfas() {
+  const pc = E.ui.pc;
+  if (pc.painel && pc.painel.tipo === 'det' && !E.d.agendamentos.some(a => a.id === pc.painel.id)) pc.painel = null;
+  if (pc.fichaId && !pac(pc.fichaId)) { pc.fichaId = null; if (pc.tela === 'ficha') pc.tela = 'pacientes'; }
+  if (pc.modal && pc.modal.pac && !pac(pc.modal.pac)) pc.modal = null;
+}
 function comDesfazer(texto, fn, extra) { const snap = JSON.stringify(E.d); fn(); E.undo = snap; E.undoFn = null; E.undoExtra = extra || null; render(); toast(texto, true); }
 /* algo salvo sem Desfazer: o Desfazer anterior voltaria a um estado que já não existe */
 function semDesfazer() { E.undo = null; E.undoFn = null; E.undoExtra = null; document.getElementById('toast').innerHTML = ''; }
@@ -187,6 +216,7 @@ A.desfazer = () => {
   if (E.undoFn) { const f = E.undoFn; E.undoFn = null; f(); render(); toast('Desfeito.'); return; }
   if (!E.undo) return; E.d = JSON.parse(E.undo); E.undo = null;
   if (E.undoExtra) { E.undoExtra(); E.undoExtra = null; }
+  limparTelasOrfas();
   render(); toast('Desfeito.'); };
 
 /* ---------- eventos ---------- */
