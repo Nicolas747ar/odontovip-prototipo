@@ -5,8 +5,9 @@ const DADOS = {
   unidade: 'Boa Viagem',
 
   usuarios: [
-    { id: 'u-rec', nome: 'Juliana', papel: 'recepcao', rotulo: 'Recepção' },
-    { id: 'u-mar', nome: 'Dra. Marcelly', papel: 'dentista', prof: 'p-mar', rotulo: 'Dentista' },
+    // Boa Viagem: quem fica na recepção é a Suely Maria, que também administra (questionário da família, 02/11)
+    { id: 'u-rec', nome: 'Suely Maria', papel: 'admin', rotulo: 'Recepção · Administradora' },
+    { id: 'u-mar', nome: 'Dra. Marcelly', papel: 'dentista', prof: 'p-mar', rotulo: 'Dentista', fin: true }, // filha do dono: também vê o financeiro (Nicolas, 02/11)
     { id: 'u-hel', nome: 'Dra. Helena Costa', papel: 'dentista', prof: 'p-hel', rotulo: 'Dentista' },
     { id: 'u-raf', nome: 'Dr. Rafael Nunes', papel: 'dentista', prof: 'p-raf', rotulo: 'Dentista' },
     { id: 'u-dono', nome: 'Sr. Austregesilo', papel: 'dono', rotulo: 'Dono' },

@@ -4,10 +4,10 @@ const usuPC = () => usu(E.ui.pc.usuario);
 function pode(acao, u = usuPC()) {
   const p = u.papel;
   return {
-    caixa: ['recepcao', 'dono'], clinico: ['dentista', 'dono'], indicar: ['dentista'], alerta: ['dentista'],
-    finPac: ['recepcao', 'dono'], config: ['dono'], evolucao: ['dentista'], recusar: ['dentista', 'recepcao'], cadastro: ['recepcao', 'dono'],
+    caixa: ['recepcao', 'dono', 'admin'], clinico: ['dentista', 'dono'], indicar: ['dentista'], alerta: ['dentista'],
+    finPac: ['recepcao', 'dono', 'admin'], config: ['dono'], evolucao: ['dentista'], recusar: ['dentista', 'recepcao', 'admin'], cadastro: ['recepcao', 'dono', 'admin'],
     anamnese: ['dentista'], // o dono lê a anamnese, mas quem preenche é a dentista (a ficha guarda qual profissional fez)
-  }[acao].includes(p);
+  }[acao].includes(p) || (!!u.fin && ['caixa', 'finPac'].includes(acao)); // fin: dentista da família que também cuida do financeiro
 }
 
 function pcHTML() {
@@ -78,7 +78,6 @@ A.desfazerFixo = ds => { const f = fixos()[ds.id]; if (!f || Date.now() - f.cria
 const linhaFixa = (id, hora, f) => `<div class="h-linha h-feito" style="min-height:${f.altura}px"><span class="hora num">${hora}</span><span class="h-feito-txt">${ic('check', 16)} ${f.txt}</span><span class="acoes"><button class="btn btn-peq" data-a="desfazerFixo" data-id="${id}">Desfazer</button></span></div>`;
 /* onde a linha aparece: enquanto está fixa, no lugar de antes */
 const estadoPos = a => { const f = fixo(a.id); return f ? f.antes : a.estado; };
-/* colunas fixas: hora · estado · paciente · ações — tudo alinhado de linha em linha */
 const minDesde = m => Math.max(0, E.d.agoraMin - m);
 const tempo = min => min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`;
 function pacHoje(p, meta) {
@@ -88,69 +87,108 @@ function pacHoje(p, meta) {
 // sem a cadeira: ela está na Agenda e no detalhe; aqui o procedimento precisa caber inteiro
 const numNome = p => `nº&nbsp;${p.numero}&nbsp;· ${esc(p.nome)}`;
 const metaAg = a => [prof(a.prof).curto, a.proc ? proc(a.proc).nome : ''].filter(Boolean).map(esc).join(' · ');
+/* botão só com ícone: o nome aparece ao passar o mouse/focar e é lido pelo leitor de tela */
+const botaoIco = (ico, dica, attrs, cls = '') => `<button class="btn-ico ${cls}" aria-label="${dica}" data-dica="${dica}" ${attrs}>${ic(ico, 18)}</button>`;
+
+/* lista do dia no jeito do PEC (Danielle, R2–R5): horário marcado · chegada · símbolo do estado ·
+   paciente · telefone · ações em ícone para a recepção ir marcando */
 function linhaHoje(a) {
   const f = fixo(a.id); if (f) return linhaFixa(a.id, hhmm(a.ini), f);
-  const p = pac(a.pac);
+  const p = pac(a.pac), ag = E.d.agoraMin, e = a.estado, at = `data-id="${a.id}"`;
+  const marcar = (est, ico, dica, cls) => botaoIco(ico, dica, `data-a="estadoAg" data-o="hoje" ${at} data-e="${est}"`, cls);
   let acoes = '';
-  if (a.estado === 'a_confirmar') acoes = `<button class="btn btn-peq" data-a="estadoAg" data-o="hoje" data-id="${a.id}" data-e="confirmado">Confirmar</button><button class="btn btn-peq btn-ok" data-a="estadoAg" data-o="hoje" data-id="${a.id}" data-e="chegou">Chegou</button>`;
-  else if (a.estado === 'confirmado') acoes = `<button class="btn btn-peq btn-ok" data-a="estadoAg" data-o="hoje" data-id="${a.id}" data-e="chegou">Chegou</button>`;
-  return `<div class="h-linha" data-a="abrirAg" data-id="${a.id}"><span class="hora num">${hhmm(a.ini)}</span><span class="h-est">${estadoHTML(a.estado)}</span>
-    ${pacHoje(p, metaAg(a))}<span class="acoes">${acoes}</span></div>`;
-}
-/* quem está na clínica: sem repetir a dentista — ela já está na linha de baixo */
-function linhaNaClinica(a) {
-  const f = fixo(a.id); if (f) return linhaFixa(a.id, hhmm(a.ini), f);
-  const p = pac(a.pac), esperando = a.estado === 'chegou', min = minDesde(a.chegouAs ?? a.ini);
-  const quanto = esperando
-    ? `<span class="h-tempo espera ${min >= 15 ? 'demora' : ''}">${ic('chegou', 14)} ${min < 1 ? 'Chegou agora' : `Esperando ${tempo(min)}`}</span>`
-    : `<span class="h-tempo atend">${ic('atendendo', 14)} Atendendo ${tempo(min)}</span>`;
-  return `<div class="h-linha" data-a="abrirAg" data-id="${a.id}"><span class="hora num">${hhmm(a.ini)}</span><span class="h-est">${quanto}</span>
-    ${pacHoje(p, metaAg(a))}<span class="acoes"></span></div>`;
+  if (e === 'a_confirmar') acoes += marcar('confirmado', 'check', 'Confirmar consulta');
+  if (['a_confirmar', 'confirmado'].includes(e)) acoes += marcar('chegou', 'chegou', 'Presente na unidade', 'ok');
+  if (['a_confirmar', 'confirmado'].includes(e) && a.ini < ag) acoes += marcar('faltou', 'x', 'Paciente ausente (faltou)', 'perigo');
+  if (['a_confirmar', 'confirmado'].includes(e)) acoes += botaoIco('desmarcar', 'Cancelar consulta (pede o motivo)', `data-a="cancelarHoje" ${at}`);
+  // atendido: o que falta fazer na saída fica à mão na própria linha
+  const devido = e === 'atendido' ? aCobrarHoje(p.id) : 0, ret = e === 'atendido' ? retornoPendente(p.id) : null;
+  if (devido && pode('caixa')) acoes += botaoIco('caixa', `Receber ${brl(devido)}`, `data-a="abrirReceber" data-pac="${p.id}"`, 'cobrar');
+  if (ret) acoes += botaoIco('remarcar', 'Agendar o retorno pedido', `data-a="agendarRetorno" data-id="${ret.id}"`, 'retorno');
+  // chegada: hora + quanto tempo está aguardando / em atendimento
+  const desde = minDesde(a.chegouAs ?? a.ini);
+  const chegada = a.chegouAs != null ? `<b class="num">${hhmm(a.chegouAs)}</b>${e === 'chegou' ? `<span class="h-espera ${desde >= 15 ? 'demora' : ''}">aguardando ${tempo(desde)}</span>`
+    : e === 'em_atendimento' ? `<span class="h-espera atend">há ${tempo(desde)}</span>` : ''}` : '<span class="muted">—</span>';
+  const extra = e === 'chegou' ? `aguardando ${tempo(desde)}` : e === 'em_atendimento' ? `há ${tempo(desde)}` : e === 'desmarcou' && a.motivo ? `motivo: ${esc(a.motivo)}`
+    : [devido ? `falta pagar ${brl(devido)}` : '', ret ? 'pediu retorno' : ''].filter(Boolean).join(' · ');
+  return `<div class="h-linha h-dia est-linha-${e}" data-a="abrirAg" ${at}><span class="hora num">${hhmm(a.ini)}</span><span class="h-chegada">${chegada}</span>
+    <span class="h-est">${estadoIco(e, extra)}</span>${pacHoje(p, metaAg(a) + (e === 'desmarcou' && a.motivo ? ` · <span class="h-motivo">motivo: ${esc(a.motivo)}</span>` : ''))}<span class="h-tel num">${esc(p.cel)}</span><span class="acoes">${acoes}</span></div>`;
 }
 function itemAtencao(ico, cor, titulo, meta, acoes, quando, id) {
   const f = id && fixo(id);
   if (f) return `<div class="h-atencao h-feito" style="min-height:${f.altura}px"><span class="h-ico ok">${ic('check', 18)}</span><span class="h-feito-txt">${f.txt}</span><span class="acoes"><button class="btn btn-peq" data-a="desfazerFixo" data-id="${id}">Desfazer</button></span></div>`;
   return `<div class="h-atencao"><span class="h-ico ${cor}">${ic(ico, 18)}</span><span class="h-pac"><b>${quando ? `<span class="h-quando">${quando}</span>` : ''}${titulo}</b><span class="h-meta">${meta}</span></span><span class="acoes">${acoes}</span></div>`;
 }
+/* filtro da lista: os chips servem também de legenda dos símbolos (R6) */
+// "Em aberto" (padrão) = quem ainda vai ser atendido hoje; "Todos" inclui atendidos, faltas e cancelados
+const FILTROS_HOJE = [['abertos', null, 'Em aberto'], ['todos', null, 'Todos'], ['a_confirmar'], ['confirmado'], ['chegou'], ['em_atendimento'], ['atendido'], ['faltou'], ['desmarcou']];
 function telaHoje() {
-  const t = totaisDia(), ag = E.d.agoraMin;
-  const doDia = E.d.agendamentos.filter(a => a.pac && ATIVOS.includes(estadoPos(a))).sort((a, b) => a.ini - b.ini);
-  const naoVeio = doDia.filter(a => ['a_confirmar', 'confirmado'].includes(estadoPos(a)) && a.ini + 15 < ag);
-  const naClinica = doDia.filter(a => ['chegou', 'em_atendimento'].includes(estadoPos(a)));
-  const proximos = doDia.filter(a => !naoVeio.includes(a) && !naClinica.includes(a));
+  const t = totaisDia(), ag = E.d.agoraMin, pc = E.ui.pc;
+  const verFin = pode('finPac'), aba = verFin && pc.abaHoje === 'fin' ? 'fin' : 'agenda', filtro = pc.filtroHoje || 'abertos';
+  const doDia = E.d.agendamentos.filter(a => a.pac && estadoPos(a) !== 'remarcado').sort((a, b) => a.ini - b.ini);
+  const ativos = doDia.filter(a => ATIVOS.includes(estadoPos(a)));
+  const naoVeio = ativos.filter(a => ['a_confirmar', 'confirmado'].includes(estadoPos(a)) && a.ini + 15 < ag);
   const vencidas = E.d.pacientes.filter(p => parcelasAbertas(p.id).some(x => x.venc < E.d.hoje));
+  const vencHoje = Object.entries(E.d.parcelas).flatMap(([pid, ps]) => ps.filter(x => x.venc === E.d.hoje && saldoParcela(x) > 0).map(x => ({ pid, x })));
   const anteriores = E.d.pendentesAnteriores.filter(x => !x.fechado || fixo(x.id));
-  const retornos = E.d.pedidosRetorno.filter(r => !r.feito);
+  // saída: atendido hoje com algo pendente na recepção (cobrar e/ou agendar o retorno)
+  const saidas = [...new Set(doDia.filter(a => estadoPos(a) === 'atendido').map(a => a.pac))]
+    .map(pid => ({ pid, ag: doDia.filter(a => a.pac === pid && estadoPos(a) === 'atendido').slice(-1)[0], devido: aCobrarHoje(pid), ret: retornoPendente(pid) }))
+    .filter(s => (s.devido && pode('caixa')) || s.ret);
+  const retornos = E.d.pedidosRetorno.filter(r => !r.feito && !saidas.some(s => s.ret === r));
   const grupo = (tit, itens) => itens.length ? `<div class="h-grupo">${tit} <span>${itens.length}</span></div>${itens.join('')}` : '';
-  const atencao = [
+  const pendencias = [
+    grupo('Saída: cobrar e agendar retorno', saidas.map(s => { const p = pac(s.pid);
+      const linhas = [`${esc(prof(s.ag.prof).curto)} · atendido`, s.devido && pode('caixa') ? `<b class="saida-valor">Cobrar ${brl(s.devido)}</b>` : '', s.ret ? `Retorno ${esc(resumoRetorno(s.ret)) || 'pedido'}` : ''].filter(Boolean).join('<br>');
+      return itemAtencao('checks', 'ok', numNome(p), linhas,
+        (s.devido && pode('caixa') ? `<button class="btn btn-peq btn-pri" data-a="abrirReceber" data-pac="${s.pid}">Receber ${brl(s.devido)}</button>` : '')
+        + (s.ret ? `<button class="btn btn-peq" data-a="agendarRetorno" data-id="${s.ret.id}">Agendar retorno</button>` : '')); })),
     grupo('Não chegaram', naoVeio.map(a => { const p = pac(a.pac);
       return itemAtencao('relogio', 'aviso', numNome(p), `${esc(prof(a.prof).curto)} · atraso de ${tempo(minDesde(a.ini))}`,
-        `<button class="btn btn-peq btn-ok" data-a="estadoAg" data-o="hoje" data-id="${a.id}" data-e="chegou">Chegou</button><button class="btn btn-peq btn-perigo" data-a="estadoAg" data-o="hoje" data-id="${a.id}" data-e="faltou">Faltou</button>`, `Hoje ${hhmm(a.ini)}`, a.id); })),
+        `<button class="btn btn-peq btn-ok" data-a="estadoAg" data-o="hoje" data-id="${a.id}" data-e="chegou">Presente</button><button class="btn btn-peq btn-perigo" data-a="estadoAg" data-o="hoje" data-id="${a.id}" data-e="faltou">Faltou</button>`, `Hoje ${hhmm(a.ini)}`, a.id); })),
     grupo('Pedidos de retorno', retornos.map(r => { const p = pac(r.pac);
-      return itemAtencao('remarcar', 'info', numNome(p), `${esc(prof(r.prof).curto)} pediu o retorno`, `<button class="btn btn-peq" data-a="agendarRetorno" data-id="${r.id}">Agendar</button>`); })),
-    // valores em atraso são financeiros: a dentista não vê (mesma regra da aba Financeiro da ficha)
-    pode('finPac') ? grupo('Parcelas vencidas', vencidas.map(p => itemAtencao('caixa', 'erro', numNome(p),
-      `${brl(parcelasAbertas(p.id).filter(x => x.venc < E.d.hoje).reduce((s, x) => s + saldoParcela(x), 0))} em atraso`,
-      pode('caixa') ? `<button class="btn btn-peq" data-a="abrirReceber" data-pac="${p.id}">Receber</button>` : ''))) : '',
+      return itemAtencao('remarcar', 'info', numNome(p), `${esc(prof(r.prof).curto)} pediu o retorno${resumoRetorno(r) ? ' · ' + esc(resumoRetorno(r)) : ''}`, `<button class="btn btn-peq" data-a="agendarRetorno" data-id="${r.id}">Agendar</button>`); })),
     grupo('Ficaram abertas de outros dias', anteriores.map(x => { const p = pac(x.pac);
       return itemAtencao('calendarioX', 'neutro', numNome(p), `${esc(prof(x.prof).curto)} · ninguém marcou se veio`,
         `<button class="btn btn-peq btn-ok" data-a="fecharAnterior" data-id="${x.id}" data-e="atendido">Veio</button><button class="btn btn-peq btn-perigo" data-a="fecharAnterior" data-id="${x.id}" data-e="faltou">Faltou</button>`, `${dataBR(x.data)} ${hhmm(x.ini)}`, x.id); })),
   ].join('');
-  const nAtencao = naoVeio.filter(a => !fixo(a.id)).length + retornos.length + (pode('finPac') ? vencidas.length : 0) + anteriores.filter(x => !fixo(x.id)).length;
+  const nPend = saidas.length + naoVeio.filter(a => !fixo(a.id)).length + retornos.length + anteriores.filter(x => !fixo(x.id)).length;
+  const nFin = vencidas.length + vencHoje.length;
   const kpi = (n, txt, ico, cls = '') => `<div class="kpi kpi-h ${cls}"><span class="kpi-ic">${ic(ico, 18)}</span><b class="num">${n}</b><span>${txt}</span></div>`;
+  const passa = (a, k) => k === 'todos' || (k === 'abertos' ? ATIVOS.includes(estadoPos(a)) : estadoPos(a) === k);
+  const conta = k => doDia.filter(a => passa(a, k)).length;
+  const chips = FILTROS_HOJE.filter(([k]) => ['abertos', 'todos'].includes(k) || conta(k)).map(([k, , rot]) => `<button class="${filtro === k ? 'on' : ''} chip-est-${k}" data-a="filtroHoje" data-v="${k}" aria-pressed="${filtro === k}">${ESTADOS[k] ? ic(ESTADOS[k][0], 15) : ''} ${rot || ESTADOS[k][1]} <span class="mini">${conta(k)}</span></button>`).join('');
+  const lista = doDia.filter(a => passa(a, filtro));
+  const agenda = `<div class="grade-2 grade-hoje">
+    <div class="cartao"><h3>Pacientes de hoje <span class="h-cont">${doDia.filter(a => estadoPos(a) !== 'desmarcou').length}</span></h3>
+      <div class="h-filtro" role="group" aria-label="Filtro da lista"><span class="h-filtro-rot">${ic('busca', 15)} Filtro</span>${chips}</div>
+      <div class="h-dia h-dia-cab" aria-hidden="true"><span>Marcado</span><span>Chegada</span><span>Status</span><span>Paciente</span><span>Telefone</span><span></span></div>
+      ${lista.map(linhaHoje).join('') || '<div class="vazio">Ninguém nesse filtro.</div>'}</div>
+    <div class="cartao h-cartao-atencao"><h3>${ic('prancheta', 15)} Pendências diárias <span class="h-cont ${nPend ? 'alerta' : ''}">${nPend}</span></h3>${pendencias || `<div class="vazio">${ic('checks', 22)}<br>Tudo em dia.</div>`}</div>
+  </div>`;
+  // financeiro separado da agenda (R3): só quem tem acesso ao financeiro vê a aba
+  const fin = `<div class="grade-2">
+    <div class="cartao"><h3>Parcelas vencidas <span class="h-cont ${vencidas.length ? 'alerta' : ''}">${vencidas.length}</span></h3>
+      ${vencidas.map(p => itemAtencao('caixa', 'erro', numNome(p), `${brl(parcelasAbertas(p.id).filter(x => x.venc < E.d.hoje).reduce((s, x) => s + saldoParcela(x), 0))} em atraso · ${esc(p.cel)}`,
+        pode('caixa') ? `<button class="btn btn-peq" data-a="abrirReceber" data-pac="${p.id}">Receber</button>` : '')).join('') || '<div class="vazio">Nenhuma parcela vencida.</div>'}</div>
+    <div class="cartao"><h3>Vence hoje e falta receber <span class="h-cont">${vencHoje.length}</span></h3>
+      ${vencHoje.map(({ pid, x }) => itemAtencao('caixa', 'aviso', numNome(pac(pid)), `parcela ${x.n} de ${x.de} · falta ${brl(saldoParcela(x))}`,
+        pode('caixa') ? `<button class="btn btn-peq" data-a="abrirReceber" data-pac="${pid}">Receber</button>` : '')).join('') || '<div class="vazio">Nada vence hoje.</div>'}
+      ${pode('caixa') ? `<button class="btn-link" data-a="tela" data-t="caixa" style="margin-top:10px">Abrir o Caixa →</button>` : ''}</div>
+  </div>`;
   return `<div class="titulo-tela"><h1>Hoje</h1><span class="sub">quinta, 29 de outubro · ${hhmm(ag)}</span><button class="btn btn-pri" style="margin-left:auto" data-a="novoAg">${ic('mais', 16)} Novo agendamento</button></div>
   <div class="kpis-h">
     ${kpi(t.agendados, 'agendados hoje', 'agenda')}${kpi(t.aConfirmar, 'a confirmar', 'relogio', t.aConfirmar ? 'kpi-aviso' : '')}
-    ${kpi(t.naClinica, 'na clínica agora', 'chegou', 'kpi-destaque')}${kpi(t.atendidos, 'atendidos', 'checks')}${kpi(t.faltas, 'faltaram', 'x')}
+    ${kpi(t.naClinica, 'na unidade agora', 'chegou', 'kpi-destaque')}${kpi(t.atendidos, 'atendidos', 'checks')}${kpi(t.faltas, 'faltaram', 'x')}
   </div>
-  <div class="grade-2">
-    <div>
-      <div class="cartao"><h3>Na clínica agora <span class="h-cont">${naClinica.length}</span></h3>${naClinica.map(linhaNaClinica).join('') || '<div class="vazio">Ninguém esperando nem em atendimento.</div>'}</div>
-      <div class="cartao" style="margin-top:16px"><h3>Próximos <span class="h-cont">${proximos.length}</span></h3>${proximos.map(linhaHoje).join('') || '<div class="vazio">Ninguém mais agendado hoje.</div>'}</div>
-    </div>
-    <div class="cartao h-cartao-atencao"><h3>Precisa de atenção <span class="h-cont ${nAtencao ? 'alerta' : ''}">${nAtencao}</span></h3>${atencao || `<div class="vazio">${ic('checks', 22)}<br>Tudo em dia.</div>`}</div>
-  </div>`;
+  ${verFin ? `<div class="abas" role="tablist"><button class="aba ${aba === 'agenda' ? 'ativo' : ''}" role="tab" aria-selected="${aba === 'agenda'}" data-a="abaHoje" data-v="agenda">${ic('agenda', 15)} Agenda do dia</button><button class="aba ${aba === 'fin' ? 'ativo' : ''}" role="tab" aria-selected="${aba === 'fin'}" data-a="abaHoje" data-v="fin">${ic('caixa', 15)} Financeiro${nFin ? ` <span class="h-cont alerta">${nFin}</span>` : ''}</button></div>` : ''}
+  ${aba === 'fin' ? fin : agenda}`;
 }
+A.abaHoje = ds => { E.ui.pc.abaHoje = ds.v; render(); };
+A.filtroHoje = ds => { E.ui.pc.filtroHoje = ds.v; render(); };
+/* cancelar pela lista abre o detalhe já pedindo o motivo (R5) */
+A.motivoDigitado = (ds, el) => { const pn = E.ui.pc.painel; if (pn.erroMotivo && el.value.trim()) { pn.erroMotivo = false; el.classList.remove('com-erro'); const e = el.parentElement.querySelector('.cel-erro'); if (e) e.remove(); } };
+A.cancelarHoje = ds => { E.ui.pc.painel = { tipo: 'det', id: ds.id, desmarcando: true }; E.ui.foco = 'motivo'; render(); };
 A.fecharAnterior = (ds, el) => { const x = E.d.pendentesAnteriores.find(y => y.id === ds.id), p = pac(x.pac);
   x.fechado = ds.e;
   fixar(x.id, `<b>${esc(p.nome)}</b> · ${dataBR(x.data)}: ${ds.e === 'atendido' ? 'veio' : 'faltou'}`,
@@ -190,14 +228,19 @@ function eventoAgenda(a) {
 }
 function telaAgenda() {
   const ver = E.ui.pc.agendaVer;
-  const cols = ver === 'prof' ? E.d.profissionais.map(p => ({ id: p.id, nome: p.curto, sub: p.esp, ini: iniciaisProf(p.nome) }))
+  const todas = ver === 'prof' ? E.d.profissionais.map(p => ({ id: p.id, nome: p.curto, sub: p.esp, ini: iniciaisProf(p.nome) }))
     : E.d.cadeiras.map(c => ({ id: c.id, nome: c.nome, sub: (E.d.profissionais.find(p => p.cadeira === c.id) || {}).curto || '', ini: c.nome.replace(/\D/g, '') || '·' }));
+  // R12 (Danielle): "por profissional, só a profissional"; dá para abrir mais de uma e voltar ao "Mapa geral"
+  const vis = (E.ui.pc.agendaSo || {})[ver] || [];
+  const cols = vis.length ? todas.filter(c => vis.includes(c.id)) : todas;
   const altura = 600 * K, horas = Array.from({ length: 11 }, (_, i) => 8 + i);
   // compromisso pessoal não tem cadeira: na visão por cadeira aparece na cadeira da profissional
   const daCol = c => E.d.agendamentos.filter(a => (ver === 'prof' ? a.prof === c : (a.cad || prof(a.prof).cadeira) === c));
   const contar = c => daCol(c).filter(a => a.pac && !['desmarcou', 'remarcado'].includes(a.estado)).length;
-  const resumo = Object.keys(ESTADOS).map(e => [e, E.d.agendamentos.filter(a => a.pac && a.estado === e).length]).filter(([, n]) => n);
-  const PLURAL = { a_confirmar: ['a confirmar', 'a confirmar'], confirmado: ['confirmado', 'confirmados'], chegou: ['chegou', 'chegaram'], em_atendimento: ['em atendimento', 'em atendimento'],
+  // o resumo conta só as colunas que estão na tela
+  const naTela = cols.flatMap(c => daCol(c.id));
+  const resumo = Object.keys(ESTADOS).map(e => [e, naTela.filter(a => a.pac && a.estado === e).length]).filter(([, n]) => n);
+  const PLURAL = { a_confirmar: ['a confirmar', 'a confirmar'], confirmado: ['confirmado', 'confirmados'], chegou: ['presente na unidade', 'presentes na unidade'], em_atendimento: ['em atendimento', 'em atendimento'],
     atendido: ['atendido', 'atendidos'], faltou: ['faltou', 'faltaram'], desmarcou: ['desmarcou', 'desmarcaram'], remarcado: ['remarcado', 'remarcados'] };
   const linhas = `repeating-linear-gradient(to bottom,var(--rule) 0,var(--rule) 1px,transparent 1px,transparent ${30 * K}px),
     repeating-linear-gradient(to bottom,transparent 0,transparent ${60 * K - 1}px,#c9d6e6 ${60 * K - 1}px,#c9d6e6 ${60 * K}px)`;
@@ -206,6 +249,10 @@ function telaAgenda() {
     <span class="ag-dia"><button class="btn btn-peq btn-icone" data-a="outroDia" aria-label="Dia anterior">${ic('esq', 18)}</button><b>quinta, 29 de outubro</b><button class="btn btn-peq btn-icone" data-a="outroDia" aria-label="Próximo dia">${ic('dir', 18)}</button><button class="btn btn-peq" data-a="agendaHoje">Agora</button></span>
     <span style="margin-left:auto;display:flex;gap:10px;align-items:center"><span class="seg"><button class="${ver === 'prof' ? 'ativo' : ''}" data-a="verAgenda" data-v="prof">Por profissional</button><button class="${ver === 'cad' ? 'ativo' : ''}" data-a="verAgenda" data-v="cad">Por cadeira</button></span>
     <button class="btn btn-pri" data-a="novoAg">${ic('mais', 16)} Novo agendamento</button></span></div>
+  <div class="ag-filtro" role="group" aria-label="Mostrar na agenda"><span class="h-filtro-rot">${ic('busca', 15)} Mostrar</span>
+    <button class="${vis.length ? '' : 'on'}" data-a="agendaSo" data-id="" aria-pressed="${!vis.length}">${ic('agenda', 15)} Mapa geral</button>
+    ${todas.map(c => `<button class="${vis.includes(c.id) ? 'on' : ''}" data-a="agendaSo" data-id="${c.id}" aria-pressed="${vis.includes(c.id)}"><span class="ag-av mini-av">${esc(c.ini)}</span> ${esc(c.nome)} <span class="mini">${contar(c.id)}</span></button>`).join('')}
+    <span class="mini muted">Toque em mais de um para comparar</span></div>
   <div class="ag-resumo">${resumo.map(([e, n]) => `<span class="ag-res est-${e}">${ic(ESTADOS[e][0], 13)} <b>${n}</b> ${PLURAL[e][n === 1 ? 0 : 1]}</span>`).join('')}
     <span class="mini muted" style="margin-left:auto">Clique num horário livre para agendar · num agendamento para ver e mudar</span></div>
   <div class="agenda" data-scroll="agenda" style="grid-template-columns:64px repeat(${cols.length},minmax(180px,1fr))">
@@ -218,6 +265,11 @@ function telaAgenda() {
   </div>`;
 }
 A.verAgenda = ds => { E.ui.pc.agendaVer = ds.v; render(); };
+/* liga/desliga uma coluna; vazio = Mapa geral (todas) */
+A.agendaSo = ds => { const pc = E.ui.pc, ver = pc.agendaVer; pc.agendaSo = pc.agendaSo || {};
+  if (!ds.id) pc.agendaSo[ver] = [];
+  else { const v = pc.agendaSo[ver] || [], i = v.indexOf(ds.id); i >= 0 ? v.splice(i, 1) : v.push(ds.id); pc.agendaSo[ver] = v.length === (ver === 'prof' ? E.d.profissionais : E.d.cadeiras).length ? [] : v; }
+  render(); };
 A.agendaHoje = () => { const ag = document.querySelector('[data-scroll="agenda"]'); if (ag) ag.scrollTo({ top: Math.max(0, (E.d.agoraMin - 480) * K - 160), behavior: 'smooth' }); };
 A.outroDia = () => toast('No protótipo só existem dados de hoje.');
 A.novoNaAgenda = (ds, el, e) => {
@@ -236,7 +288,7 @@ function abrirNovoAg(o = {}) {
   const pr = prof(o.prof || 'p-mar');
   let ini = o.ini ?? Math.ceil(E.d.agoraMin / 10) * 10; if (ini >= 720 && ini < 780) ini = 780; if (ini >= 1080) ini = 1070;
   E.ui.pc.painel = { tipo: 'novoAg', f: { pac: o.pac || null, proc: o.proc || '', prof: pr.id, cad: o.cad || pr.cadeira, ini, horaTxt: hhmm(ini),
-    dur: o.dur || 30, tipo: o.tipo || 'Consulta', origem: o.origem || E.ui.ultimaOrigem, obs: '', busca: '', cadNovo: null, remarcaDe: o.remarcaDe || null, retorno: o.retorno || null } };
+    dur: o.dur || 30, tipo: o.tipo || 'Consulta', origem: o.origem || E.ui.ultimaOrigem, obs: o.obs || '', busca: '', cadNovo: null, remarcaDe: o.remarcaDe || null, retorno: o.retorno || null } };
   if (!o.pac) E.ui.foco = 'busca-ag';
   render();
 }
@@ -276,8 +328,10 @@ A.procAg = () => { const f = fAg(); if (f.proc) f.dur = proc(f.proc).dur; render
 A.profAg = () => { const f = fAg(); f.cad = prof(f.prof).cadeira; render(); };
 A.buscaAg = (ds, el) => {
   const t = el.value, r = buscarPacientes(t), box = document.getElementById('res-ag');
-  box.innerHTML = t.trim().length < 2 ? '' : r.map(p => resultadoPac(p, 'escolherPacAg')).join('') +
-    `<div class="res-item res-novo" data-a="cadastrarDaBusca">+ Cadastrar “${esc(t)}”</div>`;
+  // sem resultado: botão grande "Paciente novo" em vez de um link no fim da lista (Danielle, R15)
+  box.innerHTML = t.trim().length < 2 ? '' : r.length ? r.map(p => resultadoPac(p, 'escolherPacAg')).join('') +
+    `<div class="res-item res-novo" data-a="cadastrarDaBusca">+ Não é nenhum desses? Cadastrar “${esc(t)}”</div>`
+    : `<div class="sem-pac"><span>Nenhum paciente com “${esc(t)}”.</span><button class="btn btn-novo-pac" data-a="cadastrarDaBusca">${ic('mais', 16)} Paciente novo — cadastrar</button><span class="mini muted">ou aperte Enter</span></div>`;
 };
 A.escolherPacAg = ds => { const f = fAg(); f.pac = ds.id; f.busca = ''; render(); };
 A.trocarPacAg = () => { const f = fAg(); f.pac = null; E.ui.foco = 'busca-ag'; render(); };
@@ -384,7 +438,7 @@ function painelNovoAg() {
       ${alertas(p.id).length ? `<span class="alerta-ico" title="Tem alerta">${ic('alerta', 15)}</span>` : ''}<button class="btn-link" style="margin-left:auto" data-a="trocarPacAg">Trocar</button></div>`;
   } else {
     pacHTML = `<input id="busca-ag" placeholder="Nome, CPF, telefone ou nº" autocomplete="off" value="${esc(f.busca)}" data-campo="pc.painel.f.busca" data-ao="buscaAg" style="width:100%;padding:9px 10px;border:1px solid var(--rule);border-radius:8px"><div id="res-ag" class="lista-res" style="border:0"></div>
-      <div class="ajuda">Se não existir, aparece “+ Cadastrar” — sem sair daqui.</div>`;
+      <div class="ajuda">Se não existir, aparece o botão “Paciente novo” — sem sair daqui.</div>`;
   }
   return `<aside class="painel"><div class="painel-cab"><h2>${f.remarcaDe ? 'Remarcar' : 'Novo agendamento'}</h2><button class="fechar" data-a="fecharPainel" aria-label="Fechar">${ic('x', 20)}</button></div>
   <div class="painel-corpo">
@@ -395,6 +449,7 @@ function painelNovoAg() {
       <div class="campo"><label>Duração</label><select data-campo="pc.painel.f.dur" data-ao="avaliarAg">${[10, 20, 30, 40, 60, 90, 120].map(m => `<option value="${m}" ${m == f.dur ? 'selected' : ''}>${m} min</option>`).join('')}</select></div></div>
     <div class="duas"><div class="campo"><label>Profissional</label><select data-campo="pc.painel.f.prof" data-ao="profAg">${E.d.profissionais.map(x => `<option value="${x.id}" ${x.id === f.prof ? 'selected' : ''}>${x.curto}</option>`).join('')}</select></div>
       <div class="campo"><label>Cadeira</label><select data-campo="pc.painel.f.cad" data-ao="avaliarAg">${E.d.cadeiras.map(x => `<option value="${x.id}" ${x.id === f.cad ? 'selected' : ''}>${x.nome}</option>`).join('')}</select></div></div>
+    ${f.retorno ? (r => r && r.quando ? `<div class="aviso-box info">A dentista pediu o retorno <b>${QUANDO_RETORNO[r.quando]}</b>. No protótipo só existe o dia de hoje: no sistema real a data já vem marcada.</div>` : '')(E.d.pedidosRetorno.find(x => x.id === f.retorno)) : ''}
     <div id="conflito-ag">${conflitoHTML(f)}</div>
     ${f.origemDoCadastro ? `<div class="campo"><label>Como chegou?</label><div class="muted">${esc(f.origem)} <span class="mini">(do cadastro)</span></div></div>` : `<div class="campo"><label>Como chegou? <span class="obrig">*</span></label><select data-campo="pc.painel.f.origem" data-ao="avaliarAg">${E.d.origens.map(x => `<option ${x === f.origem ? 'selected' : ''}>${x}</option>`).join('')}</select></div>`}
     <div class="campo"><label>Tipo</label><select data-campo="pc.painel.f.tipo">${['Consulta', 'Retorno', 'Periódico', 'Outro'].map(x => `<option ${x === f.tipo ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
@@ -414,19 +469,19 @@ function painelDetalhe() {
   const b = (e, txt, cls = '') => `<button class="btn ${cls}" style="width:100%;margin-bottom:8px" data-a="estadoAg" data-id="${a.id}" data-e="${e}">${txt}</button>`;
   let acoes = '';
   if (a.estado === 'a_confirmar') acoes += b('confirmado', ic('check', 16) + ' Confirmar consulta');
-  if (['a_confirmar', 'confirmado'].includes(a.estado)) acoes += b('chegou', ic('chegou', 16) + ' Chegou', 'btn-ok');
+  if (['a_confirmar', 'confirmado'].includes(a.estado)) acoes += b('chegou', ic('chegou', 16) + ' Presente na unidade', 'btn-ok');
   if (a.estado === 'chegou') acoes += b('em_atendimento', ic('play', 16) + ' Iniciar atendimento', 'btn-pri');
   if (a.estado === 'em_atendimento') acoes += b('atendido', ic('checks', 16) + ' Finalizar atendimento', 'btn-pri');
   if (['a_confirmar', 'confirmado'].includes(a.estado) && passou) acoes += b('faltou', ic('x', 16) + ' Faltou', 'btn-perigo');
   if (['a_confirmar', 'confirmado'].includes(a.estado)) acoes += `<button class="btn" style="width:100%;margin-bottom:8px" data-a="remarcar" data-id="${a.id}">${ic('remarcar', 16)} Remarcar</button>
-    ${pn.desmarcando ? `<div class="campo"><label>Motivo (curto)</label><input id="motivo" data-campo="pc.painel.motivo" placeholder="Ex.: viagem, doente"></div><button class="btn btn-perigo" data-a="confirmarDesmarcar" data-id="${a.id}">Desmarcar consulta</button> <button class="btn-link" data-a="abrirAg" data-id="${a.id}">Voltar</button>`
-      : `<button class="btn" style="width:100%;margin-bottom:8px" data-a="desmarcar">${ic('desmarcar', 16)} Desmarcar</button>`}`;
+    ${pn.desmarcando ? `<div class="campo"><label for="motivo">Motivo do cancelamento <span class="obrig">*</span></label><input id="motivo" class="${pn.erroMotivo ? 'com-erro' : ''}" value="${esc(pn.motivo || '')}" data-campo="pc.painel.motivo" data-ao="motivoDigitado" placeholder="Ex.: viagem, doente">${pn.erroMotivo ? '<em class="cel-erro">Escreva o motivo para cancelar.</em>' : ''}</div><button class="btn btn-perigo" data-a="confirmarDesmarcar" data-id="${a.id}">Cancelar consulta</button> <button class="btn-link" data-a="abrirAg" data-id="${a.id}">Voltar</button>`
+      : `<button class="btn" style="width:100%;margin-bottom:8px" data-a="desmarcar">${ic('desmarcar', 16)} Cancelar consulta</button>`}`;
   if (!acoes) acoes = `<div class="muted">Nada a fazer neste estado.</div>`;
   return `<aside class="painel"><div class="painel-cab"><h2>${hhmm(a.ini)} · ${esc(prof(a.prof).curto)}</h2><button class="fechar" data-a="fecharPainel" aria-label="Fechar">${ic('x', 20)}</button></div>
   <div class="painel-corpo">
     <div class="chip-pac"><span class="res-num">nº ${p.numero}</span><span><b>${esc(p.nome)}</b> · ${idade(p.nasc)} anos<br><span class="mini muted">${conv(p.conv).nome} · ${ult4(p.cel)}</span></span></div>
     ${alertas(p.id).map(al => `<div class="aviso-box erro">${ic('alerta', 16)} ${esc(al.texto)}</div>`).join('')}
-    <p style="margin:12px 0">${estadoHTML(a.estado)}${a.chegouAs ? ` <span class="mini muted">chegou às ${hhmm(a.chegouAs)}</span>` : ''}${a.motivo ? `<div class="motivo-falta">Motivo: ${esc(a.motivo)}</div>` : ''}</p>
+    <p style="margin:12px 0">${estadoHTML(a.estado)}${a.chegouAs ? ` <span class="mini muted">desde ${hhmm(a.chegouAs)}${a.estado === 'chegou' ? ` · aguardando ${tempo(minDesde(a.chegouAs))}` : ''}</span>` : ''}${a.motivo ? `<div class="motivo-falta">Motivo: ${esc(a.motivo)}</div>` : ''}</p>
     <table class="tab" style="margin-bottom:14px"><tr><td class="muted">Horário</td><td>${hhmm(a.ini)}–${hhmm(a.ini + a.dur)}</td></tr><tr><td class="muted">Cadeira</td><td>${cad(a.cad).nome}</td></tr>
       <tr><td class="muted">Procedimento</td><td>${a.proc ? proc(a.proc).nome : '—'}</td></tr><tr><td class="muted">Tipo</td><td>${esc(a.tipo)}</td></tr><tr><td class="muted">Como chegou</td><td>${esc(a.origem)}</td></tr></table>
     ${acoes}
@@ -435,13 +490,18 @@ function painelDetalhe() {
 }
 A.desmarcar = () => { E.ui.pc.painel.desmarcando = true; E.ui.foco = 'motivo'; render(); };
 A.confirmarDesmarcar = ds => {
-  const a = E.d.agendamentos.find(x => x.id === ds.id), motivo = E.ui.pc.painel.motivo || '';
-  comDesfazer(`Consulta desmarcada: ${esc(pac(a.pac).nome)}.`, () => { a.estado = 'desmarcou'; a.motivo = motivo; E.ui.pc.painel = null; });
+  const a = E.d.agendamentos.find(x => x.id === ds.id), motivo = (E.ui.pc.painel.motivo || '').trim();
+  // o motivo do cancelamento é obrigatório (R5): sem ele não dá para saber depois por que a agenda furou
+  if (!motivo) { E.ui.pc.painel.erroMotivo = true; E.ui.foco = 'motivo'; render(); return; }
+  comDesfazer(`Consulta cancelada: ${esc(pac(a.pac).nome)}.`, () => { a.estado = 'desmarcou'; a.motivo = motivo; E.ui.pc.painel = null; });
 };
 A.remarcar = ds => { const a = E.d.agendamentos.find(x => x.id === ds.id);
   abrirNovoAg({ pac: a.pac, proc: a.proc, prof: a.prof, cad: a.cad, dur: a.dur, ini: a.ini, tipo: a.tipo, origem: a.origem, remarcaDe: a.id }); };
+/* o agendamento já vem com o procedimento, a duração e o "quando" que a dentista pediu */
 A.agendarRetorno = ds => { const r = E.d.pedidosRetorno.find(x => x.id === ds.id);
-  abrirNovoAg({ pac: r.pac, prof: r.prof, tipo: 'Retorno', origem: 'Continuação de tratamento', retorno: r.id }); };
+  const it = (r.itens || []).map(id => plano(r.pac).find(i => i.id === id)).filter(Boolean), pr = it[0] && proc(it[0].proc);
+  abrirNovoAg({ pac: r.pac, prof: r.prof, tipo: 'Retorno', origem: 'Continuação de tratamento', retorno: r.id, proc: pr ? pr.id : '', dur: pr ? pr.dur : 30,
+    obs: [`Retorno pedido por ${prof(r.prof).curto}`, resumoRetorno(r), r.obs].filter(Boolean).join(' · ') }); };
 
 /* ---------- PACIENTES ---------- */
 function linhasPacs(t) {
@@ -636,7 +696,7 @@ function modalOrc() {
     <div class="mini muted" style="margin-bottom:6px">Desmarque o que o paciente não quer agora. Fica guardado como indicado, para outro dia.</div>
     ${c.pl.map(i => `<label class="item-plano" style="cursor:pointer"><input type="checkbox" ${m.sel[i.id] ? 'checked' : ''} data-a="orcSel" data-id="${i.id}" style="width:20px;height:20px"><span><b>${esc(nomeItem(i))}</b><br><span class="quem">indicado por ${prof(i.indicadoPor).curto}</span></span><span class="valor num">${brl(i.valor)}</span></label>`).join('')}
     <div class="campo" style="margin-top:12px"><label>Forma</label><span class="seg"><button class="${m.forma === 'vista' ? 'ativo' : ''}" data-a="orcForma" data-v="vista">À vista</button><button class="${m.forma === 'parc' ? 'ativo' : ''}" data-a="orcForma" data-v="parc">Parcelado</button></span>
-      ${m.forma === 'parc' ? ` em <select data-campo="pc.modal.n" data-ao="orcRe" style="width:auto;display:inline-block;padding:6px 8px">${[2, 3, 4, 5, 6, 8, 10, 12].map(n => `<option ${n == m.n ? 'selected' : ''}>${n}</option>`).join('')}</select> vezes` : ''}</div>
+      ${m.forma === 'parc' ? ` em <select data-campo="pc.modal.n" data-ao="orcRe" style="width:auto;display:inline-block;padding:6px 8px">${PARCELAS_OPCOES.map(n => `<option ${n == m.n ? 'selected' : ''}>${n}</option>`).join('')}</select> vezes` : ''}</div>
     <div class="duas"><div class="campo"><label>Desconto (R$)</label><input id="orc-desc" data-selecionar inputmode="decimal" value="${esc(m.desc)}" placeholder="0,00" data-campo="pc.modal.desc" data-ao="orcRecalc"></div>
       ${m.forma === 'parc' ? `<div class="campo"><label>1ª parcela vence</label><select data-campo="pc.modal.primeiro" data-ao="orcRe"><option value="hoje" ${m.primeiro === 'hoje' ? 'selected' : ''}>Hoje (29/10)</option><option value="30" ${m.primeiro === '30' ? 'selected' : ''}>Em 30 dias (29/11)</option></select></div>` : '<div></div>'}</div>
     <div id="orc-tot" class="aviso-box info">${orcResumo(c)}</div>
@@ -644,12 +704,13 @@ function modalOrc() {
 }
 const orcResumo = c => { const ult = c.total - c.parcela * (c.n - 1);
   const parc = c.n > 1 ? (ult === c.parcela ? ` · ${c.n}x de <b>${brl(c.parcela)}</b>` : ` · ${c.n - 1}x de <b>${brl(c.parcela)}</b> + 1x de <b>${brl(ult)}</b>`) : ' · à vista';
-  // cuota mínima provisória (R$ 50): o valor real o dono decide — blueprint/11-pendientes.md 12b
-  const pequena = c.n > 1 && c.parcela < PARCELA_MIN ? `<div class="aviso-box aviso" style="margin-top:8px">Cada parcela fica em <b>${brl(c.parcela)}</b>, abaixo de ${brl(PARCELA_MIN)}. Confira se é isso mesmo.</div>` : '';
+  // parcela mínima respondida pelo dono (blueprint/11-pendientes.md 12b): abaixo dela não dá para aprovar
+  const pequena = c.n > 1 && c.parcela < PARCELA_MIN ? `<div class="aviso-box erro" style="margin-top:8px">Cada parcela ficaria em <b>${brl(c.parcela)}</b>. A parcela mínima é ${brl(PARCELA_MIN)}: diminua as vezes ou faça à vista.</div>` : '';
   return `Total do orçamento: <b>${brl(c.total)}</b>${c.bruto !== c.total ? ` <span class="mini">(de ${brl(c.bruto)})</span>` : ''}${parc}${pequena}`; };
-const PARCELA_MIN = 5000;
+/* resposta da família (02/11): até 3x, parcela mínima de R$ 200,00 */
+const PARCELA_MIN = 20000, PARCELAS_OPCOES = [2, 3];
 /* parcelas arredondam para reais: valor pequeno em muitas vezes daria parcelas de R$ 0,00 */
-const orcOk = c => c.total > 0 && (c.n === 1 || c.parcela > 0);
+const orcOk = c => c.total > 0 && (c.n === 1 || c.parcela >= PARCELA_MIN);
 A.orcSel = (ds, el) => { E.ui.pc.modal.sel[ds.id] = el.checked; render(); };
 A.orcForma = ds => { E.ui.pc.modal.forma = ds.v; render(); };
 A.orcRe = () => render();
@@ -684,7 +745,13 @@ A.novaEvoPC = () => { E.ui.pc.evoForm = { texto: '', itens: {} }; E.ui.foco = 'e
 A.evoItem = (ds, el) => { E.ui.pc.evoForm.itens[ds.id] = el.checked; };
 function salvarEvolucao(pid, profId, texto, itens) {
   (E.d.evolucoes[pid] = E.d.evolucoes[pid] || []).push({ id: uid(), data: E.d.hoje, por: profId, texto, itens });
-  itens.forEach(id => { const i = plano(pid).find(x => x.id === id); i.estado = 'realizado'; i.feitoPor = profId; i.dataFeito = E.d.hoje; });
+  let cobrar = 0;
+  itens.forEach(id => { const i = plano(pid).find(x => x.id === id);
+    if (i.estado === 'indicado') { i.valor = valorItem(i, pid); cobrar += i.valor; } // feito sem orçamento aprovado
+    i.estado = 'realizado'; i.feitoPor = profId; i.dataFeito = E.d.hoje; });
+  // o que foi feito sem orçamento vira cobrança de hoje, para a recepção receber na saída.
+  // Aprovado já tem parcelas; convênio é pago pelo plano (glosa fica para o sistema real) — ver USABILIDADE-FAMILIA.md
+  if (cobrar && pac(pid).conv === 'part') gerarParcelas(pid, cobrar, 1, E.d.hoje);
 }
 A.salvarEvoPC = () => { const f = E.ui.pc.evoForm, pid = E.ui.pc.fichaId;
   comDesfazer('Evolução salva.', () => { salvarEvolucao(pid, usuPC().prof, f.texto, Object.keys(f.itens).filter(k => f.itens[k])); E.ui.pc.evoForm = null; }); };
@@ -799,7 +866,7 @@ function modalRec() {
     <div class="campo" style="margin-top:12px"><label>Valor recebido (R$) <span class="muted">— pode ser menos que a parcela</span></label><input id="rec-valor" data-selecionar inputmode="decimal" value="${esc(m.valorTxt)}" data-campo="pc.modal.valorTxt" data-ao="recPreview" style="font-size:20px;font-weight:700"></div>
     <div id="rec-prev">${pv.html}</div>
     ${m.okExcesso ? `<div class="aviso-box erro">Confirme: ${esc(p.nome.split(' ')[0])} deve ${brl(pv.aberto)} e você está recebendo ${brl(pv.v)}. Toque de novo para confirmar.</div>` : ''}
-    <div class="campo" style="margin-top:12px"><label>Forma de pagamento <span class="obrig">*</span></label><div class="chips chips-forma">${['Dinheiro', 'Pix', 'Cartão débito', 'Cartão crédito', 'Convênio'].map(f => `<button class="${m.forma === f ? 'on' : ''}" data-a="recForma" data-v="${f}" aria-pressed="${m.forma === f}">${m.forma === f ? ic('check', 16) : ic((FORMAS[f] || ['caixa'])[0], 16)} ${f}</button>`).join('')}</div></div>
+    <div class="campo" style="margin-top:12px"><label>Forma de pagamento <span class="obrig">*</span></label><div class="chips chips-forma">${['Dinheiro', 'Pix', 'Cartão débito', 'Cartão crédito', 'Link de pagamento', 'Convênio'].map(f => `<button class="${m.forma === f ? 'on' : ''}" data-a="recForma" data-v="${f}" aria-pressed="${m.forma === f}">${m.forma === f ? ic('check', 16) : ic((FORMAS[f] || ['caixa'])[0], 16)} ${f}</button>`).join('')}</div></div>
     ${E.d.caixa.fechado ? '<div class="aviso-box aviso">O caixa de hoje já foi fechado. Este recebimento fica marcado como “depois do fechamento”.</div>' : ''}
   </div><div class="painel-rodape"><button id="btn-rec" class="btn btn-pri" style="width:100%;min-height:48px" data-a="confirmarRec" ${r.off ? 'disabled' : ''}>${esc(r.txt)}</button></div></div>`;
 }
@@ -808,14 +875,28 @@ A.confirmarRec = () => { const m = E.ui.pc.modal, pv = recPrevia(m), p = pac(m.p
   comDesfazer(`Recebido ${brl(pv.v)} de ${esc(p.nome)} (${m.forma}).`, () => { receber(m.pac, pv.v, m.forma); E.ui.pc.modal = null; }); };
 
 /* ---------- CAIXA ---------- */
-const FORMAS = { 'Pix': ['pix', '#6B4FBB'], 'Dinheiro': ['dinheiro', '#157F3B'], 'Cartão crédito': ['cartao', '#0A5C96'], 'Cartão débito': ['cartao', '#0E7C86'], 'Convênio': ['arquivo', '#BC943D'] };
+const FORMAS = { 'Pix': ['pix', '#6B4FBB'], 'Dinheiro': ['dinheiro', '#157F3B'], 'Cartão crédito': ['cartao', '#0A5C96'], 'Cartão débito': ['cartao', '#0E7C86'], 'Convênio': ['arquivo', '#BC943D'], 'Link de pagamento': ['link', '#9A3B8C'] }; // Link: pedido do Sr. Austregesilo (R17)
 const formaHTML = f => { const [i, c] = FORMAS[f] || ['caixa', '#7C8CA3']; return `<span class="cx-forma" style="--c:${c}">${ic(i, 15)} ${esc(f)}</span>`; };
+/* "Saldo de caixa" no lugar de "Deve ter na gaveta" (Danielle, R8): saldo em espécie, em cartão
+   e, depois de contar a gaveta, o saldo positivo (sobrou) ou negativo (quanto falta) */
+function cartaoSaldo(t, cx) {
+  const din = t.porForma['Dinheiro'] || 0, cartao = (t.porForma['Cartão crédito'] || 0) + (t.porForma['Cartão débito'] || 0);
+  const outros = t.total - din - cartao;
+  const linha = (rot, v, sub, cls = '') => `<div class="saldo-linha ${cls}"><span>${rot}${sub ? `<span class="mini muted">${sub}</span>` : ''}</span><b class="num">${v}</b></div>`;
+  const conf = !cx.fechado ? linha('Saldo da conferência', '—', 'aparece quando fechar o caixa e contar a gaveta', 'saldo-neutro')
+    : cx.dif === 0 ? linha('Saldo da conferência', brl(0), 'a gaveta bateu', 'saldo-ok')
+    : linha(cx.dif > 0 ? 'Saldo positivo' : 'Saldo negativo', `${cx.dif > 0 ? '+' : '−'} ${brl(Math.abs(cx.dif))}`, cx.dif > 0 ? 'sobrou na gaveta' : 'é quanto falta na gaveta', cx.dif > 0 ? 'saldo-aviso' : 'saldo-erro');
+  return `<div class="cartao cx-saldo"><h3>${ic('dinheiro', 15)} Saldo de caixa</h3>
+    ${linha('Saldo em espécie', brl(din), 'dinheiro na gaveta')}
+    ${linha('Saldo em cartão', brl(cartao), 'crédito + débito')}
+    ${outros ? linha('Pix e outros', brl(outros), 'cai direto na conta') : ''}
+    ${conf}</div>`;
+}
 function telaCaixa() {
   const t = totaisDia(), cx = E.d.caixa;
   const recs = E.d.recebimentos.slice().sort((a, b) => b.hora - a.hora);
   const formas = Object.entries(t.porForma).sort((a, b) => b[1] - a[1]);
   const vencHoje = Object.entries(E.d.parcelas).flatMap(([pid, ps]) => ps.filter(p => p.venc === E.d.hoje && saldoParcela(p) > 0).map(p => ({ pid, p })));
-  const din = t.porForma['Dinheiro'] || 0;
   const status = cx.fechado ? `<span class="cx-status fechado">${ic('cadeado', 14)} Fechado</span>` : `<span class="cx-status aberto"><span class="ponto"></span>Aberto</span>`;
   return `<div class="titulo-tela"><h1>Caixa</h1><span class="sub">${E.d.unidade} · quinta, 29/10</span>${status}
     <span style="margin-left:auto;display:flex;gap:8px">${cx.fechado ? `<span class="cx-ja-fechado">${ic('cadeado', 16)} Fechado às ${hhmm(cx.hora)} por ${esc(usu(cx.por).nome)}</span>` : `<button class="btn" data-a="abrirFechar">${ic('cadeado', 16)} Fechar caixa</button>`}<button class="btn btn-pri" data-a="abrirReceber">${ic('mais', 16)} Receber pagamento</button></span></div>
@@ -830,7 +911,7 @@ function telaCaixa() {
       <div class="cx-formas">${formas.map(([f, v]) => `<div class="cx-forma-linha">${formaHTML(f)}<b class="num">${brl(v)}</b><span class="mini muted">${Math.round(v / t.total * 100)}%</span></div>`).join('') || '<span class="muted">Nada recebido ainda.</span>'}</div>
     </div>
     <div class="cx-lado">
-      <div class="cartao cx-gaveta"><span class="cx-ic">${ic('dinheiro', 22)}</span><span><span class="cx-rot">Deve ter na gaveta</span><b class="num">${brl(din)}</b><span class="mini muted">só o dinheiro em espécie de hoje</span></span></div>
+      ${cartaoSaldo(t, cx)}
       <div class="cartao"><h3>Vence hoje e falta receber <span class="h-cont ${vencHoje.length ? 'alerta' : ''}">${vencHoje.length}</span></h3>
         ${vencHoje.map(({ pid, p }) => { const pa = pac(pid); return `<div class="h-atencao"><span class="h-ico aviso">${ic('caixa', 18)}</span><span class="h-pac"><b>${numNome(pa)}</b><span class="h-meta">parcela ${p.n} de ${p.de} · falta ${brl(saldoParcela(p))}</span></span><span class="acoes"><button class="btn btn-peq" data-a="abrirReceber" data-pac="${pid}">Receber</button></span></div>`; }).join('') || '<div class="vazio">Nada vencendo hoje.</div>'}</div>
     </div>

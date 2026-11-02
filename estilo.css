@@ -676,3 +676,84 @@ fieldset.so-ver .btn,fieldset.so-ver input,fieldset.so-ver select,fieldset.so-ve
 .cel .seg button,.dono-topo .quando,.cel .cel-al{font-size:16px}
 .cel .cel-legenda,.cel .cel-legenda div,.cel .alerta-ico.cel-al,.cel-quem-al,.cel .cel-link-item,.cel .cx-status{font-size:16px}
 .cel-campo>span{font-size:16px}
+
+/* ===== Usabilidade pedida pela família (02/11 — USABILIDADE-FAMILIA.md) ===== */
+/* cores do PEC (R2): presente na unidade = verde, faltou = vermelho; atendido fica neutro para não confundir com presente */
+.est-chegou{color:var(--ok);background:var(--ok-bg)}
+.est-atendido{color:var(--ink-soft);background:#eef1f5}
+.ag-ev.e-chegou{border-left-color:var(--ok);background:#f2faf5}
+.ag-ev.e-chegou .ev-est{color:var(--ok)}
+.ag-ev.e-atendido{border-left-color:#9aa8bb;background:#f5f7fa}
+.ag-ev.e-atendido .ev-est{color:var(--ink-soft)}
+.cel-card.chegou{border:2px solid #7cc596;background:#f2faf5}
+
+/* dica ao passar o mouse ou focar com o teclado (símbolos sem palavra) */
+[data-dica]{position:relative}
+[data-dica]:hover::after,[data-dica]:focus-visible::after{content:attr(data-dica);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;font-size:12.5px;font-weight:600;line-height:1.3;padding:5px 9px;border-radius:6px;white-space:nowrap;z-index:40;pointer-events:none;box-shadow:0 6px 16px -6px rgba(8,32,63,.5)}
+.est-ico{width:30px;height:30px;padding:0;justify-content:center;border-radius:50%}
+.est-ico:focus-visible,.btn-ico:focus-visible{outline:3px solid rgba(24,128,191,.45);outline-offset:2px}
+
+/* botões só com ícone: alvo de 36 px */
+.btn-ico{width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--rule);background:#fff;border-radius:9px;color:var(--ink-soft);padding:0}
+.btn-ico:hover{background:var(--info-bg);color:var(--brand-deep);border-color:#b8d3ea}
+.btn-ico.ok{color:var(--ok);border-color:#b9e0c6;background:var(--ok-bg)}
+.btn-ico.perigo{color:var(--erro);border-color:#f3c3be;background:var(--erro-bg)}
+
+/* lista do dia: marcado · chegada · status · paciente · telefone · ações */
+.h-dia{grid-template-columns:58px 66px 50px minmax(0,1fr) 104px 140px;gap:8px}
+.h-dia-cab{display:grid;padding:0 6px 6px;white-space:nowrap;border-bottom:1px solid var(--rule);font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft)}
+.h-chegada{display:flex;flex-direction:column;line-height:1.25;font-size:14px}
+.h-espera{font-size:12px;font-weight:700;color:var(--ink-soft)}
+.h-espera.demora{color:var(--aviso)}
+.h-espera.atend{color:var(--atend)}
+.h-tel{font-size:13.5px;color:var(--ink-soft);white-space:nowrap}
+.h-dia .acoes{gap:6px}
+.h-linha.h-dia.h-feito{grid-template-columns:58px minmax(0,1fr) auto}
+.h-dia.h-feito .h-feito-txt{grid-column:2/3}
+.est-linha-atendido .h-pac b,.est-linha-desmarcou .h-pac b,.est-linha-faltou .h-pac b{color:var(--ink-soft)}
+.est-linha-desmarcou .h-nome b{text-decoration:line-through}
+
+/* filtro (R6): os chips são também a legenda dos símbolos */
+.h-filtro{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px}
+.h-filtro-rot{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;color:var(--ink);margin-right:2px}
+.h-filtro button{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--rule);background:#fff;border-radius:999px;padding:5px 11px;font-size:13px;font-weight:600;color:var(--ink-soft);min-height:32px}
+.h-filtro button .mini{color:var(--ink-faint);font-weight:700}
+.h-filtro button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.h-filtro button.on .mini{color:#c9d6e6}
+.chip-est-chegou .ic{color:var(--ok)} .chip-est-faltou .ic{color:var(--erro)} .chip-est-em_atendimento .ic{color:var(--atend)} .chip-est-confirmado .ic{color:var(--brand-deep)}
+.h-filtro button.on .ic{color:#fff}
+.abas .aba .h-cont{display:inline-flex;min-width:20px;height:18px;padding:0 6px;margin-left:4px;border-radius:999px;font-size:11.5px;align-items:center;justify-content:center}
+.abas .aba .h-cont.alerta{background:var(--erro-bg);color:var(--erro)}
+.abas .aba .ic{vertical-align:-2px;margin-right:2px}
+.cartao h3 .ic{vertical-align:-2px}
+.cx-saldo h3{margin-bottom:6px}
+.saldo-linha{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--rule)}
+.saldo-linha:last-child{border-bottom:0}
+.saldo-linha>span{display:flex;flex-direction:column;font-weight:600}
+.saldo-linha b{font-size:18px;color:var(--navy)}
+.saldo-ok b{color:var(--ok)} .saldo-aviso b{color:var(--aviso)} .saldo-erro b{color:var(--erro)} .saldo-neutro b{color:var(--ink-faint)}
+.sem-pac{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:12px;margin-top:6px;border:1px dashed #e2b33a;background:#fffaeb;border-radius:var(--r)}
+.btn-novo-pac{background:var(--gold-light);border:1px solid var(--gold);color:var(--navy);font-weight:700;min-height:42px}
+.btn-novo-pac:hover{background:#f0d998}
+.grade-hoje{grid-template-columns:minmax(0,1fr) 280px}
+.grade-hoje .h-atencao{grid-template-columns:30px minmax(0,1fr)}
+.grade-hoje .h-atencao .acoes{grid-column:2/3;justify-content:flex-start;margin-top:4px}
+/* símbolo do estado: a dica abre ao lado, para não cobrir o cabeçalho da lista */
+.est-ico[data-dica]:hover::after,.est-ico[data-dica]:focus-visible::after{left:calc(100% + 8px);bottom:auto;top:50%;transform:translateY(-50%)}
+.h-dia .btn-ico{width:32px;height:32px}
+.h-dia .acoes{gap:4px}
+.h-motivo{color:var(--erro)}
+/* agenda: mostrar só uma profissional/cadeira (R12) */
+.ag-filtro{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px}
+.ag-filtro button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);background:#fff;border-radius:999px;padding:4px 12px 4px 6px;font-size:13.5px;font-weight:600;color:var(--ink-soft);min-height:34px}
+.ag-filtro button:first-of-type{padding-left:12px}
+.ag-filtro button .mini{color:var(--ink-faint);font-weight:700}
+.ag-filtro button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.ag-filtro button.on .mini{color:#c9d6e6}
+.mini-av{width:22px;height:22px;font-size:10.5px}
+.ag-filtro button.on .mini-av{background:#fff;color:var(--navy)}
+.btn-ico.cobrar{color:var(--ok);border-color:#b9e0c6;background:var(--ok-bg)}
+.btn-ico.retorno{color:var(--remarc);border-color:#d8cdf4;background:#f4f0fd}
+.saida-valor{color:var(--ink)}
+/* odontograma do celular: o desenho do dente fica visível ao rolar até as condições (prévia da cor) */
+.cel-dente-topo{position:sticky;top:0;z-index:5;background:var(--bg);padding:6px 0;margin:0 0 6px}
