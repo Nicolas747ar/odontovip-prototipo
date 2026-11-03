@@ -4,8 +4,9 @@ const usuPC = () => usu(E.ui.pc.usuario);
 function pode(acao, u = usuPC()) {
   const p = u.papel;
   return {
-    caixa: ['recepcao', 'dono', 'admin'], clinico: ['dentista', 'dono'], indicar: ['dentista'], alerta: ['dentista'],
-    finPac: ['recepcao', 'dono', 'admin'], config: ['dono'], evolucao: ['dentista'], recusar: ['dentista', 'recepcao', 'admin'], cadastro: ['recepcao', 'dono', 'admin'],
+    // admin = Suely Maria, esposa do dono e coordenadora: vê tudo como o dono (Nicolas, 03/11 — ADR-023)
+    caixa: ['recepcao', 'dono', 'admin'], clinico: ['dentista', 'dono', 'admin'], indicar: ['dentista'], alerta: ['dentista'],
+    finPac: ['recepcao', 'dono', 'admin'], config: ['dono', 'admin'], evolucao: ['dentista'], recusar: ['dentista', 'recepcao', 'admin'], cadastro: ['recepcao', 'dono', 'admin'],
     anamnese: ['dentista'], // o dono lê a anamnese, mas quem preenche é a dentista (a ficha guarda qual profissional fez)
   }[acao].includes(p) || (!!u.fin && ['caixa', 'finPac'].includes(acao)); // fin: dentista da família que também cuida do financeiro
 }
@@ -198,6 +199,10 @@ function telaHoje() {
   ${aba === 'fin' ? fin : agenda}`;
 }
 /* "Fazer orçamento" direto das Pendências: abre a ficha no Financeiro com o orçamento */
+/* como o comprovante: a assinatura é com o dedo no celular ou tablet da clínica, sem CPF nem e-mail */
+A.pedirAssinOrc = ds => { const o = orcamentos(E.ui.pc.fichaId).find(x => x.id === ds.id); if (!o) return; o.pedido = true;
+  // sem toast: a própria linha diz "pedido enviado ao celular", e o Desfazer da aprovação continua na tela
+  render(); };
 A.orcDaFicha = ds => { A.abrirFicha({ id: ds.id }); E.ui.pc.aba = 'financeiro'; A.abrirOrc(); };
 A.abaHoje = ds => { E.ui.pc.abaHoje = ds.v; render(); };
 A.filtroHoje = ds => { E.ui.pc.filtroHoje = ds.v; render(); };
@@ -621,7 +626,7 @@ function abaResumo(p) {
   const an = (E.d.anamneses[p.id] || []).slice(-1)[0];
   return `<div class="resumo-grade">
     <div class="cartao"><h3>Próxima consulta</h3>${prox ? `<b>hoje ${hhmm(prox.ini)}</b> · ${esc(prof(prox.prof).curto)} ${estadoHTML(prox.estado)}` : '<span class="muted">Nenhuma agendada.</span> <button class="btn-link" data-a="novoAg" data-pac="' + p.id + '">Agendar</button>'}</div>
-    <div class="cartao"><h3>Plano de tratamento</h3>${pl.length ? `<b>${feitos} de ${pl.length}</b> feitos${(n => n ? ` · <b>${n}</b> ${n === 1 ? 'espera' : 'esperam'} orçamento` : '')(pl.filter(i => i.estado === 'indicado').length)}<div class="prog"><i style="width:${pl.length ? feitos / pl.length * 100 : 0}%"></i></div>` : '<span class="muted">Sem plano.</span>'}</div>
+    <div class="cartao"><h3>Plano de tratamento</h3>${pl.length ? `<b>${feitos} de ${pl.length}</b> feitos${(n => n ? ` · <b>${n}</b> ${n === 1 ? 'espera' : 'esperam'} orçamento` : '')(pl.filter(i => i.estado === 'indicado').length)}${orcSemAssinatura(p.id).length ? ` · <span class="res-ruim">${ic('alerta', 14)} orçamento sem assinatura</span>` : ''}<div class="prog"><i style="width:${pl.length ? feitos / pl.length * 100 : 0}%"></i></div>` : '<span class="muted">Sem plano.</span>'}</div>
     <div class="cartao"><h3>${pode('clinico') ? 'Última evolução' : 'Última consulta'}</h3>${ult ? `<b>${dataBR(ult.data)}</b> · ${esc(prof(ult.por).curto)}${pode('clinico') ? '<br>' + esc(ult.texto) : ''}` : '<span class="muted">Nenhuma.</span>'}</div>
     <div class="cartao"><h3>Financeiro</h3>${pode('finPac') ? (saldo ? `Em aberto: <b>${brl(saldo)}</b>` : '<span class="muted">Nada em aberto.</span>') + (p.credito ? `<br>Crédito: <b>${brl(p.credito)}</b>` : '') : '<span class="muted">—</span>'}</div>
     <div class="cartao"><h3>Anamnese</h3>${an ? `Última: <b>${dataBR(an.data)}</b> (${E.d.modelos.find(m => m.id === an.modelo).nome}) · ${an.assinada ? `<span style="color:var(--ok)">${ic('assinar', 14)} assinada</span>` : '<span class="muted">sem assinatura</span>'}` : '<span class="muted">Nenhuma ficha preenchida.</span>'}</div>
@@ -647,7 +652,7 @@ function abaAnamnese(p) {
       <div style="margin-top:12px"><button class="btn btn-pri" data-a="salvarAnam">Salvar ficha</button> <button class="btn-link" data-a="aba" data-id="anamnese">Cancelar</button></div></div>`;
   }
   const lista = (E.d.anamneses[p.id] || []).slice().reverse();
-  return `${pode('anamnese') ? '<button class="btn btn-pri" data-a="anamNova" style="margin-bottom:12px">+ Preencher ficha</button>' : ''}
+  return `${pode('anamnese') ? '' : `<div class="aviso-box info">${ic('cadeado', 15)} Somente as dentistas preenchem a anamnese. Aqui dá para ler.</div>`}${pode('anamnese') ? '<button class="btn btn-pri" data-a="anamNova" style="margin-bottom:12px">+ Preencher ficha</button>' : ''}
     ${lista.map(an => { const m = E.d.modelos.find(x => x.id === an.modelo); return `<div class="cartao" style="margin-bottom:10px"><h3>${m.nome} · ${dataBR(an.data)} · ${esc(prof(an.por) ? prof(an.por).curto : '—')} · ${an.assinada ? `<span style="color:var(--ok)">${ic('assinar', 14)} assinada</span>` : 'sem assinatura'}</h3>
       ${m.perguntas.map(q => { const r = an.respostas[q.id] || {}; return `<div class="anam-resp">${q.texto} <b>${r.sim === true ? 'Sim' : r.sim === false ? 'Não' : ''}${r.texto ? ' — ' + esc(r.texto) : ''}</b></div>`; }).join('')}</div>`; }).join('') || '<div class="vazio">Nenhuma ficha preenchida.</div>'}`;
 }
@@ -738,6 +743,8 @@ A.aprovarOrc = () => {
   // ADR-025: aprovar o orçamento já leva a receber — o particular paga antes de começar
   comDesfazer(`Orçamento aprovado: ${brl(c.total)}${c.n > 1 ? ` em ${c.n}x` : ''}. Receba ${c.n > 1 ? 'a 1ª parcela' : 'o valor'} antes de começar o tratamento.`, () => {
     c.pl.filter(i => m.sel[i.id]).forEach(i => { i.estado = 'aprovado'; i.dataApr = E.d.hoje; });
+    // fica guardado para o paciente assinar (T-013): o que foi aprovado, o total e a forma
+    orcamentos(pid).push({ id: uid(), data: E.d.hoje, itens: c.pl.filter(i => m.sel[i.id]).map(i => i.id), bruto: c.bruto, desconto: c.bruto - c.total, total: c.total, n: c.n, assinado: false, por: E.ui.pc.usuario });
     // à vista sempre vence hoje: "primeiro" pode ter ficado em "30" de quando estava em Parcelado
     gerarParcelas(pid, c.total, c.n, m.forma === 'vista' || m.primeiro === 'hoje' ? E.d.hoje : somaMeses(E.d.hoje, 1));
     E.ui.pc.modal = null; E.ui.pc.aba = 'financeiro';
@@ -752,7 +759,7 @@ function abaEvolucao(p) {
     <div class="campo"><label>O que foi feito hoje?</label>${abertos.map(i => `<label class="item-plano" style="cursor:pointer"><input type="checkbox" ${f.itens[i.id] ? 'checked' : ''} data-a="evoItem" data-id="${i.id}" style="width:20px;height:20px"><span>${esc(nomeItem(i))} <span class="quem">${i.estado === 'indicado' ? '(ainda não aprovado)' : ''}</span></span></label>`).join('') || '<div class="muted mini">Nada pendente no plano.</div>'}</div>
     <div class="campo"><label>Observações</label><textarea id="evo-txt" rows="3" data-campo="pc.evoForm.texto">${esc(f.texto)}</textarea></div>
     <button class="btn btn-pri" data-a="salvarEvoPC">Salvar evolução</button> <button class="btn-link" data-a="aba" data-id="evolucao">Cancelar</button></div>` : '';
-  return `${pode('evolucao') && !f ? '<button class="btn btn-pri" data-a="novaEvoPC" style="margin-bottom:12px">+ Nova evolução</button>' : ''}${form}
+  return `${pode('evolucao') ? '' : `<div class="aviso-box info">${ic('cadeado', 15)} Somente as dentistas escrevem a evolução.</div>`}${pode('evolucao') && !f ? '<button class="btn btn-pri" data-a="novaEvoPC" style="margin-bottom:12px">+ Nova evolução</button>' : ''}${form}
     ${evs.map(ev => `<div class="cartao" style="margin-bottom:10px"><h3>${dataBR(ev.data)} · ${esc(prof(ev.por).curto)}</h3>
       ${pode('clinico') ? `<div>${esc(ev.texto)}</div>` : '<div class="muted">Conteúdo clínico — só dentistas.</div>'}
       ${ev.itens.length ? `<div class="mini muted" style="margin-top:6px">Feito: ${ev.itens.map(id => esc(nomeItem(plano(p.id).find(i => i.id === id)))).join(' · ')}</div>` : ''}</div>`).join('') || '<div class="vazio">Nenhuma evolução.</div>'}`;
@@ -793,6 +800,8 @@ A.enviarArq = () => toast('No sistema real, abre o seletor de arquivos (radiogra
 function abaFinanceiro(p) {
   const ps = parcelas(p.id), recs = E.d.recebimentos.filter(r => r.pac === p.id);
   return `<div style="display:flex;gap:8px;margin-bottom:12px"><button class="btn btn-pri" data-a="abrirReceber" data-pac="${p.id}">Receber pagamento</button>${(n => n ? `<button class="btn" data-a="abrirOrc">Gerar orçamento (${n} ${n === 1 ? 'indicado' : 'indicados'})</button>` : '')(plano(p.id).filter(i => i.estado === 'indicado').length)}</div>
+  ${orcamentos(p.id).length ? `<div class="grupo-tit">Orçamentos aprovados</div>${orcamentos(p.id).slice().reverse().map(o => `<div class="linha orc-linha"><span><b>${dataBR(o.data)}</b> · ${brl(o.total)}${o.n > 1 ? ` em ${o.n}x` : ' à vista'}<br><span class="orc-itens muted">${o.itens.map(id => plano(p.id).find(i => i.id === id)).filter(Boolean).map(i => esc(nomeItem(i))).join(' · ')}${o.desconto ? ` · desconto ${brl(o.desconto)}` : ''}</span></span>
+    <span class="acoes">${o.assinado ? `<span class="res-ok">${ic('assinar', 15)} assinado em ${dataBR(o.dataAssin || o.data)}</span>` : `<span class="res-ruim">${ic('alerta', 15)} falta assinatura${o.pedido ? ' · pedido enviado ao celular' : ''}</span> <button class="btn btn-peq" data-a="pedirAssinOrc" data-id="${o.id}">${o.pedido ? 'Pedir de novo' : 'Pedir assinatura no celular'}</button>`}</span></div>`).join('')}` : ''}
   ${p.credito ? `<div class="aviso-box info">Crédito do paciente: <b>${brl(p.credito)}</b> (pagou a mais). Ainda não é descontado sozinho das próximas parcelas.</div>` : ''}
   <table class="tab tab-fin"><thead><tr><th>Parcela</th><th>Vence</th><th class="dir">Valor</th><th class="dir">Pago</th><th class="dir">Falta</th><th>Situação</th></tr></thead><tbody>
   ${ps.map(x => { const s = saldoParcela(x), st = !s ? 'paga' : x.venc < E.d.hoje ? 'vencida' : x.pago ? 'parcial' : 'aberta';

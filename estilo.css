@@ -402,7 +402,7 @@ table.tab{width:100%;border-collapse:collapse;background:var(--surface);border:1
 .cel-btn-item{min-height:48px;margin-top:6px;padding:8px 14px;font-size:15px}
 .cel-arq{font:inherit;text-align:left;cursor:pointer;color:inherit}
 .cel-arq-grande{height:420px;border-radius:14px;background:#0f1722;color:#9fb0c6;display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;text-align:center;padding:20px}
-.assin-resumo .assin-linha{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid var(--rule);font-size:14px}
+.assin-resumo .assin-linha{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid var(--rule);font-size:16px}
 .cel-input.com-erro{border-color:var(--erro);background:var(--erro-bg)}
 .cel-erro{display:block;color:var(--erro);font-style:normal;font-size:14px;font-weight:700;margin-top:4px;min-height:0}
 .toast button{min-height:48px;padding:8px 16px}
@@ -828,3 +828,8 @@ i.sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:
 .h-grupo{font-size:14px}
 .chk input{flex-shrink:0}
 .tag-parado{font-size:16px;font-weight:700;border-radius:999px;padding:1px 8px;background:var(--erro-bg);color:var(--erro)}
+/* T-013: plano de tratamento sem assinatura (S-mac-5) */
+.cel-falta-assin{border:2px solid #e7c873;background:var(--aviso-bg)}
+.cel-falta-assin .cel-ir-ic{color:var(--aviso)}
+.orc-linha{align-items:center}
+.orc-itens{display:block;font-size:14px}

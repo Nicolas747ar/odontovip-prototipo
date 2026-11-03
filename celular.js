@@ -95,6 +95,7 @@ function celPaciente() {
     <button class="cel-card cel-ir" data-a="celTela" data-t="odonto"><span class="cel-ir-txt"><b>Odontograma e plano</b>
       ${miniBoca(p.id)}<span class="mini muted">${pl.length ? `${feitos} de ${pl.length} tratamentos feitos` : 'Sem tratamentos no plano'}</span>
       ${pl.length ? `<span class="prog"><i style="width:${feitos / pl.length * 100}%"></i></span>` : ''}</span>${ic('dir', 20)}</button>
+    ${orcSemAssinatura(p.id).map(o => `<button class="cel-card cel-ir cel-falta-assin" data-a="celAssinOrc" data-id="${o.id}"><span class="cel-ir-ic">${ic('assinar', 22)}</span><span class="cel-ir-txt"><b>Plano de tratamento · falta assinatura</b><span class="mini">Orçamento de ${dataBR(o.data)} · ${brl(o.total)} — toque para o paciente assinar</span></span>${ic('dir', 20)}</button>`).join('')}
     ${cartaoIr(ans.length || (c.anamRasc || {})[p.id] ? 'anam' : 'anamNova', 'prancheta', 'Anamnese', (c.anamRasc || {})[p.id] ? 'ficha começada — toque para continuar' : ans.length ? `última em ${dataBR(ans[ans.length - 1].data)}${ans[ans.length - 1].assinada ? ' · assinada' : ''}` : 'nenhuma ficha — toque para preencher')}
     ${cartaoIr('evos', 'arquivo', 'Evolução', ult ? `${dataBR(ult.data)} · ${esc(prof(ult.por).curto)} · “${esc(ult.texto.slice(0, 48))}${ult.texto.length > 48 ? '…' : ''}”` : 'nenhuma ainda')}
     ${cartaoIr('arquivos', 'foto', `Arquivos (${arqs.length})`, (arqs.length ? 'radiografias, fotos e comprovantes' : 'nenhum ainda') + (semAssinatura(p.id) ? ` · <b class="res-ruim">${semAssinatura(p.id)} sem assinatura</b>` : ''))}
@@ -277,7 +278,25 @@ A.celSalvarAnam = () => {
 };
 A.celPedirAssin = ds => { E.ui.cel.assinarId = ds.id; E.ui.cel.tela = 'assinar'; render(); };
 /* assinatura com o dedo no próprio celular. Sem CPF, sem e-mail. */
+A.celAssinOrc = ds => { Object.assign(E.ui.cel, { assinarTipo: 'orc', assinarId: ds.id, tela: 'assinar' }); render(); };
+/* assinatura do plano de tratamento: o paciente vê o que foi aprovado, o total e a forma antes de assinar */
+function celAssinarOrc() {
+  const c = E.ui.cel, p = pac(c.pacId), o = orcamentos(p.id).find(x => x.id === c.assinarId);
+  if (!o) { c.tela = 'paciente'; return celPaciente(); }
+  const its = o.itens.map(id => plano(p.id).find(i => i.id === id)).filter(Boolean);
+  return `<div class="cel-cab"><h2>Assinatura do paciente</h2><div class="sub">${esc(p.nome)} · plano de tratamento</div></div>
+  <div class="cel-corpo" data-scroll="cel-assin"><div class="mini">Entregue o celular ao paciente. Confira o plano e assine embaixo.</div>
+    <div class="cel-card assin-resumo"><b>Orçamento aprovado em ${dataBR(o.data)}</b>${its.map(i => `<div class="assin-linha"><span>${esc(nomeItem(i))}</span><b>${brl(i.valor)}</b></div>`).join('')}
+      ${o.desconto ? `<div class="assin-linha"><span>Desconto</span><b>− ${brl(o.desconto)}</b></div>` : ''}
+      <div class="assin-linha"><span><b>Total</b></span><b>${brl(o.total)}${o.n > 1 ? ` em ${o.n}x` : ' à vista'}</b></div></div>
+    <div class="mini">Concordo com o plano de tratamento e o orçamento acima.</div>
+    <div class="assin-caixa"><canvas id="cel-assin" width="320" height="200" aria-label="Área para assinar com o dedo"></canvas><span class="assin-dica">Assine aqui com o dedo</span></div>
+    <button class="btn" style="width:100%;min-height:48px" data-a="celLimparAssin">Apagar e assinar de novo</button></div>
+  <div class="cel-rodape"><button class="btn" style="flex:0 0 120px" data-a="celSairAssinOrc">Agora não</button><button class="btn btn-pri" id="btn-assin" data-a="celConfirmarAssin" disabled>Assinatura pronta</button></div>`;
+}
+A.celSairAssinOrc = () => { Object.assign(E.ui.cel, { assinarTipo: null, tela: 'paciente' }); render(); };
 function celAssinar() {
+  if (E.ui.cel.assinarTipo === 'orc') return celAssinarOrc();
   const c = E.ui.cel, p = pac(c.pacId), an = (E.d.anamneses[p.id] || []).find(x => x.id === c.assinarId);
   const m = an && E.d.modelos.find(x => x.id === an.modelo);
   const resumo = m ? m.perguntas.map(q => { const r = an.respostas[q.id] || {}; return `<div class="assin-linha"><span>${q.texto}</span><b>${r.sim === true ? 'Sim' : r.sim === false ? 'Não' : ''}${r.texto ? (r.sim != null ? ' — ' : '') + esc(r.texto) : ''}</b></div>`; }).join('') : '';
@@ -300,7 +319,10 @@ document.addEventListener('pointermove', e => { if (!assinTracando || e.target.i
   const b = document.getElementById('btn-assin'); if (b) b.disabled = false; });
 document.addEventListener('pointerup', () => { assinTracando = false; });
 A.celLimparAssin = () => { E.ui.rolarPara = '.assin-caixa'; render(); };
-A.celConfirmarAssin = () => { const c = E.ui.cel, an = (E.d.anamneses[c.pacId] || []).find(x => x.id === c.assinarId);
+A.celConfirmarAssin = () => { const c = E.ui.cel;
+  if (c.assinarTipo === 'orc') { const o = orcamentos(c.pacId).find(x => x.id === c.assinarId); c.assinarTipo = null; c.tela = 'paciente';
+    if (o) { o.assinado = true; o.dataAssin = E.d.hoje; } if (E.ui.celForaWifi) c.fila.push(() => {}); render(); toast('Assinatura do plano guardada na ficha.'); return; }
+  const an = (E.d.anamneses[c.pacId] || []).find(x => x.id === c.assinarId);
   c.tela = 'anam'; if (!an) { render(); return; }
   an.assinada = true; if (E.ui.celForaWifi) c.fila.push(() => {}); render(); toast('Assinatura guardada na ficha.'); };
 

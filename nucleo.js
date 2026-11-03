@@ -153,6 +153,10 @@ const FORMAS_PREVISTAS = ['Dinheiro', 'Pix', 'Cartão débito', 'Cartão crédit
 const comprovantes = pid => (E.d.comprovantes[pid] = E.d.comprovantes[pid] || []);
 /* a forma que a dentista anotou hoje: a recepção vê ao cobrar (R14) */
 const formaPrevistaHoje = pid => { const c = comprovantes(pid).filter(x => x.data === E.d.hoje && x.forma); return c.length ? c[c.length - 1].forma : null; };
+/* T-013: o orçamento aprovado (plano de tratamento) também pede a assinatura do paciente */
+const orcamentos = pid => { E.d.orcamentos = E.d.orcamentos || {}; return (E.d.orcamentos[pid] = E.d.orcamentos[pid] || []); };
+const orcSemAssinatura = pid => orcamentos(pid).filter(o => !o.assinado);
+// Arquivos conta só comprovantes; o orçamento sem assinatura é avisado no plano de tratamento
 const semAssinatura = pid => comprovantes(pid).filter(x => !x.assinado).length;
 const retornoPendente = pid => E.d.pedidosRetorno.find(r => r.pac === pid && !r.feito);
 /* "em 15 dias · Restauração 2 faces · 46 (R$ 190,00)" — o que a recepção precisa para marcar e dizer o valor */
