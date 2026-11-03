@@ -852,3 +852,52 @@ i.sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:
 .np-foto{display:flex;align-items:center;gap:12px;margin-bottom:12px;border:0;background:none;padding:0;cursor:pointer;font:inherit;text-align:left}
 .np-foto:hover .avatar-pac{border-color:var(--brand)}
 .so-leitor{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+/* ===== ADR-027 limpeza visual (S-mac-8): menos é mais — "de uma criança a um idoso" ===== */
+/* sem MAIÚSCULAS e só 3 tamanhos: título 16–22, texto 14–15, dado pequeno 13 */
+.cartao h3,.h-grupo,.h-dia-cab,.tab th,.grupo-tit,.dono-rot,.cel .grupo-tit{text-transform:none!important;letter-spacing:0!important}
+.cartao h3{font-size:16px;color:var(--ink);font-weight:700;margin-bottom:12px}
+.h-grupo{font-size:14px;color:var(--ink-soft);font-weight:700;margin:18px 0 4px}
+.h-grupo span,.cartao h3 .h-cont{background:none!important;color:var(--ink-faint)!important;font-weight:600;padding:0 2px}
+.h-grupo.h-grupo-antes{background:none;color:var(--ink-soft);padding:0}
+.h-dia-cab{font-size:13px;font-weight:600}
+/* o resumo do dia em uma linha, sem cartões coloridos */
+.h-resumo{font-size:15px;color:var(--ink-soft);margin:-4px 0 14px}
+.h-resumo b{color:var(--ink);font-size:16px}
+/* filtro: um seletor só */
+.h-filtro{display:inline-flex;align-items:center;gap:8px;margin:0 0 10px}
+.h-filtro select{border:1px solid var(--rule);border-radius:10px;padding:7px 10px;font:inherit;font-size:14px;background:#fff;min-height:38px}
+/* cartões mais leves: espaço no lugar de borda */
+.cartao{border-color:transparent;box-shadow:0 1px 2px rgba(11,31,63,.06)}
+.h-atencao{border-bottom-color:#eef2f7}
+/* botões amáveis */
+.btn{border-radius:10px}
+.btn-pri{box-shadow:0 2px 6px -2px rgba(10,92,150,.45)}
+/* ficha: resumo em lista de linhas que levam à aba (no lugar de 6 cartões com borda) */
+.resumo-lista{background:var(--surface);border-radius:var(--r-card);box-shadow:0 1px 2px rgba(11,31,63,.06);padding:4px 16px}
+.resumo-linha{display:grid;grid-template-columns:180px minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;padding:14px 4px;border:0;border-bottom:1px solid #eef2f7;background:none;text-align:left;font:inherit;color:var(--ink)}
+.resumo-linha:last-child{border-bottom:0}
+button.resumo-linha{cursor:pointer}
+button.resumo-linha:hover{background:var(--bg)}
+button.resumo-linha[disabled]{cursor:default;opacity:1}
+.rl-tit{font-weight:700;color:var(--ink-soft);font-size:14px}
+.rl-val{font-size:15px}
+.ficha-cab .acoes{display:flex;align-items:center;gap:14px}
+.ficha-cab .acoes .btn-link{display:inline-flex;align-items:center;gap:5px;font-weight:600}
+/* celular (ADR-027) */
+.cel-feitos summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;min-height:48px}
+.cel-feitos summary::-webkit-details-marker{display:none}
+.cel-feitos summary::after{content:'›';font-size:20px;color:var(--ink-faint);transform:rotate(90deg)}
+.cel-feitos[open] summary::after{transform:rotate(-90deg)}
+.cel-alerta-link{display:block;margin:8px 16px 0;border:0;background:none;color:var(--brand-deep);font:inherit;font-size:16px;font-weight:600;min-height:48px;text-align:left;padding:0}
+.cel-pag{background:none!important;padding:4px 0!important;font-weight:600}
+.cel .grupo-tit{font-size:16px;color:var(--ink-soft)}
+/* escala de letra da PC (ADR-027 regra 8): pequeno 13 · secundário 14 · texto 15 · títulos 16/22 */
+.pc .h-cont,.pc .h-espera,.pc .h-quando,.pc .h-cont.alerta,.abas .aba .h-cont{font-size:13px!important}
+.pc .h-tel{font-size:14px}
+.pc .h-filtro-rot{font-size:15px}
+.h-resumo b{font-size:15px}
+/* ADR-027, 2ª passada */
+.h-quando{background:none!important;color:var(--ink-soft)!important;padding:0!important;font-weight:700}
+.cel-card.chegou{border:1px solid var(--rule)!important;background:#fff!important;box-shadow:inset 4px 0 0 var(--ok)}
+.nota-leve{display:flex;align-items:center;gap:6px;color:var(--ink-soft);font-size:14px;margin:0 0 12px}

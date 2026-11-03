@@ -38,7 +38,10 @@ function cardAg(a) {
   return `<div class="cel-card ${cls}" data-a="celAbrirPac" data-id="${p.id}">
     <div class="linha1"><span class="h num">${hhmm(a.ini)}</span><span><span class="n">${numNomeCel(p)}</span><br>
       <span class="mini muted">${a.proc ? esc(proc(a.proc).nome) : ''} · ${cad(a.cad).nome}</span></span></div>
-    <div style="margin-top:6px">${estadoHTML(a.estado)} ${al.length ? `<span class="alerta-ico cel-al">${ic('alerta', 15)}&nbsp;${esc(al[0].texto)}</span>` : ''}</div>
+    ${(() => { const atrasado = ['a_confirmar', 'confirmado'].includes(a.estado) && a.ini + 15 < E.d.agoraMin;
+      const est = atrasado ? `<span class="est est-faltou">${ic('relogio', 13)} Não chegou · ${tempo(E.d.agoraMin - a.ini)}</span>` // exceção: atrasado
+        : ['confirmado', 'chegou'].includes(a.estado) ? '' : estadoHTML(a.estado); // ADR-027: só a exceção ganha selo
+      return est || al.length ? `<div style="margin-top:6px">${est} ${al.length ? `<span class="alerta-ico cel-al">${ic('alerta', 15)}&nbsp;${esc(al[0].texto)}</span>` : ''}</div>` : ''; })()}
     ${['chegou', 'em_atendimento'].includes(a.estado) && pac(a.pac).conv === 'part' ? (plano(p.id).some(i => i.estado === 'aprovado') ? celSituacaoPag(p.id)
       : semOrcamentoAprovado(p.id) ? `<div class="cel-pag falta">${ic('alerta', 16)} Sem orçamento aprovado · a recepção faz antes</div>` : '') : ''}
     ${a.estado === 'chegou' ? `<button class="btn btn-pri" data-a="celIniciar" data-id="${a.id}">Iniciar atendimento</button>` : ''}
@@ -59,9 +62,9 @@ function celAgenda() {
   const resto = meus.filter(a => !agora.includes(a) && !feitos.includes(a));
   return `<div class="cel-cab"><h2>Hoje · qui 29/10</h2><div class="sub">${esc(u.nome)} · ${meus.length} pacientes</div></div>
   <div class="cel-corpo" data-scroll="cel-agenda">
-    ${agora.length ? `<div class="grupo-tit">Na clínica agora</div>${agora.map(cardAg).join('')}` : ''}
+    ${agora.length ? `<div class="grupo-tit">Agora</div>${agora.map(cardAg).join('')}` : ''}
     <div class="grupo-tit">Próximos</div>${resto.map(cardAg).join('') || '<div class="vazio">Nenhum outro paciente hoje.</div>'}
-    ${feitos.length ? `<div class="grupo-tit">Já atendidos hoje · ${feitos.length}</div>${feitos.map(cardAg).join('')}` : ''}
+    ${feitos.length ? `<details class="cel-feitos"><summary class="grupo-tit">Já atendidos hoje (${feitos.length})</summary>${feitos.map(cardAg).join('')}</details>` : ''}
   </div>`;
 }
 A.celIniciar = ds => {
@@ -87,18 +90,18 @@ function celPaciente() {
     ? `<div class="cel-alertas">${al.map(x => `<div>${ic('alerta', 16)} ${esc(x.texto)}</div>`).join('')}
         <input id="cel-alerta" data-campo="cel.novoAlerta" value="${esc(c.novoAlerta)}" placeholder="Ex.: Alergia a látex" class="cel-input" style="margin-top:8px">
         <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" style="flex:1" data-a="celCancelarAlerta">Cancelar</button><button class="btn btn-pri" style="flex:1" data-a="celSalvarAlerta">Salvar alerta</button></div></div>`
-    : al.length ? `<div class="cel-alertas">${al.map(x => `<div>${ic('alerta', 16)} ${esc(x.texto)}</div>`).join('')}<button class="cel-alerta-mais" data-a="celNovoAlerta">+ Alerta</button></div>`
-    : `<div class="cel-sem-alerta"><span>Sem alertas</span><button class="btn cel-btn-alerta" data-a="celNovoAlerta">+ Alerta</button></div>`;
+    : al.length ? `<div class="cel-alertas">${al.map(x => `<div>${ic('alerta', 16)} ${esc(x.texto)}</div>`).join('')}</div><button class="cel-alerta-link" data-a="celNovoAlerta">Adicionar alerta</button>`
+    : `<button class="cel-alerta-link" data-a="celNovoAlerta">Adicionar alerta</button>`; // fora da faixa vermelha: o aviso fica limpo
   return `<div class="cel-cab"><button class="cel-voltar" data-a="celTela" data-t="agenda">${ic('esq', 18)} Agenda</button><h2 class="cel-pac-tit">${p.foto ? `<img class="cel-foto" src="${p.foto}" alt="">` : ''}${numNomeCel(p)}</h2><div class="sub">${idade(p.nasc)} anos · ${conv(p.conv).nome}</div></div>
   ${faixaAl}
   <div class="cel-corpo" data-scroll="cel-pac">
     <button class="cel-card cel-ir" data-a="celTela" data-t="odonto"><span class="cel-ir-txt"><b>Odontograma e plano</b>
-      ${miniBoca(p.id)}<span class="mini muted">${pl.length ? `${feitos} de ${pl.length} tratamentos feitos` : 'Sem tratamentos no plano'}</span>
+      <span class="mini muted">${pl.length ? `${feitos} de ${pl.length} tratamentos feitos` : 'Sem tratamentos no plano'}</span>
       ${pl.length ? `<span class="prog"><i style="width:${feitos / pl.length * 100}%"></i></span>` : ''}</span>${ic('dir', 20)}</button>
     ${orcSemAssinatura(p.id).map(o => `<button class="cel-card cel-ir cel-falta-assin" data-a="celAssinOrc" data-id="${o.id}"><span class="cel-ir-ic">${ic('assinar', 22)}</span><span class="cel-ir-txt"><b>Plano de tratamento · falta assinatura</b><span class="mini">Orçamento de ${dataBR(o.data)} · ${brl(o.total)} — toque para o paciente assinar</span></span>${ic('dir', 20)}</button>`).join('')}
     ${cartaoIr(ans.length || (c.anamRasc || {})[p.id] ? 'anam' : 'anamNova', 'prancheta', 'Anamnese', (c.anamRasc || {})[p.id] ? 'ficha começada — toque para continuar' : ans.length ? `última em ${dataBR(ans[ans.length - 1].data)}${ans[ans.length - 1].assinada ? ' · assinada' : ''}` : 'nenhuma ficha — toque para preencher')}
     ${cartaoIr('evos', 'arquivo', 'Evolução', ult ? `${dataBR(ult.data)} · ${esc(prof(ult.por).curto)} · “${esc(ult.texto.slice(0, 48))}${ult.texto.length > 48 ? '…' : ''}”` : 'nenhuma ainda')}
-    ${cartaoIr('arquivos', 'foto', `Arquivos (${arqs.length})`, (arqs.length ? 'radiografias, fotos e comprovantes' : 'nenhum ainda') + (semAssinatura(p.id) ? ` · <b class="res-ruim">${semAssinatura(p.id)} sem assinatura</b>` : ''))}
+    ${cartaoIr('arquivos', 'foto', `Arquivos (${arqs.length})`, (arqs.length ? '' : 'nenhum ainda') + (semAssinatura(p.id) ? ` · <b class="res-ruim">${semAssinatura(p.id)} sem assinatura</b>` : ''))}
     ${cartaoIr('dados', 'usuario', 'Dados do paciente', `${esc(p.cel)} · ${p.cpf ? 'CPF ' + esc(p.cpf) : 'sem CPF'}`)}
   </div>
   <div class="cel-rodape"><button class="btn" style="flex:0 0 112px" data-a="celFoto">${ic('camera', 22)} Foto</button><button class="btn btn-pri" data-a="celNovaEvo">Nova evolução</button></div>`;
