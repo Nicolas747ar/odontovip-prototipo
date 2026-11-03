@@ -101,9 +101,12 @@ function linhaHoje(a) {
   if (['a_confirmar', 'confirmado'].includes(e)) acoes += marcar('chegou', 'chegou', 'Presente na unidade', 'ok');
   if (['a_confirmar', 'confirmado'].includes(e) && a.ini < ag) acoes += marcar('faltou', 'x', 'Paciente ausente (faltou)', 'perigo');
   if (['a_confirmar', 'confirmado'].includes(e)) acoes += botaoIco('desmarcar', 'Cancelar consulta (pede o motivo)', `data-a="cancelarHoje" ${at}`);
-  // atendido: o que falta fazer na saída fica à mão na própria linha
+  // presente sem pagar: cobrar ANTES de atender (ADR-025); atendido: só o que ficou pendente + retorno
+  const antes = ['chegou', 'em_atendimento'].includes(e) && !pagoParaComecar(p.id) ? aCobrarHoje(p.id) : 0;
+  const semOrc = ['chegou', 'em_atendimento'].includes(e) && !antes && semOrcamentoAprovado(p.id);
   const devido = e === 'atendido' ? aCobrarHoje(p.id) : 0, ret = e === 'atendido' ? retornoPendente(p.id) : null;
-  if (devido && pode('caixa')) acoes += botaoIco('caixa', `Receber ${brl(devido)}`, `data-a="abrirReceber" data-pac="${p.id}"`, 'cobrar');
+  if (antes && pode('caixa')) acoes += botaoIco('caixa', `Cobrar antes de atender: ${brl(antes)}`, `data-a="abrirReceber" data-pac="${p.id}"`, 'cobrar antes');
+  if (devido && pode('caixa')) acoes += botaoIco('caixa', `Ficou pendente: receber ${brl(devido)}`, `data-a="abrirReceber" data-pac="${p.id}"`, 'cobrar');
   if (ret) acoes += botaoIco('remarcar', 'Agendar o retorno pedido', `data-a="agendarRetorno" data-id="${ret.id}"`, 'retorno');
   // chegada: hora + quanto tempo está aguardando / em atendimento
   const desde = minDesde(a.chegouAs ?? a.ini);
@@ -111,8 +114,9 @@ function linhaHoje(a) {
     : e === 'em_atendimento' ? `<span class="h-espera atend">há ${tempo(desde)}</span>` : ''}` : '<span class="muted">—</span>';
   const extra = e === 'chegou' ? `aguardando ${tempo(desde)}` : e === 'em_atendimento' ? `há ${tempo(desde)}` : e === 'desmarcou' && a.motivo ? `motivo: ${esc(a.motivo)}`
     : [devido ? `falta pagar ${brl(devido)}` : '', ret ? 'pediu retorno' : ''].filter(Boolean).join(' · ');
+  const extraAntes = antes ? ` · não pagou ainda (${brl(antes)})` : '';
   return `<div class="h-linha h-dia est-linha-${e}" data-a="abrirAg" ${at}><span class="hora num">${hhmm(a.ini)}</span><span class="h-chegada">${chegada}</span>
-    <span class="h-est">${estadoIco(e, extra)}</span>${pacHoje(p, metaAg(a) + (e === 'desmarcou' && a.motivo ? ` · <span class="h-motivo">motivo: ${esc(a.motivo)}</span>` : ''))}<span class="h-tel num">${esc(p.cel)}</span><span class="acoes">${acoes}</span></div>`;
+    <span class="h-est">${estadoIco(e, extra + extraAntes)}</span>${pacHoje(p, (antes && pode('caixa') ? `<span class="pill-cobrar">${ic('caixa', 14)} Cobrar ${brl(antes)} antes</span> ` : semOrc ? `<span class="pill-cobrar">${ic('alerta', 14)} Sem orçamento aprovado</span> ` : '') + metaAg(a) + (e === 'desmarcou' && a.motivo ? ` · <span class="h-motivo">motivo: ${esc(a.motivo)}</span>` : ''))}<span class="h-tel num">${esc(p.cel)}</span><span class="acoes">${acoes}</span></div>`;
 }
 function itemAtencao(ico, cor, titulo, meta, acoes, quando, id) {
   const f = id && fixo(id);
@@ -136,11 +140,20 @@ function telaHoje() {
     .map(pid => ({ pid, ag: doDia.filter(a => a.pac === pid && estadoPos(a) === 'atendido').slice(-1)[0], devido: aCobrarHoje(pid), ret: retornoPendente(pid) }))
     .filter(s => (s.devido && pode('caixa')) || s.ret);
   const retornos = E.d.pedidosRetorno.filter(r => !r.feito && !saidas.some(s => s.ret === r));
-  const grupo = (tit, itens) => itens.length ? `<div class="h-grupo">${tit} <span>${itens.length}</span></div>${itens.join('')}` : '';
+  // ADR-025: quem está na unidade (ou já na cadeira) e ainda não pagou o que vence hoje
+  const antes = pode('caixa') ? [...new Set(doDia.filter(a => ['chegou', 'em_atendimento'].includes(estadoPos(a))).map(a => a.pac))]
+    .filter(pid => !pagoParaComecar(pid) || semOrcamentoAprovado(pid)).map(pid => ({ pid, ag: doDia.filter(a => a.pac === pid && ['chegou', 'em_atendimento'].includes(estadoPos(a)))[0], devido: aCobrarHoje(pid), semOrc: pagoParaComecar(pid) })) : [];
+  const grupo = (tit, itens, cls = '') => itens.length ? `<div class="h-grupo ${cls}">${tit} <span>${itens.length}</span></div>${itens.join('')}` : '';
   const pendencias = [
-    grupo('Saída: cobrar e agendar retorno', saidas.map(s => { const p = pac(s.pid);
-      const linhas = [`${esc(prof(s.ag.prof).curto)} · atendido`, s.devido && pode('caixa') ? `<b class="saida-valor">Cobrar ${brl(s.devido)}</b>${formaPrevistaHoje(s.pid) ? ` · prevista: ${esc(formaPrevistaHoje(s.pid))}` : ''}` : '', s.ret ? `Retorno ${esc(resumoRetorno(s.ret)) || 'pedido'}` : ''].filter(Boolean).join('<br>');
-      return itemAtencao('checks', 'ok', numNome(p), linhas,
+    grupo(`${ic('caixa', 15)} Cobrar antes de atender`, antes.map(s => { const p = pac(s.pid), naCadeira = s.ag.estado === 'em_atendimento';
+      if (s.semOrc) return itemAtencao('alerta', 'aviso', numNome(p), `${esc(prof(s.ag.prof).curto)} · ${naCadeira ? 'já está na cadeira' : 'presente na unidade'}<br><b>Sem orçamento aprovado:</b> fazer o orçamento e receber antes de começar`,
+        `<button class="btn btn-peq btn-pri" data-a="orcDaFicha" data-id="${s.pid}">Fazer orçamento</button>`);
+      return itemAtencao('caixa', naCadeira ? 'erro' : 'aviso', numNome(p),
+        `${esc(prof(s.ag.prof).curto)} · ${naCadeira ? '<b>já está na cadeira sem pagar</b>' : 'presente na unidade'}${formaPrevistaHoje(s.pid) ? `<br>prevista: ${esc(formaPrevistaHoje(s.pid))}` : ''}`,
+        `<button class="btn btn-peq btn-pri" data-a="abrirReceber" data-pac="${s.pid}">Receber ${brl(s.devido)}</button>`); }), 'h-grupo-antes'),
+    grupo('Saída: o que ficou pendente e retorno', saidas.map(s => { const p = pac(s.pid);
+      const linhas = [`${esc(prof(s.ag.prof).curto)} · atendido`, s.devido && pode('caixa') ? `<b class="saida-valor">Ficou pendente: ${brl(s.devido)}</b>${formaPrevistaHoje(s.pid) ? ` · prevista: ${esc(formaPrevistaHoje(s.pid))}` : ''}` : '', s.ret ? `Retorno ${esc(resumoRetorno(s.ret)) || 'pedido'}` : ''].filter(Boolean).join('<br>');
+      return itemAtencao(s.devido && pode('caixa') ? 'relogio' : 'remarcar', s.devido && pode('caixa') ? 'aviso' : 'info', numNome(p), linhas,
         (s.devido && pode('caixa') ? `<button class="btn btn-peq btn-pri" data-a="abrirReceber" data-pac="${s.pid}">Receber ${brl(s.devido)}</button>` : '')
         + (s.ret ? `<button class="btn btn-peq" data-a="agendarRetorno" data-id="${s.ret.id}">Agendar retorno</button>` : '')); })),
     grupo('Não chegaram', naoVeio.map(a => { const p = pac(a.pac);
@@ -152,7 +165,7 @@ function telaHoje() {
       return itemAtencao('calendarioX', 'neutro', numNome(p), `${esc(prof(x.prof).curto)} · ninguém marcou se veio`,
         `<button class="btn btn-peq btn-ok" data-a="fecharAnterior" data-id="${x.id}" data-e="atendido">Veio</button><button class="btn btn-peq btn-perigo" data-a="fecharAnterior" data-id="${x.id}" data-e="faltou">Faltou</button>`, `${dataBR(x.data)} ${hhmm(x.ini)}`, x.id); })),
   ].join('');
-  const nPend = saidas.length + naoVeio.filter(a => !fixo(a.id)).length + retornos.length + anteriores.filter(x => !fixo(x.id)).length;
+  const nPend = antes.length + saidas.length + naoVeio.filter(a => !fixo(a.id)).length + retornos.length + anteriores.filter(x => !fixo(x.id)).length;
   const nFin = vencidas.length + vencHoje.length;
   const kpi = (n, txt, ico, cls = '') => `<div class="kpi kpi-h ${cls}"><span class="kpi-ic">${ic(ico, 18)}</span><b class="num">${n}</b><span>${txt}</span></div>`;
   const passa = (a, k) => k === 'todos' || (k === 'abertos' ? ATIVOS.includes(estadoPos(a)) : estadoPos(a) === k);
@@ -184,6 +197,8 @@ function telaHoje() {
   ${verFin ? `<div class="abas" role="tablist"><button class="aba ${aba === 'agenda' ? 'ativo' : ''}" role="tab" aria-selected="${aba === 'agenda'}" data-a="abaHoje" data-v="agenda">${ic('agenda', 15)} Agenda do dia</button><button class="aba ${aba === 'fin' ? 'ativo' : ''}" role="tab" aria-selected="${aba === 'fin'}" data-a="abaHoje" data-v="fin">${ic('caixa', 15)} Financeiro${nFin ? ` <span class="h-cont alerta">${nFin}</span>` : ''}</button></div>` : ''}
   ${aba === 'fin' ? fin : agenda}`;
 }
+/* "Fazer orçamento" direto das Pendências: abre a ficha no Financeiro com o orçamento */
+A.orcDaFicha = ds => { A.abrirFicha({ id: ds.id }); E.ui.pc.aba = 'financeiro'; A.abrirOrc(); };
 A.abaHoje = ds => { E.ui.pc.abaHoje = ds.v; render(); };
 A.filtroHoje = ds => { E.ui.pc.filtroHoje = ds.v; render(); };
 /* cancelar pela lista abre o detalhe já pedindo o motivo (R5) */
@@ -720,7 +735,8 @@ A.imprimirOrc = () => toast('No sistema real, abre o PDF do orçamento para impr
 A.aprovarOrc = () => {
   const m = E.ui.pc.modal, c = contaOrc(m), pid = E.ui.pc.fichaId;
   if (!orcOk(c)) return;
-  comDesfazer(`Orçamento aprovado: ${brl(c.total)}${c.n > 1 ? ` em ${c.n}x` : ''}.`, () => {
+  // ADR-025: aprovar o orçamento já leva a receber — o particular paga antes de começar
+  comDesfazer(`Orçamento aprovado: ${brl(c.total)}${c.n > 1 ? ` em ${c.n}x` : ''}. Receba ${c.n > 1 ? 'a 1ª parcela' : 'o valor'} antes de começar o tratamento.`, () => {
     c.pl.filter(i => m.sel[i.id]).forEach(i => { i.estado = 'aprovado'; i.dataApr = E.d.hoje; });
     // à vista sempre vence hoje: "primeiro" pode ter ficado em "30" de quando estava em Parcelado
     gerarParcelas(pid, c.total, c.n, m.forma === 'vista' || m.primeiro === 'hoje' ? E.d.hoje : somaMeses(E.d.hoje, 1));
@@ -749,8 +765,8 @@ function salvarEvolucao(pid, profId, texto, itens) {
   itens.forEach(id => { const i = plano(pid).find(x => x.id === id);
     if (i.estado === 'indicado') { i.valor = valorItem(i, pid); cobrar += i.valor; } // feito sem orçamento aprovado
     i.estado = 'realizado'; i.feitoPor = profId; i.dataFeito = E.d.hoje; });
-  // o que foi feito sem orçamento vira cobrança de hoje, para a recepção receber na saída.
-  // Aprovado já tem parcelas; convênio é pago pelo plano (glosa fica para o sistema real) — ver USABILIDADE-FAMILIA.md
+  // feito sem orçamento aprovado e pago = exceção (ADR-025: o particular paga antes). Vira cobrança de hoje,
+  // e a recepção recebe na saída o que ficou pendente. Convênio é pago pelo plano (guia; fica para o sistema real).
   if (cobrar && pac(pid).conv === 'part') gerarParcelas(pid, cobrar, 1, E.d.hoje);
 }
 A.salvarEvoPC = () => { const f = E.ui.pc.evoForm, pid = E.ui.pc.fichaId;

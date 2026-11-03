@@ -142,6 +142,11 @@ function gerarParcelas(pid, total, n, primeiro) {
 }
 /* saída do paciente (Nicolas, 02/11): quanto cobrar hoje = parcelas que vencem hoje ou já venceram */
 const aCobrarHoje = pid => parcelas(pid).filter(p => p.venc <= E.d.hoje).reduce((s, p) => s + saldoParcela(p), 0);
+/* ADR-025: o particular paga antes de começar. "Liberado" = nada vencido até hoje em aberto.
+   Não bloqueia o atendimento (fazer sem pagar é a exceção, não proibido): só avisa recepção e dentista. */
+/* particular com tratamento indicado e nada aprovado: o orçamento tem que vir antes (ADR-025) */
+const semOrcamentoAprovado = pid => pac(pid).conv === 'part' && plano(pid).some(i => i.estado === 'indicado') && !plano(pid).some(i => i.estado === 'aprovado');
+const pagoParaComecar = pid => pac(pid).conv !== 'part' || !aCobrarHoje(pid);
 const QUANDO_RETORNO = { 7: 'em 7 dias', 15: 'em 15 dias', 30: 'em 30 dias', 180: 'em 6 meses' };
 /* comprovante de atendimento (blueprint/07 §A5b): o mesmo talonário de papel, digital */
 const FORMAS_PREVISTAS = ['Dinheiro', 'Pix', 'Cartão débito', 'Cartão crédito', 'Crédito parcelado', 'Carteira', 'Link de pagamento'];
@@ -217,6 +222,9 @@ function toast(texto, desfazer, extra) {
   // um aviso novo tira o botão Desfazer da tela: o desfazer antigo deixa de valer
   if (!desfazer) { E.undo = null; E.undoFn = null; E.undoExtra = null; }
   el.innerHTML = `<div class="toast"><span>${texto}</span>${desfazer ? '<button data-a="desfazer">Desfazer</button>' : ''}${extra || ''}</div>`;
+  // celular com botão principal embaixo: o aviso fica logo acima dele — nem cobre "Nova evolução", nem o "voltar" do alto
+  const rod = E.ui.vista !== 'pc' && !document.querySelector('.modal') && document.querySelector('.cel .cel-rodape');
+  if (rod) { el.style.top = 'auto'; el.style.bottom = Math.max(24, innerHeight - rod.getBoundingClientRect().top + 8) + 'px'; } else { el.style.top = ''; el.style.bottom = ''; }
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.innerHTML = ''; E.undo = null; E.undoFn = null; E.undoExtra = null; }, desfazer ? 10000 : 4000);
 }
 /* depois de desfazer, um painel ou ficha aberta pode apontar para algo que deixou de existir */

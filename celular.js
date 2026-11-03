@@ -39,8 +39,17 @@ function cardAg(a) {
     <div class="linha1"><span class="h num">${hhmm(a.ini)}</span><span><span class="n">${numNomeCel(p)}</span><br>
       <span class="mini muted">${a.proc ? esc(proc(a.proc).nome) : ''} · ${cad(a.cad).nome}</span></span></div>
     <div style="margin-top:6px">${estadoHTML(a.estado)} ${al.length ? `<span class="alerta-ico cel-al">${ic('alerta', 15)}&nbsp;${esc(al[0].texto)}</span>` : ''}</div>
+    ${['chegou', 'em_atendimento'].includes(a.estado) && pac(a.pac).conv === 'part' ? (plano(p.id).some(i => i.estado === 'aprovado') ? celSituacaoPag(p.id)
+      : semOrcamentoAprovado(p.id) ? `<div class="cel-pag falta">${ic('alerta', 16)} Sem orçamento aprovado · a recepção faz antes</div>` : '') : ''}
     ${a.estado === 'chegou' ? `<button class="btn btn-pri" data-a="celIniciar" data-id="${a.id}">Iniciar atendimento</button>` : ''}
     ${a.estado === 'em_atendimento' ? `<button class="btn" data-a="celAbrirPac" data-id="${p.id}">Abrir ficha</button><button class="btn btn-pri" data-a="celFinalizar" data-id="${a.id}">Finalizar atendimento</button>` : ''}</div>`;
+}
+/* ADR-025 no cartão da dentista: avisa, não bloqueia. "Pago" só se pagou mesmo; parcelado futuro = "liberado" */
+function celSituacaoPag(pid) {
+  if (!pagoParaComecar(pid)) return `<div class="cel-pag falta">${ic('caixa', 16)} Ainda não pagou ${brl(aCobrarHoje(pid))} · espere a recepção cobrar</div>`;
+  const ps = parcelas(pid), prox = parcelasAbertas(pid)[0];
+  if (ps.length && !ps.some(x => x.pago) && prox) return `<div class="cel-pag ok">${ic('check', 16)} Liberado · 1ª parcela em ${dataBR(prox.venc)}</div>`;
+  return `<div class="cel-pag ok">${ic('check', 16)} Pago · pode começar</div>`;
 }
 function celAgenda() {
   const u = usu(E.ui.cel.usuario), meus = E.d.agendamentos.filter(a => a.prof === u.prof && a.pac && !['desmarcou', 'remarcado'].includes(a.estado)).sort((a, b) => a.ini - b.ini);
@@ -379,7 +388,7 @@ function celEvo() {
   const abertos = plano(p.id).filter(i => ['aprovado', 'indicado'].includes(i.estado));
   return `${cabSub('Nova evolução')}
   <div class="cel-corpo"><b>O que foi feito hoje?</b>
-    ${abertos.map(i => `<label class="chk"><input type="checkbox" ${ev.itens[i.id] ? 'checked' : ''} data-a="celEvoItem" data-id="${i.id}"><span>${esc(nomeItem(i))}</span></label>`).join('') || '<div class="muted mini">Nada pendente no plano.</div>'}
+    ${abertos.map(i => `<label class="chk"><input type="checkbox" ${ev.itens[i.id] ? 'checked' : ''} data-a="celEvoItem" data-id="${i.id}"><span>${esc(nomeItem(i))}${i.estado === 'indicado' && p.conv === 'part' ? ' <span class="muted">· sem orçamento aprovado: fica para cobrar na saída</span>' : ''}</span></label>`).join('') || '<div class="muted mini">Nada pendente no plano.</div>'}
     <div style="margin-top:14px"><b>Observações</b></div>
     <textarea data-campo="cel.evo.texto" placeholder="Escreva, ou toque no microfone do teclado para ditar">${esc(ev.texto)}</textarea>
     <div class="chips"><button data-a="celFoto">${ic('camera', 18)} Foto</button></div>
@@ -414,7 +423,7 @@ function celEvoOk() {
   <div class="cel-corpo">
     ${c.evoPendente ? '<div class="aviso-box aviso">Você está fora do Wi-Fi. A evolução ficou guardada no celular e vai ser enviada sozinha quando a conexão voltar. Nada se perde.</div>' : ''}
     ${c.finalizou ? `<div class="aviso-box ok">${ic('checks', 16)} Atendimento ${c.evoPendente ? 'vai ser finalizado' : 'finalizado'}. A recepção já vê “Atendido”.</div>` : ''}
-    ${aCobrarHoje(p.id) && !c.evoPendente ? `<div class="aviso-box info">${ic('caixa', 16)} Na saída, a recepção cobra <b>${brl(aCobrarHoje(p.id))}</b>${formaPrevistaHoje(p.id) ? ` · prevista: ${esc(formaPrevistaHoje(p.id))}` : ''}.</div>` : ''}
+    ${aCobrarHoje(p.id) && !c.evoPendente ? `<div class="aviso-box info">${ic('caixa', 16)} Ficou pendente: a recepção cobra <b>${brl(aCobrarHoje(p.id))}</b> na saída (o combinado é pagar antes de começar)${formaPrevistaHoje(p.id) ? ` · prevista: ${esc(formaPrevistaHoje(p.id))}` : ''}.</div>` : ''}
     ${retornoPendente(p.id) ? `<div class="aviso-box ok">${ic('remarcar', 16)} Retorno pedido: ${esc(resumoRetorno(retornoPendente(p.id))) || 'a recepção vai marcar'}.</div>` : ''}
     <b>Próximo passo</b>
     <div class="chips">${retornoPendente(p.id) || c.compSalvo ? '' : `<button data-a="celRetorno">${ic('remarcar', 18)} Pedir retorno</button>`}<button data-a="celTela" data-t="agenda">${retornoPendente(p.id) ? 'Voltar à agenda' : 'Nada, voltar à agenda'}</button></div>
@@ -431,8 +440,9 @@ function celComprovante() {
   <div class="cel-corpo" data-scroll="cel-comp">
     ${cp.novo && c.evoPendente ? '<div class="aviso-box aviso">Fora do Wi-Fi: a evolução e o comprovante ficam no celular e vão sozinhos quando a conexão voltar.</div>' : ''}
     <div class="grupo-tit">Procedimento realizado</div><div class="cel-card comp-real">${realizado}</div>
-    ${cp.novo ? `<div class="grupo-tit">Forma de pagamento prevista <span class="muted">(a recepção vê ao cobrar)</span></div>
-      <div class="chips" id="comp-formas">${formas.map(f => `<button class="${cp.forma === f ? 'on' : ''}" data-a="celCompForma" data-v="${f}" aria-pressed="${cp.forma === f}">${cp.forma === f ? ic('check', 16) : ''}${f}</button>`).join('')}</div>
+    ${pac(E.ui.cel.pacId).conv === 'part' && aCobrarHoje(E.ui.cel.pacId) ? `<div class="aviso-box info">${ic('caixa', 16)} Ficou pendente: a recepção cobra <b>${brl(aCobrarHoje(E.ui.cel.pacId))}</b> na saída.</div>` : ''}
+    ${cp.novo ? `${aCobrarHoje(p.id) ? `<div class="grupo-tit">Forma de pagamento prevista <span class="muted">(a recepção vê ao cobrar)</span></div>
+      <div class="chips" id="comp-formas">${formas.map(f => `<button class="${cp.forma === f ? 'on' : ''}" data-a="celCompForma" data-v="${f}" aria-pressed="${cp.forma === f}">${cp.forma === f ? ic('check', 16) : ''}${f}</button>`).join('')}</div>` : ''}
       <div class="grupo-tit">Retorno</div>
       ${cp.retorno === 'ja' ? `<div class="mini muted">Já tem retorno pedido: ${esc(resumoRetorno(retornoPendente(p.id)) || 'a recepção vai marcar')}.</div>`
         : `<div class="chips" id="comp-ret"><button class="${cp.retorno == null ? 'on' : ''}" data-a="celCompRet" data-v="" aria-pressed="${cp.retorno == null}">${cp.retorno == null ? ic('check', 16) : ''}Sem retorno</button>${Object.entries(QUANDO_RETORNO).map(([d, t]) => `<button class="${cp.retorno == d ? 'on' : ''}" data-a="celCompRet" data-v="${d}" aria-pressed="${cp.retorno == d}">${cp.retorno == d ? ic('check', 16) : ''}${t.replace('em ', '')}</button>`).join('')}</div>
@@ -566,7 +576,7 @@ function donoBarra(part, conv) {
 }
 function donoUnidade(u, m) {
   const fal = pct(m.faltas, m.atendidos + m.faltas);
-  return `<div class="dono-uni"><div class="dono-uni-cab"><b>${esc(u.nome)}</b>${u.aoVivo ? '<span class="tag-vivo">ao vivo</span>' : '<span class="tag-ex">exemplo</span>'}</div>
+  return `<div class="dono-uni"><div class="dono-uni-cab"><b>${esc(u.nome)}</b>${u.aoVivo ? (E.ui.clinicaSemInternet ? '<span class="tag-parado">parado às 10:25</span>' : '<span class="tag-vivo">ao vivo</span>') : '<span class="tag-ex">exemplo</span>'}</div>
     <div class="dono-uni-valor num">${brl(m.part)}</div>
     <div class="dono-sub">${m.conv ? `+ ${brl(m.conv)} de convênio · ` : 'só particular · '}${m.atendidos} atendidos · ${faltaTxt(m.faltas, fal)}</div></div>`;
 }

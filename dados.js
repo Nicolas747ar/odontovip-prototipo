@@ -115,6 +115,8 @@ const DADOS = {
       { id: 'pi5', proc: 'restauracao', dente: '26', faces: ['O', 'M', 'D'], valor: 23000, estado: 'aprovado', indicadoPor: 'p-mar', dataInd: '2026-10-15' },
       { id: 'pi6', proc: 'limpeza', dente: null, faces: [], valor: 15000, estado: 'aprovado', indicadoPor: 'p-mar', dataInd: '2026-10-15' },
     ],
+    /* ADR-025 (paga antes): Diego chegou e ainda não pagou a manutenção aprovada — aparece em "Cobrar antes de atender" */
+    pa116: [{ id: 'pi11', proc: 'manut-orto', dente: null, faces: [], valor: 18000, estado: 'aprovado', indicadoPor: 'p-raf', dataInd: '2026-10-01', dataApr: '2026-10-01' }],
     pa110: [{ id: 'pi7', proc: 'coroa', dente: '11', faces: [], valor: 150000, estado: 'aprovado', indicadoPor: 'p-mar', dataInd: '2026-10-01' }],
     pa112: [
       { id: 'pi8', proc: 'restauracao', dente: '46', faces: ['O', 'D'], valor: 19000, estado: 'indicado', indicadoPor: 'p-mar', dataInd: '2026-10-22' },
@@ -138,6 +140,7 @@ const DADOS = {
 
   parcelas: {
     pa103: [{ id: 'pc1', n: 1, de: 1, venc: '2026-10-29', valor: 19000, pago: 12000 }],
+    pa116: [{ id: 'pc9', n: 1, de: 1, venc: '2026-10-29', valor: 18000, pago: 0 }],
     pa106: [{ id: 'pc2', n: 2, de: 3, venc: '2026-10-10', valor: 20000, pago: 0 }, { id: 'pc3', n: 3, de: 3, venc: '2026-11-10', valor: 20000, pago: 0 }],
     pa109: [{ id: 'pc4', n: 1, de: 2, venc: '2026-10-15', valor: 19000, pago: 19000 }, { id: 'pc5', n: 2, de: 2, venc: '2026-11-15', valor: 19000, pago: 0 }],
     pa110: [{ id: 'pc6', n: 1, de: 3, venc: '2026-10-01', valor: 50000, pago: 50000 }, { id: 'pc7', n: 2, de: 3, venc: '2026-11-01', valor: 50000, pago: 0 }, { id: 'pc8', n: 3, de: 3, venc: '2026-12-01', valor: 50000, pago: 0 }],
