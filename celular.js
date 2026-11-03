@@ -217,7 +217,7 @@ function celAnam() {
   const p = pac(E.ui.cel.pacId), lista = (E.d.anamneses[p.id] || []).slice().reverse();
   return `${cabSub('Anamnese')}
   <div class="cel-corpo">
-    ${lista.map(an => { const m = E.d.modelos.find(x => x.id === an.modelo); return `<div class="cel-card"><b>${m.nome}</b><br><span class="mini muted">${dataBR(an.data)} · ${esc(prof(an.por).curto)} · ${an.assinada ? `<span style="color:var(--ok)">${ic('assinar', 14)} assinada pelo paciente</span>` : 'sem assinatura'}</span>
+    ${lista.map(an => { const m = E.d.modelos.find(x => x.id === an.modelo); return `<div class="cel-card"><b>${m.nome}</b><br><span class="mini muted">${dataBR(an.data)} · ${esc(prof(an.por) ? prof(an.por).curto : '—')} · ${an.assinada ? `<span style="color:var(--ok)">${ic('assinar', 14)} assinada pelo paciente</span>` : 'sem assinatura'}</span>
       ${m.perguntas.map(q => { const r = an.respostas[q.id] || {}; return `<div class="mini" style="padding:4px 0;border-top:1px solid var(--rule);margin-top:4px">${q.texto}<br><b>${r.sim === true ? 'Sim' : r.sim === false ? 'Não' : ''}${r.texto ? (r.sim != null ? ' — ' : '') + esc(r.texto) : ''}</b></div>`; }).join('')}
       ${an.assinada ? '' : `<button class="btn" data-a="celPedirAssin" data-id="${an.id}">${ic('assinar', 18)} Paciente assina agora</button>`}</div>`; }).join('') || '<div class="vazio">Nenhuma ficha preenchida.</div>'}
   </div>
@@ -338,7 +338,9 @@ function erroDado(k, v) {
   if (k === 'nome') return v.trim().split(/\s+/).length < 2 ? 'Escreva o nome completo.' : '';
   if (k === 'cel') return v.replace(/\D/g, '').length < 10 ? 'Faltam números no celular.' : '';
   if (k === 'nasc') { const iso = isoDeBR(v); return !iso || iso > E.d.hoje ? 'Confira a data (dd/mm/aaaa).' : ''; }
-  if (k === 'cpf') return v && v.replace(/\D/g, '').length !== 11 ? 'O CPF tem 11 números. Confira ou deixe em branco.' : '';
+  // o dígito verificador só é conferido num CPF novo: os CPFs inventados do protótipo são inválidos de propósito
+  if (k === 'cpf') return !v ? '' : v.replace(/\D/g, '').length !== 11 ? 'O CPF tem 11 números. Confira ou deixe em branco.'
+    : v !== (pac(E.ui.cel.pacId) || {}).cpf && !cpfValido(v) ? 'Esse CPF não existe. Confira ou deixe em branco.' : '';
   return '';
 }
 /* um erro já mostrado some assim que o campo fica certo */
@@ -384,7 +386,10 @@ A.celSalvarEvo = () => {
   if (!itens.length && !texto.trim()) { toast('Marque o que foi feito ou escreva uma observação.'); return; }
   const ag = E.d.agendamentos.find(a => a.pac === pid && a.prof === pr && a.estado === 'em_atendimento');
   // salvar a evolução também finaliza o atendimento: a recepção vê "Atendido"
-  const fazer = () => { salvarEvolucao(pid, pr, texto, itens); if (ag) ag.estado = 'atendido'; };
+  // busca o agendamento pelo id na hora de gravar: fora do Wi-Fi a fila roda depois, e um Desfazer
+  // no meio troca E.d inteiro (o objeto guardado agora já não seria o da agenda)
+  const agId = ag && ag.id;
+  const fazer = () => { salvarEvolucao(pid, pr, texto, itens); const a = agId && E.d.agendamentos.find(x => x.id === agId); if (a && a.estado === 'em_atendimento') a.estado = 'atendido'; };
   delete (c.rascunhos || {})[pid];
   c.finalizou = !!ag;
   if (E.ui.celForaWifi) { semDesfazer(); c.fila.push(fazer); c.evoPendente = true; c.tela = 'evoOk'; render(); return; }
