@@ -143,6 +143,12 @@ function gerarParcelas(pid, total, n, primeiro) {
 /* saída do paciente (Nicolas, 02/11): quanto cobrar hoje = parcelas que vencem hoje ou já venceram */
 const aCobrarHoje = pid => parcelas(pid).filter(p => p.venc <= E.d.hoje).reduce((s, p) => s + saldoParcela(p), 0);
 const QUANDO_RETORNO = { 7: 'em 7 dias', 15: 'em 15 dias', 30: 'em 30 dias', 180: 'em 6 meses' };
+/* comprovante de atendimento (blueprint/07 §A5b): o mesmo talonário de papel, digital */
+const FORMAS_PREVISTAS = ['Dinheiro', 'Pix', 'Cartão débito', 'Cartão crédito', 'Crédito parcelado', 'Carteira', 'Link de pagamento'];
+const comprovantes = pid => (E.d.comprovantes[pid] = E.d.comprovantes[pid] || []);
+/* a forma que a dentista anotou hoje: a recepção vê ao cobrar (R14) */
+const formaPrevistaHoje = pid => { const c = comprovantes(pid).filter(x => x.data === E.d.hoje && x.forma); return c.length ? c[c.length - 1].forma : null; };
+const semAssinatura = pid => comprovantes(pid).filter(x => !x.assinado).length;
 const retornoPendente = pid => E.d.pedidosRetorno.find(r => r.pac === pid && !r.feito);
 /* "em 15 dias · Restauração 2 faces · 46 (R$ 190,00)" — o que a recepção precisa para marcar e dizer o valor */
 function resumoRetorno(r) {

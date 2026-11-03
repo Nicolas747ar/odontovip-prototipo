@@ -133,7 +133,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .painel-corpo{padding:16px 18px;overflow:auto;flex:1}
 .painel-rodape{padding:12px 18px;border-top:1px solid var(--rule);background:var(--paper)}
 .cortina{position:absolute;inset:58px 0 0 0;background:rgba(11,31,63,.25);z-index:9}
-.modal{position:absolute;left:50%;top:80px;transform:translateX(-50%);width:560px;max-height:640px;overflow:auto;background:var(--surface);border-radius:var(--r-card);z-index:12;box-shadow:0 30px 60px -20px rgba(11,31,63,.5)}
+.modal{position:absolute;left:50%;top:80px;transform:translateX(-50%);width:560px;max-height:min(640px, calc(100vh - 180px));overflow:auto;background:var(--surface);border-radius:var(--r-card);z-index:12;box-shadow:0 30px 60px -20px rgba(11,31,63,.5)}
 .modal .painel-cab{position:sticky;top:0;background:var(--surface)}
 .campo{margin-bottom:12px}
 .campo label{display:block;font-size:13px;font-weight:600;color:var(--ink-soft);margin-bottom:4px}
@@ -757,3 +757,29 @@ fieldset.so-ver .btn,fieldset.so-ver input,fieldset.so-ver select,fieldset.so-ve
 .saida-valor{color:var(--ink)}
 /* odontograma do celular: o desenho do dente fica visível ao rolar até as condições (prévia da cor) */
 .cel-dente-topo{position:sticky;top:0;z-index:5;background:var(--bg);padding:6px 0;margin:0 0 6px}
+/* comprovante de atendimento (03/11) */
+.comp-real{padding:10px 14px}
+.comp-item{display:flex;align-items:center;gap:8px;padding:6px 0;font-weight:700;color:var(--navy);font-size:16px}
+.comp-item .ic{color:var(--ok)}
+.tag.aviso-tag{background:var(--aviso-bg);color:var(--aviso)}
+/* QA ronda 5: comprovante */
+.comp-dentista{margin:8px 0 14px;text-align:center}
+.comp-dentista .btn-link{min-height:48px;font-size:15px}
+.comp-paciente{border:2px solid var(--brand);border-radius:14px;padding:10px 12px;background:var(--info-bg)}
+.comp-declara{font-size:16px;margin-bottom:8px;color:var(--navy)}
+.cel .chips button .ic{margin-right:4px;vertical-align:-3px}
+.cel .aviso-box{font-size:16px}
+.cx-mudou{display:inline-block;font-size:13px;color:var(--ink-soft);margin-top:2px}
+.arq-cartao .tag{font-size:14px;margin-top:4px}
+.arq-cartao[data-a]{cursor:pointer}
+.arq-cartao[data-a]:hover{border-color:var(--brand)}
+.rec-motivo{margin-top:10px}
+/* re-verificação ronda 5 */
+.modal .painel-rodape{position:sticky;bottom:0;z-index:2}
+.modal{scroll-padding-bottom:88px}
+/* com um modal aberto o aviso vai para cima: embaixo tapava o botão principal do modal */
+:root:has(.modal) #toast{top:24px;bottom:auto}
+.comp-dentista .btn-link{font-size:16px}
+.cx-mudou{font-size:14px}
+.arq-cartao .mini{font-size:14px}
+#rec-motivo-txt{width:100%;padding:9px 10px;border:1px solid var(--rule);border-radius:8px;margin-top:4px}

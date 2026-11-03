@@ -192,6 +192,7 @@ const DADOS = {
 
   caixa: { fechado: false },
   pedidosRetorno: [],
+  comprovantes: {}, // comprovante de atendimento: substitui o talonário de papel fotografado
   /* consultas de dias anteriores que ninguém fechou */
   pendentesAnteriores: [
     { id: 'pd1', pac: 'pa111', prof: 'p-hel', data: '2026-10-27', ini: 840, proc: 'limpeza' },

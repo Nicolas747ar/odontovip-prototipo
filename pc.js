@@ -139,7 +139,7 @@ function telaHoje() {
   const grupo = (tit, itens) => itens.length ? `<div class="h-grupo">${tit} <span>${itens.length}</span></div>${itens.join('')}` : '';
   const pendencias = [
     grupo('Saída: cobrar e agendar retorno', saidas.map(s => { const p = pac(s.pid);
-      const linhas = [`${esc(prof(s.ag.prof).curto)} · atendido`, s.devido && pode('caixa') ? `<b class="saida-valor">Cobrar ${brl(s.devido)}</b>` : '', s.ret ? `Retorno ${esc(resumoRetorno(s.ret)) || 'pedido'}` : ''].filter(Boolean).join('<br>');
+      const linhas = [`${esc(prof(s.ag.prof).curto)} · atendido`, s.devido && pode('caixa') ? `<b class="saida-valor">Cobrar ${brl(s.devido)}</b>${formaPrevistaHoje(s.pid) ? ` · prevista: ${esc(formaPrevistaHoje(s.pid))}` : ''}` : '', s.ret ? `Retorno ${esc(resumoRetorno(s.ret)) || 'pedido'}` : ''].filter(Boolean).join('<br>');
       return itemAtencao('checks', 'ok', numNome(p), linhas,
         (s.devido && pode('caixa') ? `<button class="btn btn-peq btn-pri" data-a="abrirReceber" data-pac="${s.pid}">Receber ${brl(s.devido)}</button>` : '')
         + (s.ret ? `<button class="btn btn-peq" data-a="agendarRetorno" data-id="${s.ret.id}">Agendar retorno</button>` : '')); })),
@@ -610,7 +610,7 @@ function abaResumo(p) {
     <div class="cartao"><h3>${pode('clinico') ? 'Última evolução' : 'Última consulta'}</h3>${ult ? `<b>${dataBR(ult.data)}</b> · ${esc(prof(ult.por).curto)}${pode('clinico') ? '<br>' + esc(ult.texto) : ''}` : '<span class="muted">Nenhuma.</span>'}</div>
     <div class="cartao"><h3>Financeiro</h3>${pode('finPac') ? (saldo ? `Em aberto: <b>${brl(saldo)}</b>` : '<span class="muted">Nada em aberto.</span>') + (p.credito ? `<br>Crédito: <b>${brl(p.credito)}</b>` : '') : '<span class="muted">—</span>'}</div>
     <div class="cartao"><h3>Anamnese</h3>${an ? `Última: <b>${dataBR(an.data)}</b> (${E.d.modelos.find(m => m.id === an.modelo).nome}) · ${an.assinada ? `<span style="color:var(--ok)">${ic('assinar', 14)} assinada</span>` : '<span class="muted">sem assinatura</span>'}` : '<span class="muted">Nenhuma ficha preenchida.</span>'}</div>
-    <div class="cartao"><h3>Arquivos</h3>${(E.d.arquivos[p.id] || []).length ? `<b>${(E.d.arquivos[p.id] || []).length}</b> · último: ${esc(E.d.arquivos[p.id].slice(-1)[0].tipo)} de ${dataBR(E.d.arquivos[p.id].slice(-1)[0].data)}` : '<span class="muted">Nenhum.</span>'}</div>
+    <div class="cartao"><h3>Arquivos</h3>${(E.d.arquivos[p.id] || []).length ? `<b>${(E.d.arquivos[p.id] || []).length}</b> · último: ${esc(E.d.arquivos[p.id].slice(-1)[0].tipo)} de ${dataBR(E.d.arquivos[p.id].slice(-1)[0].data)}` : '<span class="muted">Nenhum.</span>'}${semAssinatura(p.id) ? `<br><b class="res-ruim">${semAssinatura(p.id)} comprovante(s) sem assinatura</b>` : ''}</div>
   </div>`;
 }
 
@@ -760,8 +760,19 @@ A.salvarEvoPC = () => { const f = E.ui.pc.evoForm, pid = E.ui.pc.fichaId;
 function abaArquivos(p) {
   const arqs = E.d.arquivos[p.id] || [];
   return `<button class="btn btn-pri" data-a="enviarArq" style="margin-bottom:12px">+ Enviar arquivo</button> <span class="mini muted">ou arraste para cá</span>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">${arqs.map(a => `<div class="cartao" style="text-align:center"><div class="arq-ic">${ic(a.tipo === 'Radiografia' ? 'dente' : a.tipo === 'Ficha em papel' ? 'arquivo' : 'foto', 32)}</div><b class="mini">${esc(a.tipo)}</b><div class="mini muted">${esc(a.nome)} · ${dataBR(a.data)}</div></div>`).join('') || '<div class="vazio">Nenhum arquivo.</div>'}</div>`;
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">${arqs.map(a => { const cp = a.comp && comprovantes(p.id).find(x => x.id === a.comp);
+      return `<div class="cartao arq-cartao" style="text-align:center" ${cp ? `data-a="verCompPC" data-id="${cp.id}" role="button" tabindex="0"` : ''}><div class="arq-ic">${ic(cp ? 'assinar' : a.tipo === 'Radiografia' ? 'dente' : a.tipo === 'Ficha em papel' ? 'arquivo' : 'foto', 32)}</div><b class="mini">${esc(a.tipo)}</b><div class="mini muted">${esc(a.nome)} · ${dataBR(a.data)}</div>${cp ? (cp.assinado ? '<span class="tag paga">assinado</span>' : '<span class="tag vencida">falta assinatura</span>') : ''}</div>`; }).join('') || '<div class="vazio">Nenhum arquivo.</div>'}</div>`;
 }
+A.verCompPC = ds => { E.ui.pc.modal = { tipo: 'comp', id: ds.id }; render(); };
+function modalComp() { const pid = E.ui.pc.fichaId, cp = comprovantes(pid).find(x => x.id === E.ui.pc.modal.id), p = pac(pid);
+  return `<div class="modal"><div class="painel-cab"><h2>Comprovante · ${numNome(p)}</h2><button class="fechar" data-a="fecharModal" aria-label="Fechar">${ic('x', 20)}</button></div><div class="painel-corpo">
+    <div class="mini muted">${dataBRc(cp.data)} · ${esc(prof(cp.prof).curto)} · ${esc(conv(p.conv).nome)}</div>
+    <div class="grupo-tit">Procedimento realizado</div>${(cp.itens.length ? cp.itens : ['Consulta']).map(t => `<div class="comp-item">${ic('feito', 16)} ${esc(t)}</div>`).join('')}
+    <div class="dono-linha"><span>Pagamento previsto</span><b>${esc(cp.forma || '—')}</b></div><div class="dono-linha"><span>Retorno</span><b>${cp.retorno ? esc(QUANDO_RETORNO[cp.retorno]) : '—'}</b></div>
+    <div class="dono-linha"><span>Assinatura do paciente</span>${cp.assinado ? '<span class="tag paga">assinado</span>' : '<span class="tag vencida">falta assinatura</span>'}</div>
+  </div><div class="painel-rodape rodape-dir"><button class="btn" data-a="imprimirComp">Imprimir</button>${cp.assinado ? '' : '<button class="btn btn-pri" data-a="pedirAssinComp">Pedir assinatura no celular</button>'}</div></div>`; }
+A.imprimirComp = () => toast('No sistema real, abre o PDF no formato do talonário da Odonto Vip.');
+A.pedirAssinComp = () => { E.ui.pc.modal = null; render(); toast('No sistema real, o comprovante abre no celular ou tablet da clínica para o paciente assinar.'); };
 A.enviarArq = () => toast('No sistema real, abre o seletor de arquivos (radiografia, foto, documento).');
 function abaFinanceiro(p) {
   const ps = parcelas(p.id), recs = E.d.recebimentos.filter(r => r.pac === p.id);
@@ -835,11 +846,15 @@ A.salvarDadosPC = () => { const pc = E.ui.pc, p = pac(pc.dados.id), f = pc.dados
 
 /* ---------- receber pagamento ---------- */
 A.abrirReceber = ds => { const p = ds.pac ? pac(ds.pac) : null; const ab = p ? parcelasAbertas(p.id) : [];
-  E.ui.pc.modal = { tipo: 'rec', pac: p ? p.id : null, valorTxt: ab[0] ? (saldoParcela(ab[0]) / 100).toFixed(2).replace('.', ',') : '', forma: null, okExcesso: false };
+  const prevista = p && formaPrevistaHoje(p.id);
+  E.ui.pc.modal = { tipo: 'rec', pac: p ? p.id : null, valorTxt: ab[0] ? (saldoParcela(ab[0]) / 100).toFixed(2).replace('.', ',') : '', forma: prevista || null, prevista, okExcesso: false };
   E.ui.foco = p ? 'rec-valor' : 'rec-busca'; render(); };
 A.recBusca = (ds, el) => { const r = buscarPacientes(el.value); document.getElementById('rec-res').innerHTML = r.map(p => resultadoPac(p, 'recPac')).join(''); };
-A.recPac = ds => { const ab = parcelasAbertas(ds.id); Object.assign(E.ui.pc.modal, { pac: ds.id, valorTxt: ab[0] ? (saldoParcela(ab[0]) / 100).toFixed(2).replace('.', ',') : '' }); E.ui.foco = 'rec-valor'; render(); };
-A.recForma = ds => { E.ui.pc.modal.forma = ds.v; render(); };
+A.recPac = ds => { const ab = parcelasAbertas(ds.id), prevista = formaPrevistaHoje(ds.id); Object.assign(E.ui.pc.modal, { pac: ds.id, valorTxt: ab[0] ? (saldoParcela(ab[0]) / 100).toFixed(2).replace('.', ',') : '', prevista, forma: prevista || E.ui.pc.modal.forma }); E.ui.foco = 'rec-valor'; render(); };
+const verMotivo = () => { const el = document.querySelector('.rec-motivo'); if (el) el.scrollIntoView({ block: 'nearest' }); }; // sem ficar atrás do rodapé fixo
+A.recForma = ds => { const m = E.ui.pc.modal; m.forma = ds.v; m.motivo = null; render(); verMotivo(); };
+A.recMotivo = ds => { E.ui.pc.modal.motivo = ds.v; if (ds.v === 'Outro') E.ui.foco = 'rec-motivo-txt'; render(); verMotivo(); };
+A.recMotivoTxt = () => { const m = E.ui.pc.modal, b = document.getElementById('btn-rec'), r = rotuloRec(m, recPrevia(m)); if (b) { b.textContent = r.txt; b.disabled = r.off; } };
 const totalAberto = pid => parcelasAbertas(pid).reduce((s, x) => s + saldoParcela(x), 0);
 function recPrevia(m) {
   const v = lerReais(m.valorTxt), { res, sobra } = distribuir(m.pac, v), aberto = totalAberto(m.pac);
@@ -849,6 +864,7 @@ function recPrevia(m) {
 function rotuloRec(m, pv) {
   if (!pv.v) return { txt: 'Digite o valor recebido', off: true };
   if (!m.forma) return { txt: 'Escolha a forma de pagamento', off: true };
+  if (m.prevista && m.forma !== m.prevista && (!m.motivo || (m.motivo === 'Outro' && !(m.motivoTxt || '').trim()))) return { txt: 'Diga por que mudou a forma', off: true };
   if (pv.excesso && !m.okExcesso) return { txt: `Receber ${brl(pv.v)} — é mais do que deve`, off: false };
   return { txt: `Receber ${brl(pv.v)} de ${pac(m.pac).nome.split(' ')[0]} · ${m.forma}`, off: false };
 }
@@ -859,28 +875,34 @@ function modalRec() {
   if (!m.pac) return `<div class="modal"><div class="painel-cab"><h2>Receber pagamento</h2><button class="fechar" data-a="fecharModal" aria-label="Fechar">${ic('x', 20)}</button></div><div class="painel-corpo">
     <div class="campo"><label>De quem?</label><input id="rec-busca" placeholder="Nome, CPF, telefone ou nº" data-ao="recBusca" autocomplete="off"></div><div id="rec-res"></div></div></div>`;
   const p = pac(m.pac), ab = parcelasAbertas(p.id), pv = recPrevia(m), r = rotuloRec(m, pv);
-  return `<div class="modal"><div class="painel-cab"><h2>Receber pagamento</h2><button class="fechar" data-a="fecharModal" aria-label="Fechar">${ic('x', 20)}</button></div><div class="painel-corpo">
+  return `<div class="modal" data-scroll="modal-rec"><div class="painel-cab"><h2>Receber pagamento</h2><button class="fechar" data-a="fecharModal" aria-label="Fechar">${ic('x', 20)}</button></div><div class="painel-corpo">
     <div class="chip-pac"><b>${numNome(p)}</b></div>
     <div class="grupo-tit">Em aberto (mais antiga primeiro)</div>
     ${ab.map(x => `<div class="linha"><span>Parcela ${x.n}/${x.de}</span><span class="mini ${x.venc < E.d.hoje ? 'res-ruim' : 'muted'}">vence ${dataBR(x.venc)}${x.venc < E.d.hoje ? ' · vencida' : ''}</span><span class="acoes num"><b>${brl(saldoParcela(x))}</b></span></div>`).join('') || '<div class="aviso-box info">Nada em aberto. Pode receber um valor avulso.</div>'}
     <div class="campo" style="margin-top:12px"><label>Valor recebido (R$) <span class="muted">— pode ser menos que a parcela</span></label><input id="rec-valor" data-selecionar inputmode="decimal" value="${esc(m.valorTxt)}" data-campo="pc.modal.valorTxt" data-ao="recPreview" style="font-size:20px;font-weight:700"></div>
     <div id="rec-prev">${pv.html}</div>
     ${m.okExcesso ? `<div class="aviso-box erro">Confirme: ${esc(p.nome.split(' ')[0])} deve ${brl(pv.aberto)} e você está recebendo ${brl(pv.v)}. Toque de novo para confirmar.</div>` : ''}
-    <div class="campo" style="margin-top:12px"><label>Forma de pagamento <span class="obrig">*</span></label><div class="chips chips-forma">${['Dinheiro', 'Pix', 'Cartão débito', 'Cartão crédito', 'Link de pagamento', 'Convênio'].map(f => `<button class="${m.forma === f ? 'on' : ''}" data-a="recForma" data-v="${f}" aria-pressed="${m.forma === f}">${m.forma === f ? ic('check', 16) : ic((FORMAS[f] || ['caixa'])[0], 16)} ${f}</button>`).join('')}</div></div>
+    ${m.prevista ? `<div class="aviso-box info" style="margin:12px 0 0">${ic('assinar', 15)} A dentista anotou no comprovante: <b>${esc(m.prevista)}</b>.</div>` : ''}
+    <div class="campo" style="margin-top:12px"><label>Forma de pagamento <span class="obrig">*</span></label><div class="chips chips-forma">${['Dinheiro', 'Pix', 'Cartão débito', 'Cartão crédito', 'Crédito parcelado', 'Carteira', 'Link de pagamento', 'Convênio'].map(f => `<button class="${m.forma === f ? 'on' : ''}" data-a="recForma" data-v="${f}" aria-pressed="${m.forma === f}">${m.forma === f ? ic('check', 16) : ic((FORMAS[f] || ['caixa'])[0], 16)} ${f}</button>`).join('')}</div></div>
+    ${m.prevista && m.forma && m.forma !== m.prevista ? `<div class="campo rec-motivo"><label>Mudou de ${esc(m.prevista)} para ${esc(m.forma)}. Por quê? <span class="obrig">*</span></label>
+      <div class="chips">${['O paciente pediu', 'Cartão sem limite', 'Dividiu em duas formas', 'Outro'].map(x => `<button class="${m.motivo === x ? 'on' : ''}" data-a="recMotivo" data-v="${x}">${x}</button>`).join('')}</div>
+      ${m.motivo === 'Outro' ? `<input id="rec-motivo-txt" placeholder="Escreva o motivo" value="${esc(m.motivoTxt || '')}" data-campo="pc.modal.motivoTxt" data-ao="recMotivoTxt">` : ''}</div>` : ''}
     ${E.d.caixa.fechado ? '<div class="aviso-box aviso">O caixa de hoje já foi fechado. Este recebimento fica marcado como “depois do fechamento”.</div>' : ''}
   </div><div class="painel-rodape"><button id="btn-rec" class="btn btn-pri" style="width:100%;min-height:48px" data-a="confirmarRec" ${r.off ? 'disabled' : ''}>${esc(r.txt)}</button></div></div>`;
 }
 A.confirmarRec = () => { const m = E.ui.pc.modal, pv = recPrevia(m), p = pac(m.pac); if (!pv.v || !m.forma) return;
   if (pv.excesso && !m.okExcesso) { m.okExcesso = true; render(); return; }
-  comDesfazer(`Recebido ${brl(pv.v)} de ${esc(p.nome)} (${m.forma}).`, () => { receber(m.pac, pv.v, m.forma); E.ui.pc.modal = null; }); };
+  const mudou = m.prevista && m.forma !== m.prevista ? m.prevista : null; if (mudou && (!m.motivo || (m.motivo === 'Outro' && !(m.motivoTxt || '').trim()))) return;
+  comDesfazer(`Recebido ${brl(pv.v)} de ${esc(p.nome)} (${m.forma}).${mudou ? ` Anotado: a prevista era ${esc(mudou)}.` : ''}`, () => {
+    receber(m.pac, pv.v, m.forma); if (mudou) Object.assign(E.d.recebimentos[E.d.recebimentos.length - 1], { previstaEra: mudou, motivoTroca: m.motivo === 'Outro' ? m.motivoTxt.trim() : m.motivo }); E.ui.pc.modal = null; }); };
 
 /* ---------- CAIXA ---------- */
-const FORMAS = { 'Pix': ['pix', '#6B4FBB'], 'Dinheiro': ['dinheiro', '#157F3B'], 'Cartão crédito': ['cartao', '#0A5C96'], 'Cartão débito': ['cartao', '#0E7C86'], 'Convênio': ['arquivo', '#BC943D'], 'Link de pagamento': ['link', '#9A3B8C'] }; // Link: pedido do Sr. Austregesilo (R17)
+const FORMAS = { 'Pix': ['pix', '#6B4FBB'], 'Dinheiro': ['dinheiro', '#157F3B'], 'Cartão crédito': ['cartao', '#0A5C96'], 'Cartão débito': ['cartao', '#0E7C86'], 'Crédito parcelado': ['cartao', '#08406b'], 'Carteira': ['caixa', '#8a5a00'], 'Convênio': ['arquivo', '#BC943D'], 'Link de pagamento': ['link', '#9A3B8C'] }; // Link: pedido do Sr. Austregesilo (R17)
 const formaHTML = f => { const [i, c] = FORMAS[f] || ['caixa', '#7C8CA3']; return `<span class="cx-forma" style="--c:${c}">${ic(i, 15)} ${esc(f)}</span>`; };
 /* "Saldo de caixa" no lugar de "Deve ter na gaveta" (Danielle, R8): saldo em espécie, em cartão
    e, depois de contar a gaveta, o saldo positivo (sobrou) ou negativo (quanto falta) */
 function cartaoSaldo(t, cx) {
-  const din = t.porForma['Dinheiro'] || 0, cartao = (t.porForma['Cartão crédito'] || 0) + (t.porForma['Cartão débito'] || 0);
+  const din = t.porForma['Dinheiro'] || 0, cartao = (t.porForma['Cartão crédito'] || 0) + (t.porForma['Cartão débito'] || 0) + (t.porForma['Crédito parcelado'] || 0);
   const outros = t.total - din - cartao;
   const linha = (rot, v, sub, cls = '') => `<div class="saldo-linha ${cls}"><span>${rot}${sub ? `<span class="mini muted">${sub}</span>` : ''}</span><b class="num">${v}</b></div>`;
   const conf = !cx.fechado ? linha('Saldo da conferência', '—', 'aparece quando fechar o caixa e contar a gaveta', 'saldo-neutro')
@@ -918,7 +940,7 @@ function telaCaixa() {
   </div>
   <div class="cartao" style="margin-top:16px;padding:0"><h3 style="padding:14px 16px 0">Pagamentos de hoje <span class="h-cont">${recs.length}</span></h3>
   <table class="tab cx-tab"><thead><tr><th>Hora</th><th>Paciente</th><th>Profissional</th><th>Forma</th><th class="dir">Valor</th><th>Recebido por</th></tr></thead><tbody>
-    ${recs.map(r => { const p = pac(r.pac); return `<tr class="clic" data-a="abrirFicha" data-id="${p.id}"><td class="num"><b>${hhmm(r.hora)}</b></td><td>nº ${p.numero} · ${esc(p.nome)}${r.depoisFechamento ? ' <span class="tag vencida">depois do fechamento</span>' : ''}</td><td class="muted">${r.prof ? esc(prof(r.prof).curto) : '—'}</td><td>${formaHTML(r.forma)}</td><td class="num dir"><b>${brl(r.valor)}</b></td><td class="muted">${esc(usu(r.por).nome)}</td></tr>`; }).join('') || '<tr><td colspan="6"><div class="vazio">Nenhum pagamento ainda hoje.</div></td></tr>'}</tbody>
+    ${recs.map(r => { const p = pac(r.pac); return `<tr class="clic" data-a="abrirFicha" data-id="${p.id}"><td class="num"><b>${hhmm(r.hora)}</b></td><td>nº ${p.numero} · ${esc(p.nome)}${r.depoisFechamento ? ' <span class="tag vencida">depois do fechamento</span>' : ''}</td><td class="muted">${r.prof ? esc(prof(r.prof).curto) : '—'}</td><td>${formaHTML(r.forma)}${r.previstaEra ? `<br><span class="cx-mudou">mudou · previsto ${esc(r.previstaEra)} · ${esc(r.motivoTroca || '')}</span>` : ''}</td><td class="num dir"><b>${brl(r.valor)}</b></td><td class="muted">${esc(usu(r.por).nome)}</td></tr>`; }).join('') || '<tr><td colspan="6"><div class="vazio">Nenhum pagamento ainda hoje.</div></td></tr>'}</tbody>
     ${recs.length ? `<tfoot><tr><td colspan="4"><b>Total</b></td><td class="num dir"><b>${brl(t.total)}</b></td><td></td></tr></tfoot>` : ''}</table></div>`;
 }
 A.abrirFechar = () => { E.ui.pc.modal = { tipo: 'fechar', gaveta: '', confirmar: false, erro: '' }; E.ui.foco = 'gaveta'; render(); };
@@ -1037,7 +1059,7 @@ A.salvarPrecos = () => { const pc = E.ui.pc, ms = mudancasPreco(); if (ms.some(m
 A.importarPrecos = () => toast('No sistema real: escolha o arquivo Excel exportado do Dental Office (Personalizar → Procedimentos). Antes de salvar, mostra o que vai mudar.');
 
 /* ---------- modais ---------- */
-function modalHTML() { return ({ orc: modalOrc, rec: modalRec, fechar: modalFechar })[E.ui.pc.modal.tipo](); }
+function modalHTML() { return ({ orc: modalOrc, rec: modalRec, fechar: modalFechar, comp: modalComp })[E.ui.pc.modal.tipo](); }
 
 /* ---------- splash, troca de usuário, PIN (compartilhado com o celular) ---------- */
 function splashHTML(saud) {

@@ -11,7 +11,7 @@ function celHTML() {
   if (['dono', 'admin'].includes(u.papel)) return `<div class="cel">${status}${telaDono()}</div>`;
   const comAbas = ['agenda', 'pacientes', 'eu'].includes(c.tela);
   const faixa = E.ui.celForaWifi ? `<div class="cel-faixa off">${ic('alerta', 15)} Fora do Wi-Fi da clínica · dados das 10:40${c.fila.length ? ` · ${c.fila.length} para enviar` : ''}</div>` : '';
-  const corpo = ({ agenda: celAgenda, paciente: celPaciente, evolucao: celEvo, evoOk: celEvoOk, foto: celFoto, pacientes: celPacientes, eu: celEu,
+  const corpo = ({ agenda: celAgenda, paciente: celPaciente, evolucao: celEvo, evoOk: celEvoOk, comprovante: celComprovante, foto: celFoto, pacientes: celPacientes, eu: celEu,
     odonto: celOdonto, dente: celDenteTela, anam: celAnam, arquivo: celArquivo, anamForm: celAnamForm, assinar: celAssinar, dados: celDados, arquivos: celArquivos, evos: celEvos, retorno: celRetornoTela })[c.tela]();
   return `<div class="cel">${status}${faixa}${corpo}
     ${comAbas ? `<nav class="cel-abas">${[['agenda', 'agenda', 'Agenda'], ['pacientes', 'pacientes', 'Pacientes'], ['eu', 'usuario', 'Eu']].map(([t, i, n]) => `<button class="${c.tela === t ? 'ativo' : ''}" data-a="celTela" data-t="${t}">${ic(i, 22)}${n}</button>`).join('')}</nav>` : ''}</div>`;
@@ -88,7 +88,7 @@ function celPaciente() {
       ${pl.length ? `<span class="prog"><i style="width:${feitos / pl.length * 100}%"></i></span>` : ''}</span>${ic('dir', 20)}</button>
     ${cartaoIr(ans.length || (c.anamRasc || {})[p.id] ? 'anam' : 'anamNova', 'prancheta', 'Anamnese', (c.anamRasc || {})[p.id] ? 'ficha começada — toque para continuar' : ans.length ? `última em ${dataBR(ans[ans.length - 1].data)}${ans[ans.length - 1].assinada ? ' · assinada' : ''}` : 'nenhuma ficha — toque para preencher')}
     ${cartaoIr('evos', 'arquivo', 'Evolução', ult ? `${dataBR(ult.data)} · ${esc(prof(ult.por).curto)} · “${esc(ult.texto.slice(0, 48))}${ult.texto.length > 48 ? '…' : ''}”` : 'nenhuma ainda')}
-    ${cartaoIr('arquivos', 'foto', `Arquivos (${arqs.length})`, arqs.length ? 'radiografias, fotos e documentos' : 'nenhum ainda')}
+    ${cartaoIr('arquivos', 'foto', `Arquivos (${arqs.length})`, (arqs.length ? 'radiografias, fotos e comprovantes' : 'nenhum ainda') + (semAssinatura(p.id) ? ` · <b class="res-ruim">${semAssinatura(p.id)} sem assinatura</b>` : ''))}
     ${cartaoIr('dados', 'usuario', 'Dados do paciente', `${esc(p.cel)} · ${p.cpf ? 'CPF ' + esc(p.cpf) : 'sem CPF'}`)}
   </div>
   <div class="cel-rodape"><button class="btn" style="flex:0 0 112px" data-a="celFoto">${ic('camera', 22)} Foto</button><button class="btn btn-pri" data-a="celNovaEvo">Nova evolução</button></div>`;
@@ -308,7 +308,7 @@ function celEvos() {
 function celArquivos() {
   const p = pac(E.ui.cel.pacId), arqs = (E.d.arquivos[p.id] || []).slice().reverse();
   return `${cabSub('Arquivos')}
-  <div class="cel-corpo"><div class="cel-arqs">${arqs.map(a => `<button class="cel-arq" data-a="celVerArq" data-id="${a.id}"><span class="cel-arq-img">${ic(a.tipo === 'Radiografia' ? 'dente' : a.tipo === 'Foto clínica' ? 'foto' : 'arquivo', 30)}</span><b class="mini">${esc(a.tipo)}</b><span class="mini muted">${esc(a.nome)} · ${dataBR(a.data)}</span></button>`).join('')}</div>
+  <div class="cel-corpo"><div class="cel-arqs">${arqs.map(a => `<button class="cel-arq" data-a="celVerArq" data-id="${a.id}"><span class="cel-arq-img">${ic(a.comp ? 'assinar' : a.tipo === 'Radiografia' ? 'dente' : a.tipo === 'Foto clínica' ? 'foto' : 'arquivo', 30)}</span><b class="mini">${esc(a.tipo)}</b><span class="mini muted">${esc(a.nome)} · ${dataBR(a.data)}</span>${a.comp ? (comprovantes(p.id).find(x => x.id === a.comp)?.assinado ? '<span class="tag paga">assinado</span>' : '<span class="tag vencida">falta assinatura</span>') : ''}</button>`).join('')}</div>
     ${arqs.length ? '' : '<div class="vazio">Nenhum arquivo ainda.</div>'}</div>
   <div class="cel-rodape"><button class="btn btn-pri" data-a="celFoto">${ic('camera', 20)} Tirar foto</button></div>`;
 }
@@ -316,6 +316,8 @@ function celArquivos() {
 A.celVerArq = ds => { E.ui.cel.arqId = ds.id; E.ui.cel.tela = 'arquivo'; render(); };
 function celArquivo() {
   const p = pac(E.ui.cel.pacId), a = (E.d.arquivos[p.id] || []).find(x => x.id === E.ui.cel.arqId);
+  const cp = a && a.comp && comprovantes(p.id).find(x => x.id === a.comp);
+  if (cp) { E.ui.cel.comp = { ...cp, novo: false }; return celComprovante(); }
   return `${cabSub(esc(a.tipo), { t: 'arquivos', txt: 'Arquivos' }, `<div class="sub">${esc(a.nome)} · ${dataBRc(a.data)}</div>`)}
   <div class="cel-corpo"><div class="cel-arq-grande">${ic(a.tipo === 'Radiografia' ? 'dente' : a.tipo === 'Foto clínica' ? 'foto' : 'arquivo', 64)}<span class="mini">No sistema real: a imagem em tela cheia, com zoom de dois dedos.</span></div></div>`;
 }
@@ -370,7 +372,7 @@ A.celSalvarDados = () => {
 
 /* evolução */
 /* rascunho por paciente: voltar para olhar o plano não apaga nada */
-A.celNovaEvo = () => { const c = E.ui.cel; c.rascunhos = c.rascunhos || {};
+A.celNovaEvo = () => { const c = E.ui.cel; c.compSalvo = false; c.rascunhos = c.rascunhos || {};
   c.evo = c.rascunhos[c.pacId] = c.rascunhos[c.pacId] || { texto: '', itens: {} }; c.tela = 'evolucao'; render(); };
 function celEvo() {
   const p = pac(E.ui.cel.pacId), ev = E.ui.cel.evo;
@@ -397,8 +399,13 @@ A.celSalvarEvo = () => {
   const fazer = () => { salvarEvolucao(pid, pr, texto, itens); const a = agId && E.d.agendamentos.find(x => x.id === agId); if (a && a.estado === 'em_atendimento') a.estado = 'atendido'; };
   delete (c.rascunhos || {})[pid];
   c.finalizou = !!ag;
-  if (E.ui.celForaWifi) { semDesfazer(); c.fila.push(fazer); c.evoPendente = true; c.tela = 'evoOk'; render(); return; }
-  c.evoPendente = false; comDesfazer('Evolução salva.', () => { fazer(); c.tela = 'evoOk'; });
+  // depois de salvar vem o comprovante (o talonário de papel, digital): o que foi feito, forma prevista, retorno e assinatura
+  c.comp = { novo: true, itens: itens.map(id => { const i = plano(pid).find(x => x.id === id); return i ? nomeItem(i) : ''; }).filter(Boolean),
+    texto: texto.trim(), forma: null, retorno: retornoPendente(pid) ? 'ja' : null, desde: Date.now() };
+  // sem Desfazer: o próximo passo é a assinatura do paciente; desfazer aqui deixaria assinado algo que não foi feito
+  semDesfazer();
+  if (E.ui.celForaWifi) { c.fila.push(fazer); c.evoPendente = true; c.tela = 'comprovante'; render(); return; }
+  c.evoPendente = false; fazer(); c.tela = 'comprovante'; render(); toast('Evolução salva.');
 };
 function celEvoOk() {
   const c = E.ui.cel, p = pac(c.pacId);
@@ -407,13 +414,68 @@ function celEvoOk() {
   <div class="cel-corpo">
     ${c.evoPendente ? '<div class="aviso-box aviso">Você está fora do Wi-Fi. A evolução ficou guardada no celular e vai ser enviada sozinha quando a conexão voltar. Nada se perde.</div>' : ''}
     ${c.finalizou ? `<div class="aviso-box ok">${ic('checks', 16)} Atendimento ${c.evoPendente ? 'vai ser finalizado' : 'finalizado'}. A recepção já vê “Atendido”.</div>` : ''}
-    ${aCobrarHoje(p.id) && !c.evoPendente ? `<div class="aviso-box info">${ic('caixa', 16)} Na saída, a recepção cobra <b>${brl(aCobrarHoje(p.id))}</b>.</div>` : ''}
+    ${aCobrarHoje(p.id) && !c.evoPendente ? `<div class="aviso-box info">${ic('caixa', 16)} Na saída, a recepção cobra <b>${brl(aCobrarHoje(p.id))}</b>${formaPrevistaHoje(p.id) ? ` · prevista: ${esc(formaPrevistaHoje(p.id))}` : ''}.</div>` : ''}
     ${retornoPendente(p.id) ? `<div class="aviso-box ok">${ic('remarcar', 16)} Retorno pedido: ${esc(resumoRetorno(retornoPendente(p.id))) || 'a recepção vai marcar'}.</div>` : ''}
     <b>Próximo passo</b>
-    <div class="chips">${retornoPendente(p.id) ? '' : `<button data-a="celRetorno">${ic('remarcar', 18)} Pedir retorno</button>`}<button data-a="celTela" data-t="agenda">${retornoPendente(p.id) ? 'Voltar à agenda' : 'Nada, voltar à agenda'}</button></div>
-    <div class="mini muted">“Pedir retorno” manda para a recepção quando e para quê. Ela marca o horário e já diz o valor ao paciente.</div>
+    <div class="chips">${retornoPendente(p.id) || c.compSalvo ? '' : `<button data-a="celRetorno">${ic('remarcar', 18)} Pedir retorno</button>`}<button data-a="celTela" data-t="agenda">${retornoPendente(p.id) ? 'Voltar à agenda' : 'Nada, voltar à agenda'}</button></div>
+    ${c.compSalvo ? '' : '<div class="mini muted">“Pedir retorno” manda para a recepção quando e para quê. Ela marca o horário e já diz o valor ao paciente.</div>'}
   </div>`;
 }
+/* comprovante de atendimento — blueprint/07 §A5b · substitui o talonário de papel fotografado */
+function celComprovante() {
+  const c = E.ui.cel, cp = c.comp, p = pac(c.pacId), pr = prof(cp.prof || profCel());
+  const formas = p.conv !== 'part' ? [...FORMAS_PREVISTAS, 'Convênio'] : FORMAS_PREVISTAS;
+  const realizado = cp.itens.length ? cp.itens.map(t => `<div class="comp-item">${ic('feito', 16)} ${esc(t)}</div>`).join('') : `<div class="comp-item">${ic('feito', 16)} Consulta${cp.texto ? ' · ' + esc(cp.texto.slice(0, 60)) + (cp.texto.length > 60 ? '…' : '') : ''}</div>`;
+  return `<div class="cel-cab">${cp.novo ? '' : `<button class="cel-voltar" data-a="celTela" data-t="arquivos">${ic('esq', 18)} Arquivos</button>`}<div class="cel-quem">${numNomeCel(p)}</div><h2>Comprovante de atendimento</h2>
+    <div class="sub">${dataBRc(cp.data || E.d.hoje)} · ${esc(pr.curto)} · ${esc(conv(p.conv).nome)}</div></div>
+  <div class="cel-corpo" data-scroll="cel-comp">
+    ${cp.novo && c.evoPendente ? '<div class="aviso-box aviso">Fora do Wi-Fi: a evolução e o comprovante ficam no celular e vão sozinhos quando a conexão voltar.</div>' : ''}
+    <div class="grupo-tit">Procedimento realizado</div><div class="cel-card comp-real">${realizado}</div>
+    ${cp.novo ? `<div class="grupo-tit">Forma de pagamento prevista <span class="muted">(a recepção vê ao cobrar)</span></div>
+      <div class="chips" id="comp-formas">${formas.map(f => `<button class="${cp.forma === f ? 'on' : ''}" data-a="celCompForma" data-v="${f}" aria-pressed="${cp.forma === f}">${cp.forma === f ? ic('check', 16) : ''}${f}</button>`).join('')}</div>
+      <div class="grupo-tit">Retorno</div>
+      ${cp.retorno === 'ja' ? `<div class="mini muted">Já tem retorno pedido: ${esc(resumoRetorno(retornoPendente(p.id)) || 'a recepção vai marcar')}.</div>`
+        : `<div class="chips" id="comp-ret"><button class="${cp.retorno == null ? 'on' : ''}" data-a="celCompRet" data-v="" aria-pressed="${cp.retorno == null}">${cp.retorno == null ? ic('check', 16) : ''}Sem retorno</button>${Object.entries(QUANDO_RETORNO).map(([d, t]) => `<button class="${cp.retorno == d ? 'on' : ''}" data-a="celCompRet" data-v="${d}" aria-pressed="${cp.retorno == d}">${cp.retorno == d ? ic('check', 16) : ''}${t.replace('em ', '')}</button>`).join('')}</div>
+        <div class="mini muted">O retorno vai para a recepção com o próximo item do plano.</div>`}`
+      : `<div class="cel-card"><div class="dono-linha"><span>Pagamento previsto</span><b>${esc(cp.forma || '—')}</b></div><div class="dono-linha"><span>Retorno</span><b>${cp.retorno && cp.retorno !== 'ja' ? esc(QUANDO_RETORNO[cp.retorno]) : '—'}</b></div></div>`}
+    ${cp.assinado ? `<div class="aviso-box ok">${ic('assinar', 16)} Assinado pelo paciente.</div>`
+      : `<div class="comp-dentista"><button class="btn-link" data-a="celSalvarComp" data-ass="0">${cp.novo ? 'O paciente não vai assinar agora — salvar sem assinatura' : 'Agora não'}</button></div>
+      <div class="comp-paciente"><div class="grupo-tit">Para o paciente</div>
+        <div class="comp-declara">Confirmo que recebi o atendimento: <b>${cp.itens.length ? cp.itens.map(esc).join(' · ') : 'Consulta'}</b>.</div>
+        <div class="assin-caixa"><canvas id="cel-assin" width="320" height="200" aria-label="Área para assinar com o dedo"></canvas><span class="assin-dica">Assine aqui com o dedo</span></div>
+        <button class="btn" style="width:100%;min-height:48px" data-a="celLimparComp">Apagar e assinar de novo</button></div>`}
+    ${cp.novo ? '' : '<button class="btn" style="width:100%;min-height:48px" data-a="celImprimirComp">' + ic('arquivo', 18) + ' Imprimir (mesmo formato do talonário)</button>'}
+  </div>
+  ${cp.assinado ? '' : `<div class="cel-rodape"><button class="btn btn-pri" id="btn-assin" data-a="celSalvarComp" data-ass="1" disabled>Assinatura pronta</button></div>`}`;
+}
+/* marca o chip sem redesenhar a tela: se o paciente já assinou, a assinatura continua lá */
+function marcarChip(grupo, valor) { document.querySelectorAll(`#${grupo} button`).forEach(b => { const on = b.dataset.v === valor;
+  b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); b.querySelector('.ic')?.remove(); if (on) b.insertAdjacentHTML('afterbegin', ic('check', 16)); }); }
+const tocouCedo = () => Date.now() - (E.ui.cel.comp.desde || 0) < 700; // duplo toque no "Salvar evolução"
+A.celCompForma = ds => { const cp = E.ui.cel.comp; if (tocouCedo()) return; cp.forma = cp.forma === ds.v ? null : ds.v; marcarChip('comp-formas', cp.forma || '#'); };
+A.celCompRet = ds => { const cp = E.ui.cel.comp; if (tocouCedo()) return; cp.retorno = ds.v ? +ds.v : null; marcarChip('comp-ret', ds.v); };
+A.celLimparComp = () => { const cv = document.getElementById('cel-assin'); if (!cv) return; cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+  if (!cv.parentNode.querySelector('.assin-dica')) cv.insertAdjacentHTML('afterend', '<span class="assin-dica">Assine aqui com o dedo</span>');
+  const b = document.getElementById('btn-assin'); if (b) b.disabled = true; };
+A.celImprimirComp = () => toast('No sistema real, abre o PDF no formato do talonário da Odonto Vip para imprimir.');
+A.celSalvarComp = ds => {
+  const c = E.ui.cel, cp = c.comp, pid = c.pacId, assinado = ds.ass === '1';
+  if (cp.novo && tocouCedo()) return;
+  if (!cp.novo) { // assinar depois um comprovante que ficou sem assinatura
+    if (assinado) { const x = comprovantes(pid).find(y => y.id === cp.id); if (x) x.assinado = true; toast('Assinatura guardada no comprovante.'); }
+    c.comp = null; c.tela = 'arquivos'; render(); return; }
+  const id = uid(), reg = { id, data: E.d.hoje, prof: profCel(), itens: cp.itens, texto: cp.texto, forma: cp.forma, retorno: cp.retorno === 'ja' ? null : cp.retorno, assinado };
+  const grava = () => {
+    comprovantes(pid).push(reg);
+    (E.d.arquivos[pid] = E.d.arquivos[pid] || []).push({ id: uid(), tipo: 'Comprovante', nome: `Atendimento ${dataBR(E.d.hoje)}`, data: E.d.hoje, comp: id });
+    if (reg.retorno) { const prox = plano(pid).find(i => ['aprovado', 'indicado'].includes(i.estado));
+      E.d.pedidosRetorno.push({ id: uid(), pac: pid, prof: reg.prof, feito: false, quando: reg.retorno, itens: prox ? [prox.id] : [], obs: '' }); }
+  };
+  // sem Desfazer aqui: o celular está na mão do paciente (igual à anamnese). Fora do Wi-Fi grava já e fica "para enviar".
+  grava(); if (E.ui.celForaWifi) c.fila.push(() => {});
+  c.comp = null; c.compSalvo = true; c.tela = 'evoOk'; render();
+  toast(assinado ? 'Comprovante assinado e guardado em Arquivos.' : 'Comprovante guardado. Ficou marcado: falta assinatura.');
+};
 A.celFinalizar = ds => { const a = E.d.agendamentos.find(x => x.id === ds.id);
   comDesfazer(`Atendimento finalizado: ${esc(pac(a.pac).nome)}.`, () => { a.estado = 'atendido'; }); };
 /* pedir retorno: quando e para quê (o próximo item do plano já vem marcado) */
