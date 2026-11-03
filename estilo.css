@@ -471,7 +471,6 @@ table.tab{width:100%;border-collapse:collapse;background:var(--surface);border:1
 .ev-proc{font-size:13px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ag-ev.baixo{flex-direction:row;align-items:center;gap:8px}
 .ag-ev.baixo .ev-l1{flex:none}
-.ag-ev.baixo .ev-est span{display:none}
 .ag-ev.passado:not(.e-em_atendimento):not(.e-chegou){opacity:.72}
 .ag-ev.e-confirmado .ev-est{color:var(--brand-deep)}
 .ag-ev.e-chegou .ev-est{color:var(--aviso)}
@@ -528,7 +527,6 @@ table.tab{width:100%;border-collapse:collapse;background:var(--surface);border:1
 .h-tempo{font-size:13px}
 .btn-peq{font-size:14px;min-height:32px}
 .est{font-size:12.5px}
-.ag-ev.baixo .ev-est span{display:inline}
 .ag-ev.baixo .ev-nome{min-width:0}
 .cx-tab th{font-size:12.5px}
 .cx-ja-fechado{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:var(--r);background:var(--bg);color:var(--ink-soft);font-weight:700}
@@ -942,3 +940,9 @@ details.dono-mais>summary::-webkit-details-marker{display:none}
 details.dono-mais>summary::after{content:'';margin-left:auto;width:9px;height:9px;border-right:2px solid var(--ink-soft);border-bottom:2px solid var(--ink-soft);transform:rotate(45deg);transition:transform .15s}
 details.dono-mais[open]>summary::after{transform:rotate(-135deg)}
 .leg-grade-cel>div:nth-last-child(-n+2){grid-column:1 / -1}
+
+/* S-mac-10b (Nicolas, 03/11): na agenda do PC, coluna estreita ou turno curto = só o ícone.
+   A palavra continua no title do turno e para o leitor de tela (escondida só na vista). */
+.ag-col{container-type:inline-size}
+.ag-ev.baixo .ev-est span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@container (max-width: 215px){ .ev-est span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap} }
