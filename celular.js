@@ -651,7 +651,7 @@ function donoBarra(part, conv) {
   const tot = part + conv;
   return `<div class="dono-barra" role="img" aria-label="Particular ${pct(part, tot)}%, convênio ${pct(conv, tot)}%"><i class="b-part" style="width:${pct(part, tot)}%"></i><i class="b-conv" style="width:${pct(conv, tot)}%"></i></div>
     <div class="dono-leg"><div><span><i class="sw b-part"></i>Particular</span><b class="num">${brl(part).replace(',00', '')}</b><small>recebido</small></div>
-      <div class="dir"><span><i class="sw b-conv"></i>Convênio</span><b class="num">${brl(conv).replace(',00', '')}</b><small>a receber em 30–60 dias</small></div></div>`;
+      <div class="dir"><span><i class="sw b-conv"></i>Convênio</span><b class="num">${brl(conv).replace(',00', '')}</b><small>produzido · o plano paga em 30–60 dias</small></div></div>`;
 }
 function donoUnidade(u, m) {
   const fal = pct(m.faltas, m.atendidos + m.faltas), alta = fal >= FALTA_ALTA;

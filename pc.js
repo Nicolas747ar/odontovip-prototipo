@@ -920,7 +920,7 @@ A.enviarArq = () => toast('No sistema real, abre o seletor de arquivos (radiogra
 function abaFinanceiro(p) {
   const ps = parcelas(p.id), recs = E.d.recebimentos.filter(r => r.pac === p.id);
   return `<div style="display:flex;gap:8px;margin-bottom:12px"><button class="btn btn-pri" data-a="abrirReceber" data-pac="${p.id}">Receber pagamento</button>${(n => n ? `<button class="btn" data-a="abrirOrc">Gerar orçamento (${n} ${n === 1 ? 'indicado' : 'indicados'})</button>` : '')(plano(p.id).filter(i => i.estado === 'indicado').length)}</div>
-  ${orcamentos(p.id).length ? `<div class="grupo-tit">Orçamentos aprovados</div>${orcamentos(p.id).slice().reverse().map(o => `<div class="linha orc-linha"><span><b>${dataBR(o.data)}</b> · ${brl(o.total)}${o.n > 1 ? ` em ${o.n}x` : ' à vista'}<br><span class="orc-itens muted">${o.itens.map(id => plano(p.id).find(i => i.id === id)).filter(Boolean).map(i => esc(nomeItem(i))).join(' · ')}${o.desconto ? ` · desconto ${brl(o.desconto)}` : ''}</span></span>
+  ${orcamentos(p.id).length ? `<div class="grupo-tit">Orçamentos aprovados</div>${orcamentos(p.id).slice().reverse().map(o => `<div class="linha orc-linha"><span><b>${dataBR(o.data)}</b> · ${brl(o.total)}${o.n > 1 ? ` em ${o.n}x` : ' à vista'}<br><span class="orc-itens muted">${o.itens.map(id => plano(p.id).find(i => i.id === id)).filter(Boolean).map(i => esc(nomeItem(i))).join(' · ')}${o.desconto ? ` · desconto ${brl(o.desconto)} dado por ${esc((usu(o.por) || {}).nome || '—')}` : ''}</span></span>
     <span class="acoes">${o.assinado ? `<span class="res-ok">${ic('assinar', 15)} assinado em ${dataBR(o.dataAssin || o.data)}</span>` : `<span class="res-ruim">${ic('alerta', 15)} falta assinatura${o.pedido ? ' · pedido enviado ao celular' : ''}</span> <button class="btn btn-peq" data-a="pedirAssinOrc" data-id="${o.id}">${o.pedido ? 'Pedir de novo' : 'Pedir assinatura no celular'}</button>`}</span></div>`).join('')}` : ''}
   ${p.credito ? `<div class="aviso-box info">Crédito do paciente: <b>${brl(p.credito)}</b> (pagou a mais). Ainda não é descontado sozinho das próximas parcelas.</div>` : ''}
   <table class="tab tab-fin"><thead><tr><th>Parcela</th><th>Vence</th><th class="dir">Valor</th><th class="dir">Pago</th><th class="dir">Falta</th><th>Situação</th></tr></thead><tbody>
@@ -1318,7 +1318,7 @@ function telaRelatorios() {
     <span class="titulo-acoes"><span class="tabs" role="tablist">${[['hoje', 'Hoje'], ['mes', 'Mês']].map(([k, t]) => `<button role="tab" aria-selected="${per === k}" class="${per === k ? 'on' : ''}" data-a="relPer" data-v="${k}">${t}</button>`).join('')}</span></span></div>
   <div class="kpis-h">
     ${kpi(brl(part).replace(',00', ''), 'particular recebido', 'caixa', 'azul')}
-    ${kpi(brl(conv).replace(',00', ''), 'convênio a receber', 'arquivo', 'teal')}
+    ${kpi(brl(conv).replace(',00', ''), 'convênio produzido', 'arquivo', 'teal')}
     ${kpi(at, 'atendidos', 'checks', 'verde')}
     ${kpi(`${fal}%`, `faltas · ${fa} de ${at + fa} consultas`, 'relogio', fal >= FALTA_ALTA ? 'vermelho' : 'ambar')}
   </div>
