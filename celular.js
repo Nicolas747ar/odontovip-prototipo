@@ -132,7 +132,7 @@ function celOdonto() {
     return `<button class="cel-dente-btn" data-a="celDente" data-n="${n}" aria-label="Dente ${n}${ks.length ? ': ' + ks.map(k => CONDICOES[k][0]).join(', ') : ''}">${ehSup(n) ? svg + num : num + svg}</button>`; }).join('')}</div>`;
   const seg = (campo, v, t, atual) => `<button class="${atual === v ? 'ativo' : ''}" data-a="celOdontoVer" data-c="${campo}" data-v="${v}">${t}</button>`;
   const pl = plano(p.id);
-  const grupo = (est, tit) => { const g = pl.filter(i => i.estado === est); return g.length ? `<div class="grupo-tit">${tit} (${g.length})</div>${g.map(celItemPlano).join('')}` : ''; };
+  const grupo = (est, tit) => { const g = pl.filter(i => i.estado === est); return g.length ? `<div class="grupo-tit">${tit} (${g.length})</div>${g.map(i => celItemPlano(i, 'semPil')).join('')}` : ''; };
   return `${cabSub('Odontograma', undefined, '<div class="sub">Toque num dente para marcar</div>')}
   <div class="cel-corpo" data-scroll="cel-odonto">
     <div class="seg seg-cel">${seg('arcada', 'sup', 'Superior', arc)}${seg('arcada', 'inf', 'Inferior', arc)}</div>
@@ -140,17 +140,17 @@ function celOdonto() {
     <div class="seg seg-cel seg-peq">${seg('denticao', 'perm', 'Permanente', den)}${seg('denticao', 'mista', 'Mista', den)}${seg('denticao', 'dec', 'Decídua', den)}</div>
     <div class="grupo-tit">Sem dente específico</div>
     <div class="chips">${Object.keys(REGIOES).map(k => `<button data-a="celDente" data-n="${k}">${REGIOES[k]}</button>`).join('')}</div>
-    <details class="cel-legenda"><summary>O que significam as cores e letras</summary>
+    <details class="cel-legenda" ${c.legOdonto ? 'open' : ''} ontoggle="E.ui.cel.legOdonto = this.open"><summary>O que significam as cores e letras</summary><div class="leg-grade-cel">
       ${Object.entries(CONDICOES).map(([k, [n, cor]]) => `<div><i style="background:${cor}"></i><b style="color:${corTexto(k)}">${ABREV[k]}</b> ${n}</div>`).join('')}
-      <div><i style="background:#fff;border:1.5px dashed #1880BF"></i>contorno tracejado: indicado</div><div><i style="background:#fff;border:2px solid #1880BF"></i>contorno cheio: aprovado</div></details>
+      <div><i style="background:#fff;border:1.5px dashed #1880BF"></i>contorno tracejado: indicado</div><div><i style="background:#fff;border:2px solid #1880BF"></i>contorno cheio: aprovado</div></div></details>
     ${grupo('indicado', 'Indicados — o paciente ainda não aprovou')}${grupo('aprovado', 'Aprovados — falta fazer')}${grupo('realizado', 'Feitos')}${grupo('recusado', 'Paciente não quis')}
     ${!pl.length ? '<div class="vazio">Sem tratamentos no plano.</div>' : ''}
     ${pl.some(i => i.estado === 'indicado') ? '<div class="mini muted">O orçamento e o pagamento são feitos na recepção.</div>' : ''}
   </div>`;
 }
-function celItemPlano(i) {
+function celItemPlano(i, op) {
   const quem = i.feitoPor ? `${prof(i.feitoPor).curto} · ${dataBR(i.dataFeito)}` : `${prof(i.indicadoPor).curto} · ${dataBR(i.dataInd)}${i.dataApr ? ` · aprovado ${dataBR(i.dataApr)}` : ''}`;
-  return `<div class="cel-item"><span class="cel-item-txt"><span class="cel-item-l1"><b>${esc(nomeItem(i))}</b><b class="num">${brl(valorItem(i, E.ui.cel.pacId))}</b></span>${pilulaPlano(i.estado)}<span class="mini muted">${quem}</span>
+  return `<div class="cel-item"><span class="cel-item-txt"><span class="cel-item-l1"><b>${esc(nomeItem(i))}</b><b class="num">${brl(valorItem(i, E.ui.cel.pacId))}</b></span>${op === 'semPil' ? '' : pilulaPlano(i.estado)}<span class="mini muted">${quem}</span>
     ${i.estado === 'indicado' ? `<button class="btn-link cel-link-item" data-a="celRecusar" data-id="${i.id}">Paciente não quis</button>` : ''}
     ${i.estado === 'recusado' ? `<button class="btn-link cel-link-item" data-a="celReindicar" data-id="${i.id}">Voltar a indicar</button>` : ''}</span></div>`;
 }
@@ -614,14 +614,13 @@ const milBR = n => Number(n).toLocaleString('pt-BR');
 function telaDono() {
   const c = E.ui.cel, semNet = E.ui.clinicaSemInternet, corte = semNet ? 625 : 1e9, cx = E.d.caixa, aba = c.diaDono || 'hoje';
   const bv = donoBoaViagemHoje(corte);
-  // avisos sempre no alto e com ícone (QA S-mac-3): exemplo × real, e sem internet em toda aba com dados de hoje
-  const avisoEx = real => `<div class="dono-banda ex">${ic('alerta', 18)}<span><b>Prazeres e Norte são exemplo.</b> Dinheiro real: <b>${brl(real)}</b> (Boa Viagem). As outras unidades entram no sistema depois.</span></div>`;
+  // ADR-027: só o aviso que muda a leitura (sem internet); "exemplo" fica na etiqueta de cada unidade
+  const mais = (k, tit, html) => `<details class="cel-card dono-mais" ${(c.donoAberto || {})[k] ? 'open' : ''} ontoggle="(E.ui.cel.donoAberto = E.ui.cel.donoAberto || {})['${k}'] = this.open"><summary><b>${tit}</b></summary>${html}</details>`;
   const avisoNet = semNet && aba !== 'ontem' ? `<div class="dono-banda net">${ic('semrede', 18)}<span><b>Sem atualização desde 10:25.</b> A clínica pode estar sem internet: os números podem estar velhos.</span></div>` : '';
   let corpo = '';
   if (aba === 'ontem') {
     const o = E.d.ontem;
-    corpo = `<div class="dono-banda info">${ic('agenda', 18)}<span>Ontem: só <b>Boa Viagem</b> (o dia inteiro). Para comparar as três unidades, use <b>Mês</b>.</span></div>
-      <div class="cel-card"><div class="dono-rot">Recebido ontem · ${esc(E.d.unidade)}</div><div class="dono-total num">${brl(o.total)}</div></div>
+    corpo = `<div class="cel-card"><div class="dono-rot">Recebido ontem · ${esc(E.d.unidade)}</div><div class="dono-total num">${brl(o.total)}</div></div>
       <div class="cel-card"><b>Por forma de pagamento</b>${[['Pix', o.pix], ['Cartão crédito', o.credito], ['Cartão débito', o.debito], ['Dinheiro', o.dinheiro]].filter(([, v]) => v).map(([f, v]) => `<div class="dono-linha"><span>${formaHTML(f)}</span><b class="num">${brl(v)}</b></div>`).join('')}</div>
       <div class="cel-card"><b>Pacientes</b><div class="dono-linha"><span>Agendados</span><b>${o.agendados}</b></div><div class="dono-linha"><span>Atendidos</span><b>${o.atendidos}</b></div>
         <div class="dono-linha"><span>Faltaram</span><b>${faltaTxt(o.faltas, pct(o.faltas, o.atendidos + o.faltas))}</b></div></div>`;
@@ -633,46 +632,41 @@ function telaDono() {
     const part = soma('part'), conv = soma('conv'), varMes = pct(part, E.d.mesPassadoMesmoPeriodo) - 100;
     const fal = pct(soma('faltas'), soma('atendidos') + soma('faltas')), cr = E.d.campanhaRetorno;
     const pedidos = E.d.pedidosRetorno.length, pedidosFeitos = E.d.pedidosRetorno.filter(r => r.feito).length;
-    corpo = `${avisoEx(bvMes.part)}<div class="cel-card"><div class="dono-rot">Recebido no mês · 01 a 29/10 · 3 unidades</div><div class="dono-total num">${brl(part)}</div>
-        <div class="dono-var ${varMes >= 0 ? 'sobe' : 'desce'}">${varMes >= 0 ? '+' : ''}${varMes}% em relação a 01 a 29/09</div></div>
+    corpo = `<div class="cel-card"><div class="dono-rot">Recebido no mês · 01 a 29/10 · 3 unidades</div><div class="dono-total num">${brl(part)}</div>
+        <div class="dono-var ${varMes >= 0 ? 'sobe' : 'desce'}">${varMes >= 0 ? '+' : ''}${varMes}% em relação a 01 a 29/09</div>${donoBarra(part, conv)}</div>
       <div class="cel-card"><b>Por unidade</b>${us.map(([u, m]) => donoUnidade(u, m)).join('')}</div>
-      <div class="cel-card"><b>Particular × convênio</b>${donoBarra(part, conv)}</div>
-      <div class="cel-card"><b>Faltas no mês</b><div class="dono-grande ${fal >= FALTA_ALTA ? 'txt-erro' : ''}">${fal}%</div>
+      ${mais('mesFaltas', 'Faltas no mês', `<div class="dono-grande ${fal >= FALTA_ALTA ? 'txt-erro' : ''}">${fal}%</div>
         <div class="dono-sub">${soma('faltas')} faltas em ${soma('atendidos') + soma('faltas')} consultas que deviam acontecer</div>
         ${us.map(([u, m]) => { const f = pct(m.faltas, m.atendidos + m.faltas); return `<div class="dono-linha"><span>${esc(u.nome)}</span><span class="dono-mini"><i class="${f >= FALTA_ALTA ? 'alta' : ''}" style="width:${Math.min(100, f * 2)}%"></i></span><b class="num ${f >= FALTA_ALTA ? 'txt-erro' : ''}">${f >= FALTA_ALTA ? ic('alerta', 14) + ' ' : ''}${f}%</b></div>`; }).join('')}
-        <div class="dono-sub">${FALTA_ALTA}% ou mais é alto: fica em vermelho, com o sinal de alerta.</div>
-        <div class="dono-dica">${ic('relogio', 16)} Lembrete no WhatsApp na véspera é o que mais reduz faltas.</div></div>
-      <div class="cel-card"><div class="dono-uni-cab"><b>Retorno de pacientes (campanha no WhatsApp)</b><span class="tag-ex">exemplo</span></div>
+`)}
+      ${mais('mesRetorno', 'Retorno de pacientes (campanha no WhatsApp) <span class="tag-ex">exemplo</span>', `
         <div class="dono-funil"><div><b class="num">${milBR(cr.enviadas)}</b><span>mensagens</span></div>${ic('dir', 18)}<div><b class="num">${cr.marcadas}</b><span>marcaram</span></div>${ic('dir', 18)}<div><b class="num">${cr.vieram}</b><span>vieram</span></div></div>
         <div class="dono-sub">${pct(cr.marcadas, cr.enviadas)}% marcaram · custo ${brl(cr.custo)} = ${brl(Math.round(cr.custo / Math.max(1, cr.vieram)))} por paciente que veio</div>
-        ${pedidos ? `<div class="dono-linha" style="margin-top:6px"><span>Retornos pedidos pelas dentistas (Boa Viagem)</span><b class="num">${pedidosFeitos} de ${pedidos} marcados</b></div>` : ''}</div>
-      <div class="cel-card"><b>Orçamentos</b><div class="dono-linha"><span>Feitos</span><b class="num">${soma('orcFeitos')}</b></div><div class="dono-linha"><span>Aprovados</span><b class="num">${soma('orcAprov')}</b></div>
-        <div class="dono-linha"><span>Aprovação</span><b class="num">${pct(soma('orcAprov'), soma('orcFeitos'))}%</b></div></div>`;
+        ${pedidos ? `<div class="dono-linha" style="margin-top:6px"><span>Retornos pedidos pelas dentistas (Boa Viagem)</span><b class="num">${pedidosFeitos} de ${pedidos} marcados</b></div>` : ''}`)}
+      ${mais('mesOrc', 'Orçamentos', `<div class="dono-linha"><span>Feitos</span><b class="num">${soma('orcFeitos')}</b></div><div class="dono-linha"><span>Aprovados</span><b class="num">${soma('orcAprov')}</b></div>
+        <div class="dono-linha"><span>Aprovação</span><b class="num">${pct(soma('orcAprov'), soma('orcFeitos'))}%</b></div>`)}`;
   } else {
     const us = [bv, ...E.d.outrasUnidades.map(u => ({ ...u.hoje, nome: u.nome }))];
     const part = us.reduce((s, u) => s + u.part, 0), conv = us.reduce((s, u) => s + u.conv, 0);
     const porForma = {}; us.forEach(u => Object.entries(u.porForma).forEach(([f, v]) => { if (f !== 'Convênio') porForma[f] = (porForma[f] || 0) + v; }));
     const ag = us.reduce((s, u) => s + u.agendados, 0), at = us.reduce((s, u) => s + u.atendidos, 0), fa = us.reduce((s, u) => s + u.faltas, 0);
-    corpo = `${avisoEx(bv.part)}<div class="cel-card"><div class="dono-rot">Recebido hoje · 3 unidades</div><div class="dono-total num">${brl(part)}</div><div class="dono-sub">até agora · particular (dinheiro que já entrou)</div></div>
+    corpo = `<div class="cel-card"><div class="dono-rot">Recebido hoje · 3 unidades</div><div class="dono-total num">${brl(part)}</div>${donoBarra(part, conv)}</div>
       <div class="cel-card"><b>Por unidade</b>${us.map(u => donoUnidade(u, u)).join('')}</div>
-      <div class="cel-card"><b>Particular × convênio</b>${donoBarra(part, conv)}</div>
-      <div class="cel-card"><b>Pacientes hoje</b><div class="dono-linha"><span>Agendados</span><b>${ag}</b></div><div class="dono-linha"><span>Atendidos até agora</span><b>${at}</b></div>
+      ${mais('pac', 'Pacientes hoje', `<div class="dono-linha"><span>Agendados</span><b>${ag}</b></div><div class="dono-linha"><span>Atendidos até agora</span><b>${at}</b></div>
         <div class="dono-linha"><span>Faltaram</span><b>${faltaTxt(fa, pct(fa, at + fa))}</b></div>
-        <div class="dono-sub">A porcentagem é sobre as ${at + fa} consultas que já deviam ter acontecido (atendidos + faltas), não sobre os ${ag} agendados do dia.</div></div>
-      <div class="cel-card"><b>Por forma de pagamento</b>${Object.entries(porForma).sort((a, b) => b[1] - a[1]).map(([f, v]) => `<div class="dono-linha"><span>${formaHTML(f)}</span><b class="num">${brl(v)}</b></div>`).join('')}</div>
-      <div class="cel-card"><b>Boa Viagem · por profissional</b>${Object.entries(bv.porProf).map(([id, v]) => `<div class="dono-linha"><span>${id && prof(id) ? prof(id).curto : 'Sem profissional'}</span><b class="num">${brl(v)}</b></div>`).join('')}
-        <div class="dono-sub">É o que foi recebido. A comissão é calculada à parte, sobre o que cada um fez.</div></div>
-      <div class="cel-card"><b>Boa Viagem · caixa</b>
+`)}
+      ${mais('forma', 'Por forma de pagamento', Object.entries(porForma).sort((a, b) => b[1] - a[1]).map(([f, v]) => `<div class="dono-linha"><span>${formaHTML(f)}</span><b class="num">${brl(v)}</b></div>`).join(''))}
+      ${mais('prof', 'Boa Viagem · por profissional', Object.entries(bv.porProf).map(([id, v]) => `<div class="dono-linha"><span>${id && prof(id) ? prof(id).curto : 'Sem profissional'}</span><b class="num">${brl(v)}</b></div>`).join(''))}
+      ${mais('caixa', 'Boa Viagem · caixa', `
         <div class="dono-linha"><span>Vence hoje e falta receber</span><b class="num">${brl(bv.aReceber)}</b></div>
         <div class="dono-linha"><span>Caixa</span>${cx.fechado ? `<span class="cx-status fechado">${ic('cadeado', 14)} Fechado às ${hhmm(cx.hora)}</span>` : '<span class="cx-status aberto"><span class="ponto"></span>Aberto</span>'}</div>
-        ${cx.fechado && cx.dif ? `<div class="dono-linha txt-erro"><span>Gaveta</span><b>${cx.dif > 0 ? 'sobrou' : 'faltou'} ${brl(Math.abs(cx.dif))}</b></div>` : ''}</div>`;
+        ${cx.fechado && cx.dif ? `<div class="dono-linha txt-erro"><span>Gaveta</span><b>${cx.dif > 0 ? 'sobrou' : 'faltou'} ${brl(Math.abs(cx.dif))}</b></div>` : ''}`)}`;
   }
   return `<div class="dono-topo"><div class="ola">Bom dia, ${esc(usu(E.ui.cel.usuario).nome)}</div><div class="dono-tit">${aba === 'ontem' ? `OdontoVip · ${esc(E.d.unidade)}` : 'OdontoVip · as três unidades'}</div>
     <div class="quando">qui 29/10 · ${avisoNet ? 'sem atualização desde 10:25' : 'atualizado às 10:40'}</div><div class="fio"></div></div>
   <div class="cel-corpo" data-scroll="cel-dono">
     <div class="seg seg-cel" style="margin-bottom:12px">${[['hoje', 'Hoje'], ['ontem', 'Ontem'], ['mes', 'Mês']].map(([k, t]) => `<button class="${aba === k ? 'ativo' : ''}" data-a="donoDia" data-v="${k}">${t}</button>`).join('')}</div>
     ${avisoNet}${corpo}
-    <div class="mini muted" style="text-align:center;margin-top:8px">Aqui aparecem só números. Nomes e fichas de pacientes nunca saem da clínica.</div>
     <button class="btn" style="width:100%;margin-top:12px" data-a="celSair">Sair</button>
     ${MODO_CEL ? '<button class="btn" style="width:100%;margin-top:10px;background:var(--gold-light)" data-a="abrirTestes">Tarefas de teste do protótipo</button>' : ''}
   </div>`;

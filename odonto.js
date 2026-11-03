@@ -143,7 +143,7 @@ function denteSVG(pid, n, op = {}) {
   const xis = sumido ? `<path d="M7,${sup ? 6 : H - 6} L${W - 7},${sup ? CY + g.h : CY - g.h} M${W - 7},${sup ? 6 : H - 6} L7,${sup ? CY + g.h : CY - g.h}" stroke="#5b6b82" stroke-width="2.2" stroke-linecap="round" pointer-events="none"/>` : '';
   // cor nunca sozinha: letra da condição ao lado do número (C = cariado, R = restaurado…)
   const conds = condsDente(est);
-  const letras = conds.map(k => `<tspan dx="1.5" font-size="${dec ? 7 : 8}" fill="${corTexto(k)}">${ABREV[k]}</tspan>`).join('');
+  const letras = conds.map(k => `<tspan dx="1.5" font-size="${dec ? 9 : 10}" fill="${corTexto(k)}">${ABREV[k]}</tspan>`).join('');
   const rotuloAria = `Dente ${n}${conds.length ? ': ' + conds.map(k => CONDICOES[k][0]).join(', ') : ''}${pend.length ? ', ' + pend.length + ' tratamento(s) no plano' : ''}`;
   return `<svg class="dente-svg ${sel ? 'sel' : ''}" width="${W * esc}" height="${H * esc}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Dente ${n}">
     <defs><clipPath id="${cid}"><circle cx="${fx + S / 2}" cy="${fy + S / 2}" r="${S / 2}"/></clipPath></defs>
@@ -171,13 +171,14 @@ function odontogramaHTML(pid) {
   const bot = (v, t) => `<button class="${den === v ? 'ativo' : ''}" data-a="denticao" data-v="${v}">${t}</button>`;
   const reg = k => `<button class="proc-btn ${pc.dente === k ? 'on' : ''}" data-a="dente" data-n="${k}">${REGIOES[k]}</button>`;
   return `<div class="odonto-topo"><span class="seg">${bot('perm', 'Permanente')}${bot('mista', 'Mista')}${bot('dec', 'Decídua')}</span>
-      <span class="mini muted">Região:</span>${reg('ASAI')}${reg('AS')}${reg('AI')}</div>
+      ${reg('ASAI')}${reg('AS')}${reg('AI')}</div>
     <div class="odonto-arcadas">
       <div class="lado-paciente"><span>← direito do paciente</span><span>esquerdo do paciente →</span></div>
       ${linhas.map((arr, i) => (i === linhas.length / 2 ? '<div class="plano-oclusal"></div>' : '') + linhaArcada(pid, arr)).join('')}
     </div>
-    <div class="leg-odonto"><b>Como está (cor e letra):</b>${Object.entries(CONDICOES).map(([k, [n, c]]) => `<span><i style="background:${c}"></i><b style="color:${corTexto(k)}">${ABREV[k]}</b> ${n}</span>`).join('')}</div>
-    <div class="leg-odonto"><b>O que vai ser feito (contorno azul):</b><span><i style="background:#fff;border:1.5px dashed #1880BF"></i>indicado</span><span><i style="background:#fff;border:2px solid #1880BF"></i>aprovado</span><span>Ao ser feito, vira condição (ex.: cariado → restaurado).</span></div>`;
+    <details class="leg-odonto" ${E.ui.pc.legOdonto ? 'open' : ''} ontoggle="E.ui.pc.legOdonto = this.open"><summary>O que significam as cores e letras</summary>
+      <div class="leg-grade">${Object.entries(CONDICOES).map(([k, [n, c]]) => `<span><i style="background:${c}"></i><b style="color:${corTexto(k)}">${ABREV[k]}</b> ${n}</span>`).join('')}
+      <span><i style="background:#fff;border:1.5px dashed #1880BF"></i>contorno tracejado: indicado</span><span><i style="background:#fff;border:2px solid #1880BF"></i>contorno cheio: aprovado</span></div></details>`;
 }
 A.denticao = ds => { E.ui.pc.denticao = ds.v; E.ui.pc.dente = null; render(); };
 A.faceDente = ds => {
@@ -248,10 +249,10 @@ A.salvarDente = () => { const pc = E.ui.pc, pid = pc.fichaId, sv = rotuloSalvarD
   }); };
 function abaOdonto(p) {
   const pc = E.ui.pc, pl = plano(p.id), podeInd = pode('indicar');
-  const grupo = (est, tit) => { const g = pl.filter(i => i.estado === est); return g.length ? `<div class="grupo-tit">${tit} (${g.length})</div>${g.map(itemPlano).join('')}` : ''; };
+  const grupo = (est, tit) => { const g = pl.filter(i => i.estado === est); return g.length ? `<div class="grupo-tit">${tit} (${g.length})</div>${g.map(i => itemPlano(i, 'semPil')).join('')}` : ''; };
   const geral = E.d.procedimentos.filter(x => x.tipo === 'geral');
   return `<div class="odonto">${odontogramaHTML(p.id)}
-    ${pc.dente ? painelDente(p.id, pc.dente, podeInd) : `<div class="mini muted" style="text-align:center;margin-top:10px">Toque num dente ou numa face. Pelo teclado: Tab até o dente e Enter.</div>`}</div>
+    ${pc.dente ? painelDente(p.id, pc.dente, podeInd) : `<div class="mini muted" style="text-align:center;margin-top:10px">Toque num dente ou numa face.</div>`}</div>
   <div class="cartao" style="margin-top:12px"><div style="display:flex;align-items:center;gap:10px"><h3 style="margin:0">Plano de tratamento</h3>
     ${podeInd ? `<span style="margin-left:auto" class="mini">Sem dente: <select id="sel-geral">${geral.map(x => `<option value="${x.id}">${x.nome}</option>`).join('')}</select> <button class="btn btn-peq" data-a="addItemGeral">Adicionar</button></span>` : ''}</div>
     ${grupo('indicado', 'Indicados — aguardando o paciente aprovar')}${grupo('aprovado', 'Aprovados — falta fazer')}${grupo('realizado', 'Feitos')}${grupo('recusado', 'Paciente não quis')}

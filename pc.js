@@ -236,12 +236,12 @@ const iniciaisProf = n => n.replace(/^(Dra?\.)\s*/, '').split(' ').map(x => x[0]
 function eventoAgenda(a) {
   const top = (a.ini - 480) * K, h = Math.max(a.dur * K - 3, 24), fim = hhmm(a.ini + a.dur);
   const passado = a.ini + a.dur <= E.d.agoraMin ? ' passado' : '';
-  if (!a.pac) return `<div class="ag-ev e-comp${passado}" style="top:${top}px;height:${h}px" data-a="abrirAg" data-id="${a.id}">
-    <span class="ev-l1"><b class="num">${hhmm(a.ini)}–${fim}</b></span><span class="ev-nome">${esc(a.tipo)}</span>${h >= 52 && a.obs ? `<span class="ev-proc">${esc(a.obs)}</span>` : ''}</div>`;
+  if (!a.pac) return `<div class="ag-ev e-comp${passado}" style="top:${top}px;height:${h}px" data-a="abrirAg" data-id="${a.id}" title="${hhmm(a.ini)}–${fim} · ${esc(a.tipo)}">
+    <span class="ev-l1"><b class="num">${hhmm(a.ini)}</b></span><span class="ev-nome">${esc(a.tipo)}</span>${h >= 52 && a.obs ? `<span class="ev-proc">${esc(a.obs)}</span>` : ''}</div>`;
   const p = pac(a.pac), al = alertas(p.id).length;
   const est = `<span class="ev-est">${ic(ESTADOS[a.estado][0], 13)}<span>${ESTADOS[a.estado][1]}</span></span>`;
   return `<div class="ag-ev e-${a.estado}${passado}${h < 52 ? ' baixo' : ''}" style="top:${top}px;height:${h}px" data-a="abrirAg" data-id="${a.id}" title="${hhmm(a.ini)}–${fim} · nº ${p.numero} ${esc(p.nome)} · ${ESTADOS[a.estado][1]}">
-    <span class="ev-l1"><b class="num">${h < 52 ? hhmm(a.ini) : `${hhmm(a.ini)}–${fim}`}</b>${h < 52 ? '' : est}</span>
+    <span class="ev-l1"><b class="num">${hhmm(a.ini)}</b>${h < 52 ? '' : est}</span>
     <span class="ev-nome">${al ? `<span class="alerta-ico">${ic('alerta', 14)}</span>` : ''}nº ${p.numero} · ${esc(p.nome)}</span>
     ${h >= 52 && a.proc ? `<span class="ev-proc">${esc(proc(a.proc).nome)}</span>` : ''}${h < 52 ? est : ''}</div>`;
 }
@@ -676,10 +676,10 @@ A.salvarAnam = () => {
 };
 
 /* odontograma e plano: ver odonto.js */
-function itemPlano(i) {
+function itemPlano(i, op) {
   const quem = i.feitoPor ? (i.feitoPor !== i.indicadoPor ? `indicado por ${prof(i.indicadoPor).curto} · <b>feito por ${prof(i.feitoPor).curto}</b> em ${dataBR(i.dataFeito)}` : `indicado e feito por ${prof(i.feitoPor).curto} · ${dataBR(i.dataFeito)}`)
     : `indicado por ${prof(i.indicadoPor).curto} em ${dataBR(i.dataInd)}${i.dataApr ? ` · aprovado em ${dataBR(i.dataApr)}` : ''}`;
-  return `<div class="item-plano pl-linha">${pilulaPlano(i.estado)}
+  return `<div class="item-plano pl-linha${op === 'semPil' ? ' sem-pil' : ''}">${op === 'semPil' ? '' : pilulaPlano(i.estado)}
     <span><b>${esc(nomeItem(i))}</b><br><span class="quem">${quem}</span></span><span class="valor num">${brl(valorItem(i, E.ui.pc.fichaId))}</span>
     <span class="pl-acao">${i.estado === 'indicado' && pode('recusar') ? `<button class="btn-link" data-a="recusarItem" data-id="${i.id}">Paciente não quis</button>` : ''}</span></div>`;
 }

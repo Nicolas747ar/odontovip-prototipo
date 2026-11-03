@@ -30,7 +30,7 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .pc-topo{grid-column:1/3;display:flex;align-items:center;gap:16px;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--rule)}
 .marca{display:flex;align-items:center;gap:8px;min-width:180px}
 .marca img{width:34px;height:34px}
-.marca b{font-size:16px;color:var(--navy)}
+.marca b{font-size:15px;font-weight:700;color:var(--navy)}
 .marca span{color:var(--ink-soft)}
 .busca{position:relative;flex:1;max-width:560px}
 .busca input{width:100%;padding:9px 12px 9px 34px;border:1px solid var(--rule);border-radius:var(--r);background:var(--bg)}
@@ -109,10 +109,10 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .ag-cab{position:sticky;top:0;z-index:3;background:var(--surface);border-bottom:1px solid var(--rule);padding:8px 10px;font-weight:700;color:var(--navy)}
 .ag-cab small{display:block;font-weight:400;color:var(--ink-soft)}
 .ag-horas{position:relative;border-right:1px solid var(--rule)}
-.ag-hora{position:absolute;left:0;right:6px;text-align:right;font-size:12px;color:var(--ink-soft);transform:translateY(-7px)}
+.ag-hora{position:absolute;left:0;right:6px;text-align:right;font-size:14px;color:var(--ink-soft);transform:translateY(-7px)}
 .ag-col{position:relative;border-right:1px solid var(--rule);cursor:copy;background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 47px,var(--rule) 47px,var(--rule) 48px)}
 .ag-col:hover{background-color:#fbfdff}
-.ag-almoco{position:absolute;left:0;right:0;background:repeating-linear-gradient(45deg,#eef1f5 0,#eef1f5 6px,#f6f8fb 6px,#f6f8fb 12px);color:var(--ink-faint);font-size:12px;display:flex;align-items:center;justify-content:center;cursor:not-allowed}
+.ag-almoco{position:absolute;left:0;right:0;background:repeating-linear-gradient(45deg,#eef1f5 0,#eef1f5 6px,#f6f8fb 6px,#f6f8fb 12px);color:var(--ink-faint);font-size:13px;display:flex;align-items:center;justify-content:center;cursor:not-allowed}
 .ag-ev{position:absolute;left:4px;right:4px;border-radius:6px;padding:3px 7px;font-size:12.5px;overflow:hidden;cursor:pointer;border:1px solid var(--rule);border-left:4px solid var(--ink-faint);background:#fff;line-height:1.25}
 .ag-ev b{font-size:13px}
 .ag-ev.e-confirmado{border-left-color:var(--brand)}
@@ -456,19 +456,19 @@ table.tab{width:100%;border-collapse:collapse;background:var(--surface);border:1
 .ag-av{width:34px;height:34px;border-radius:50%;background:var(--info-bg);color:var(--brand-deep);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:none}
 .ag-cab-txt{display:flex;flex-direction:column;min-width:0}
 .ag-cab-txt b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ag-cab-txt small{font-size:12.5px}
+.ag-cab-txt small{font-size:13px}
 .ag-cont{margin-left:auto;font-size:12px;font-weight:700;color:var(--ink-soft);background:var(--bg);border-radius:999px;padding:2px 9px;white-space:nowrap}
 .ag-cont::after{content:" pac."}
-.ag-hora{font-size:12.5px;font-weight:700;color:var(--ink-soft);right:8px;transform:translateY(-8px)}
+.ag-hora{font-size:14px;font-weight:700;color:var(--ink-soft);right:8px;transform:translateY(-8px)}
 .ag-horas .ag-hora:first-child{transform:none}
-.ag-agora-rot{position:absolute;right:4px;transform:translateY(-50%);background:var(--erro);color:#fff;font-size:11.5px;font-weight:700;border-radius:6px;padding:1px 5px;z-index:4}
+.ag-agora-rot{position:absolute;right:4px;transform:translateY(-50%);background:var(--erro);color:#fff;font-size:13px;font-weight:700;border-radius:6px;padding:1px 5px;z-index:4}
 .ag-ev{left:5px;right:5px;padding:4px 8px;display:flex;flex-direction:column;gap:1px;box-shadow:0 1px 2px rgba(11,31,63,.06);border-radius:7px}
 .ag-ev:hover{box-shadow:0 3px 10px rgba(11,31,63,.14);z-index:5}
-.ev-l1{display:flex;align-items:center;gap:6px;font-size:12.5px;white-space:nowrap}
-.ev-l1 b{font-size:12.5px;color:var(--navy)}
-.ev-est{margin-left:auto;display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;color:var(--ink-soft);overflow:hidden}
-.ev-nome{font-weight:700;font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
-.ev-proc{font-size:12.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev-l1{display:flex;align-items:center;gap:6px;font-size:14px;white-space:nowrap}
+.ev-l1 b{font-size:14px;color:var(--navy)}
+.ev-est{margin-left:auto;display:inline-flex;align-items:center;gap:3px;font-size:13px;font-weight:700;color:var(--ink-soft);overflow:hidden}
+.ev-nome{font-weight:700;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
+.ev-proc{font-size:13px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ag-ev.baixo{flex-direction:row;align-items:center;gap:8px}
 .ag-ev.baixo .ev-l1{flex:none}
 .ag-ev.baixo .ev-est span{display:none}
@@ -530,10 +530,6 @@ table.tab{width:100%;border-collapse:collapse;background:var(--surface);border:1
 .est{font-size:12.5px}
 .ag-ev.baixo .ev-est span{display:inline}
 .ag-ev.baixo .ev-nome{min-width:0}
-.ev-l1,.ev-l1 b{font-size:13px}
-.ev-proc{font-size:13px}
-.ev-nome{font-size:13.5px}
-.ag-hora{font-size:13px}
 .cx-tab th{font-size:12.5px}
 .cx-ja-fechado{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:var(--r);background:var(--bg);color:var(--ink-soft);font-weight:700}
 .rodape-dir{display:flex;justify-content:flex-end;gap:8px}
@@ -549,9 +545,7 @@ table.tab{width:100%;border-collapse:collapse;background:var(--surface);border:1
 .h-grupo{font-size:13px}
 .cartao h3{font-size:13.5px}
 .kpi-h span:last-child{font-size:14px}
-.ev-est{font-size:12.5px}
 .ag-ev.baixo .ev-est{margin-left:auto;flex:none}
-.ag-hora{font-size:13.5px}
 .cx-tab th{font-size:13px}
 @media (max-height: 760px){ .h-linha{padding:6px} .kpi-h{padding:8px 14px} .kpis-h{margin-bottom:10px} }
 .h-atencao .h-quando{display:table;margin:0 0 3px}
@@ -745,12 +739,12 @@ fieldset.so-ver .btn,fieldset.so-ver input,fieldset.so-ver select,fieldset.so-ve
 .h-motivo{color:var(--erro)}
 /* agenda: mostrar só uma profissional/cadeira (R12) */
 .ag-filtro{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px}
-.ag-filtro button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);background:#fff;border-radius:999px;padding:4px 12px 4px 6px;font-size:13.5px;font-weight:600;color:var(--ink-soft);min-height:34px}
+.ag-filtro button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);background:#fff;border-radius:999px;padding:4px 12px 4px 6px;font-size:14px;font-weight:600;color:var(--ink-soft);min-height:34px}
 .ag-filtro button:first-of-type{padding-left:12px}
 .ag-filtro button .mini{color:var(--ink-faint);font-weight:700}
 .ag-filtro button.on{background:var(--navy);border-color:var(--navy);color:#fff}
 .ag-filtro button.on .mini{color:#c9d6e6}
-.mini-av{width:22px;height:22px;font-size:10.5px}
+.mini-av{width:26px;height:26px;font-size:13px}
 .ag-filtro button.on .mini-av{background:#fff;color:var(--navy)}
 .btn-ico.cobrar{color:var(--ok);border-color:#b9e0c6;background:var(--ok-bg)}
 .btn-ico.retorno{color:var(--remarc);border-color:#d8cdf4;background:#f4f0fd}
@@ -928,3 +922,23 @@ button.resumo-linha[disabled]{cursor:default;opacity:1}
 .cx-total{padding-bottom:16px}
 .chips-forma{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .chips-forma button,.chips-forma .chip-mais{white-space:nowrap;font-size:14px;padding:8px 10px;overflow:hidden;text-overflow:ellipsis}
+
+/* S-mac-10 (ADR-027): legenda do odontograma abre ao tocar */
+details.leg-odonto{display:block;margin-top:10px;font-size:14px;color:var(--ink-soft)}
+details.leg-odonto summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center;justify-content:center}
+.leg-grade{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px 14px;padding:4px 0 8px}
+.leg-grade-cel{display:grid;grid-template-columns:1fr 1fr;column-gap:10px}
+.painel-dente .pl-linha{grid-template-columns:auto minmax(0,1fr) auto}
+.painel-dente .pl-linha .pl-acao{grid-column:2 / -1;text-align:left}
+.dono-funil b{font-size:22px}
+.pl-linha.sem-pil{grid-template-columns:minmax(0,1fr) 120px 150px}
+@container (max-width: 980px){ .pl-linha.sem-pil{grid-template-columns:minmax(0,1fr) 100px} .pl-linha.sem-pil .pl-acao{grid-column:1/3} }
+/* S-mac-10: vista do dono — o resto abre ao tocar; 3 tamanhos (38 · 22 · 16) */
+.dono-grande{font-size:38px}
+.dono-uni-valor{font-size:22px}
+.dono-uni-cab{font-size:16px}
+details.dono-mais>summary{cursor:pointer;min-height:48px;display:flex;align-items:center;gap:8px;list-style:none}
+details.dono-mais>summary::-webkit-details-marker{display:none}
+details.dono-mais>summary::after{content:'';margin-left:auto;width:9px;height:9px;border-right:2px solid var(--ink-soft);border-bottom:2px solid var(--ink-soft);transform:rotate(45deg);transition:transform .15s}
+details.dono-mais[open]>summary::after{transform:rotate(-135deg)}
+.leg-grade-cel>div:nth-last-child(-n+2){grid-column:1 / -1}
