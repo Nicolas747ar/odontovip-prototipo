@@ -393,6 +393,7 @@ function validarNovo(n) {
   const iso = isoDeBR(n.nasc); if (!iso) return 'Essa data não existe. Confira o dia e o mês.';
   if (iso > E.d.hoje || iso < '1900') return 'Data de nascimento fora do possível.';
   if (n.cpf && !cpfValido(n.cpf)) return 'Esse CPF não existe. Confira os números ou deixe em branco.';
+  if (!emailValido(n.email)) return 'Confira o e-mail (exemplo: nome@gmail.com) ou deixe em branco.';
   return '';
 }
 const situacaoPac = p => p.excluido ? ` <span class="tag vencida">excluído em ${dataBR(p.excluido.data)}</span>` : p.inativo ? ' <span class="tag inativo">inativo</span>' : '';
@@ -406,6 +407,8 @@ function criarPaciente(n) {
   const numero = Math.max(...E.d.pacientes.map(p => p.numero)) + 1;
   const p = { id: 'pa' + numero, numero, nome: n.nome.trim(), nasc: isoDeBR(n.nasc), cel: n.cel, cpf: n.cpf || '', conv: n.conv, origem: n.origem || E.ui.ultimaOrigem, alertas: [] };
   if (n.conv !== 'part') Object.assign(p, { carteirinha: n.cart || '', validadeCart: n.valid || '' });
+  if (n.email) p.email = n.email.trim();
+  if (n.foto) p.foto = n.foto;
   E.d.pacientes.push(p); return p;
 }
 A.salvarCadNovo = ds => {
@@ -560,11 +563,13 @@ function telaNovoPac() {
   const menor = ehMenor(n.nasc);
   return `<div class="titulo-tela"><h1>Novo paciente</h1><span class="sub">Os campos com * são obrigatórios</span></div>
   <div class="cartao" style="max-width:640px">
+    <button class="np-foto" data-a="fotoNovoPac">${avatarPac(n.foto, n.nome, '', 72)}<span class="muted">${n.foto ? 'Trocar a foto' : 'Foto'} <span class="mini">(opcional)</span></span></button>
     <div class="campo"><label>Nome completo <span class="obrig">*</span></label><input id="np-nome" class="${campoErro(n) === 'nome' ? 'com-erro' : ''}" value="${esc(n.nome)}" data-campo="pc.novoPac.nome">${campoErro(n) === 'nome' ? `<em class="cel-erro">${n.erro}</em>` : ''}</div>
     <div class="duas"><div class="campo"><label>Celular <span class="obrig">*</span></label><input id="np-cel" class="${campoErro(n) === 'cel' ? 'com-erro' : ''}" placeholder="(81) 9____-____" value="${esc(n.cel)}" data-ao="mCel" data-campo="pc.novoPac.cel">${campoErro(n) === 'cel' ? `<em class="cel-erro">${n.erro}</em>` : ''}</div>
       <div class="campo"><label>Data de nascimento <span class="obrig">*</span> <span id="np-idade" class="muted">${idadeTxt(n.nasc)}</span></label><input id="np-nasc" class="${campoErro(n) === 'nasc' ? 'com-erro' : ''}" placeholder="dd/mm/aaaa" value="${esc(n.nasc)}" data-ao="mDataNP" data-idade="np-idade" data-campo="pc.novoPac.nasc">${campoErro(n) === 'nasc' ? `<em class="cel-erro">${n.erro}</em>` : ''}</div></div>
     <div class="duas"><div class="campo"><label>CPF <span class="muted">(recomendado)</span></label><input placeholder="___.___.___-__" value="${esc(n.cpf)}" data-ao="mCpf" data-campo="pc.novoPac.cpf"></div>
       <div class="campo"><label>Convênio</label><select data-campo="pc.novoPac.conv" data-ao="reNP">${E.d.convenios.map(c => `<option value="${c.id}" ${c.id === n.conv ? 'selected' : ''}>${c.nome}</option>`).join('')}</select></div></div>
+    <div class="campo"><label for="np-email">E-mail <span class="muted">(opcional)</span></label><input id="np-email" class="${campoErro(n) === 'email' ? 'com-erro' : ''}" type="email" inputmode="email" autocomplete="off" placeholder="nome@gmail.com" value="${esc(n.email || '')}" data-campo="pc.novoPac.email">${campoErro(n) === 'email' ? `<em class="cel-erro">${n.erro}</em>` : ''}</div>
     ${n.conv !== 'part' ? `<div class="duas"><div class="campo"><label>Nº da carteirinha</label><input value="${esc(n.cart)}" data-campo="pc.novoPac.cart"></div><div class="campo"><label>Validade</label><input placeholder="dd/mm/aaaa" value="${esc(n.valid)}" data-ao="mData" data-campo="pc.novoPac.valid"></div></div>` : ''}
     ${menor ? `<div class="campo"><label>Responsável <span class="obrig">*</span> <span class="muted">(menor de 18)</span></label><input value="${esc(n.resp)}" data-campo="pc.novoPac.resp"></div>` : ''}
     <div class="campo"><label>Como chegou? <span class="obrig">*</span></label><select data-campo="pc.novoPac.origem">${E.d.origens.map(x => `<option ${x === n.origem ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
@@ -572,7 +577,7 @@ function telaNovoPac() {
     ${n.mais ? `<div class="campo" style="margin-top:8px"><label>Nº no Dental Office <span class="muted">(se veio de Prazeres ou Norte)</span></label><input value="${esc(n.numDO || '')}" data-campo="pc.novoPac.numDO" inputmode="numeric"></div><div class="duas"><div class="campo"><label>CEP</label><input value="${esc(n.cep || '')}" data-campo="pc.novoPac.cep" ></div><div class="campo"><label>Endereço</label><input value="${esc(n.end || '')}" data-campo="pc.novoPac.end" ></div><div class="campo"><label>RG</label><input value="${esc(n.rg || '')}" data-campo="pc.novoPac.rg" ></div><div class="campo"><label>Nº do CNS</label><input value="${esc(n.cns || '')}" data-campo="pc.novoPac.cns" ></div></div><div class="campo"><label>Observações</label><textarea rows="2" data-campo="pc.novoPac.obs">${esc(n.obs || '')}</textarea></div>` : ''}
     ${n.dup ? `<div class="aviso-box aviso">Já existe <b>${numNome(pac(n.dup))}</b>${situacaoPac(pac(n.dup))}, ${idade(pac(n.dup).nasc)} anos, ${ult4(pac(n.dup).cel)}. É a mesma pessoa?<br>
       <button class="btn btn-peq btn-pri" data-a="${pac(n.dup).excluido || pac(n.dup).inativo ? 'restaurarEAbrir' : 'abrirFicha'}" data-id="${n.dup}" style="margin-top:6px">${pac(n.dup).excluido ? 'Sim, restaurar e abrir' : pac(n.dup).inativo ? 'Sim, reativar e abrir' : 'Sim, abrir'} nº ${pac(n.dup).numero}</button> <button class="btn btn-peq" data-a="salvarNP" data-forcar="1" style="margin-top:6px">Não, cadastrar outra pessoa</button></div>` : ''}
-    ${n.erro && !['nome', 'cel', 'nasc'].includes(campoErro(n)) ? `<div class="aviso-box erro">${n.erro}</div>` : ''}
+    ${n.erro && !['nome', 'cel', 'nasc', 'email'].includes(campoErro(n)) ? `<div class="aviso-box erro">${n.erro}</div>` : ''}
     <div style="margin-top:12px"><button class="btn btn-pri" data-a="salvarNP">Cadastrar paciente</button></div>
   </div>`;
 }
@@ -580,11 +585,12 @@ A.mDataNP = (ds, el) => mDataComMenor(ds, el, 'np-nasc');
 A.reNP = () => render();
 A.maisDados = () => { E.ui.pc.novoPac.mais = !E.ui.pc.novoPac.mais; render(); };
 /* em qual campo está o erro, para mostrar embaixo dele */
-const campoErro = n => !n.erro ? '' : /nome/i.test(n.erro) ? 'nome' : /celular/i.test(n.erro) ? 'cel' : /nascimento|data/i.test(n.erro) ? 'nasc' : /respons/i.test(n.erro) ? 'resp' : '';
+// e-mail primeiro: o exemplo "nome@gmail.com" do aviso contém "nome"
+const campoErro = n => !n.erro ? '' : /e-mail/i.test(n.erro) ? 'email' : /nome/i.test(n.erro) ? 'nome' : /celular/i.test(n.erro) ? 'cel' : /nascimento|data/i.test(n.erro) ? 'nasc' : /respons/i.test(n.erro) ? 'resp' : '';
 A.salvarNP = ds => {
   const n = E.ui.pc.novoPac; n.erro = validarNovo(n);
   if (!n.erro && ehMenor(n.nasc) && !n.resp.trim()) n.erro = 'Menor de 18: informe o responsável.';
-  if (n.erro) { E.ui.foco = { nome: 'np-nome', cel: 'np-cel', nasc: 'np-nasc' }[campoErro(n)] || null; render(); return; }
+  if (n.erro) { E.ui.foco = { nome: 'np-nome', cel: 'np-cel', nasc: 'np-nasc', email: 'np-email' }[campoErro(n)] || null; render(); return; }
   const dup = acharDuplicado(n); if (dup && !ds.forcar) { n.dup = dup.id; render(); return; }
   const p = criarPaciente(n); if (n.resp) p.responsavel = n.resp;
   Object.assign(p, { cep: n.cep, end: n.end, rg: n.rg, cns: n.cns, obs: n.obs, numeroDentalOffice: n.numDO });
@@ -604,8 +610,8 @@ function telaFicha() {
           : pode('alerta') ? '<button data-a="novoAlerta" style="margin-left:auto">+ Alerta</button>' : ''}</div>`
     : `<div class="sem-alerta">${ic('check', 15)} Sem alertas ${pode('alerta') ? '<button class="btn btn-peq" data-a="novoAlerta">+ Alerta</button>' : ''}</div>`;
   return `<div class="ficha-cab" style="${al.length || pc.novoAlerta != null ? 'border-radius:12px 12px 0 0' : ''}"><div style="display:flex;align-items:center;gap:14px">
-    <div><div class="nome">${numNome(p)}</div><div class="muted">${idade(p.nasc)} anos · ${esc(p.cel)} · ${conv(p.conv).nome}${p.responsavel ? ' · resp.: ' + esc(p.responsavel) : ''}</div></div>
-    <div class="acoes" style="margin-left:auto">${p.excluido ? '' : `<button class="btn" data-a="novoAg" data-pac="${p.id}">${ic('agenda', 16)} ${p.inativo ? 'Reativar e agendar' : 'Agendar'}</button>${pode('caixa') && pc.aba !== 'financeiro' ? `<button class="btn" data-a="abrirReceber" data-pac="${p.id}">${ic('caixa', 16)} Receber</button>` : ''}`}</div></div></div>
+    ${avatarPac(p.foto, p.nome, 'fotoPac', 56, p.id)}<div><div class="nome">${numNome(p)}</div><div class="muted">${idade(p.nasc)} anos · ${esc(p.cel)} · ${conv(p.conv).nome}${p.responsavel ? ' · resp.: ' + esc(p.responsavel) : ''}</div></div>
+    <div class="acoes" style="margin-left:auto">${p.excluido ? '' : `<button class="btn" data-a="novoAg" data-pac="${p.id}">${ic('agenda', 16)} ${p.inativo ? 'Reativar e agendar' : 'Agendar'}</button>${pode('caixa') && pc.aba !== 'financeiro' ? `<button class="btn" data-a="abrirReceber" data-pac="${p.id}">${ic('caixa', 16)} Receber</button>` : ''}<button class="btn" data-a="abrirDoc">${ic('arquivo', 16)} Documento</button>`}</div></div></div>
   ${p.excluido ? `<div class="faixa-inativo excluido">${ic('x', 16)} Cadastro <b>excluído</b> em ${dataBR(p.excluido.data)} — some de vez em ${dataBR(somaDias(p.excluido.data, 30))}. Só para ver.${pode('cadastro') ? ` <button class="btn btn-peq" data-a="restaurarPac" data-id="${p.id}">Restaurar</button>` : ''}</div>` : ''}
   ${p.inativo ? `<div class="faixa-inativo">${ic('cadeado', 16)} Paciente <b>inativo</b> desde ${dataBR(p.inativo.data)} · ${esc(p.inativo.motivo)}${pode('cadastro') ? ' <button class="btn btn-peq" data-a="reativarPac">Reativar</button>' : ''}</div>` : ''}
   ${faixa}
@@ -720,7 +726,7 @@ function modalOrc() {
     <div class="duas"><div class="campo"><label>Desconto (R$)</label><input id="orc-desc" data-selecionar inputmode="decimal" value="${esc(m.desc)}" placeholder="0,00" data-campo="pc.modal.desc" data-ao="orcRecalc"></div>
       ${m.forma === 'parc' ? `<div class="campo"><label>1ª parcela vence</label><select data-campo="pc.modal.primeiro" data-ao="orcRe"><option value="hoje" ${m.primeiro === 'hoje' ? 'selected' : ''}>Hoje (29/10)</option><option value="30" ${m.primeiro === '30' ? 'selected' : ''}>Em 30 dias (29/11)</option></select></div>` : '<div></div>'}</div>
     <div id="orc-tot" class="aviso-box info">${orcResumo(c)}</div>
-  </div><div class="painel-rodape rodape-dir"><button class="btn" data-a="imprimirOrc">Imprimir para o paciente</button><button id="btn-orc" class="btn btn-pri" style="min-height:46px" data-a="aprovarOrc" ${orcOk(c) ? '' : 'disabled'}>Aprovar orçamento de ${brl(c.total)}</button></div></div>`;
+  </div><div class="painel-rodape rodape-dir"><button class="btn" data-a="imprimirOrc" ${orcOk(c) ? '' : 'disabled'}>Imprimir para o paciente</button><button id="btn-orc" class="btn btn-pri" style="min-height:46px" data-a="aprovarOrc" ${orcOk(c) ? '' : 'disabled'}>Aprovar orçamento de ${brl(c.total)}</button></div></div>`;
 }
 const orcResumo = c => { const ult = c.total - c.parcela * (c.n - 1);
   const parc = c.n > 1 ? (ult === c.parcela ? ` · ${c.n}x de <b>${brl(c.parcela)}</b>` : ` · ${c.n - 1}x de <b>${brl(c.parcela)}</b> + 1x de <b>${brl(ult)}</b>`) : ' · à vista';
@@ -736,7 +742,69 @@ A.orcForma = ds => { E.ui.pc.modal.forma = ds.v; render(); };
 A.orcRe = () => render();
 A.orcRecalc = () => { const c = contaOrc(E.ui.pc.modal); document.getElementById('orc-tot').innerHTML = orcResumo(c);
   const b = document.getElementById('btn-orc'); b.textContent = `Aprovar orçamento de ${brl(c.total)}`; b.disabled = !orcOk(c); };
-A.imprimirOrc = () => toast('No sistema real, abre o PDF do orçamento para imprimir ou mandar.');
+A.imprimirOrc = () => { const m = E.ui.pc.modal, c = contaOrc(m), pid = E.ui.pc.fichaId, p = pac(pid);
+  if (!orcOk(c)) return; // mesma regra do Aprovar: não imprime parcelas que a clínica não aceita
+  const ult = c.total - c.parcela * (c.n - 1);
+  const forma = c.n === 1 ? 'à vista' : ult === c.parcela ? `${c.n}x de ${brl(c.parcela)}` : `${c.n - 1}x de ${brl(c.parcela)} + 1x de ${brl(ult)}`;
+  const linhas = c.pl.filter(i => m.sel[i.id]).map(i => `${nomeItem(i)} — ${brl(i.valor)}`).join('\n');
+  const texto = `Paciente: ${p.nome}\n\n${linhas}${c.bruto !== c.total ? `\nDesconto — ${brl(c.bruto - c.total)}` : ''}\n\nTotal: ${brl(c.total)} · ${forma}`;
+  imprimirDoc('Orçamento', texto, null); guardarDoc(pid, 'Orçamento', texto, null); render(); toast('Orçamento impresso e guardado em Arquivos.'); };
+
+/* ---------- documentos (T-012, blueprint/06 §5f): escolher, revisar, imprimir; fica em Arquivos ---------- */
+const dataExtenso = iso => { const [a, m, d] = iso.split('-').map(Number); return `${d} de ${['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'][m - 1]} de ${a}`; };
+function preencherDoc(m, p) {
+  const ag = E.d.agendamentos.filter(a => a.pac === p.id && ['chegou', 'em_atendimento', 'atendido'].includes(a.estado)).slice(-1)[0];
+  const ini = ag ? (ag.chegouAs ?? ag.ini) : E.d.agoraMin, fim = ag ? ag.ini + ag.dur : E.d.agoraMin + 30;
+  return m.texto.replace('{paciente}', p.nome).replace('{cpf}', p.cpf ? `, CPF ${p.cpf},` : '').replace('{data}', dataExtenso(E.d.hoje))
+    .replace('{dias}', '1 (um) dia').replace('{cid}', '').replace('{inicio}', hhmm(ini)).replace('{fim}', hhmm(fim));
+}
+A.abrirDoc = () => { const p = pac(E.ui.pc.fichaId), u = usuPC();
+  const agHoje = E.d.agendamentos.filter(a => a.pac === p.id && a.prof).slice(-1)[0];
+  E.ui.pc.modal = { tipo: 'doc', modelo: null, texto: '', prof: u.prof || (agHoje ? agHoje.prof : E.d.profissionais[0].id) }; render(); };
+// rascunho por paciente e tipo: Voltar ou Esc não apagam o que foi escrito
+const docRasc = () => (E.ui.pc.docRasc = E.ui.pc.docRasc || {});
+A.docModelo = ds => { const m = E.ui.pc.modal, pid = E.ui.pc.fichaId, k = pid + ':' + ds.id; m.modelo = ds.id;
+  m.texto = docRasc()[k] ?? preencherDoc(E.d.modelosDoc.find(x => x.id === ds.id), pac(pid)); render();
+  const t = document.getElementById('doc-texto'); if (!t) return; t.focus();
+  const i = ds.id === 'atestado' ? t.value.indexOf('1 (um) dia') : -1; // os dias de afastamento já vêm selecionados para trocar
+  if (i >= 0) t.setSelectionRange(i, i + '1 (um) dia'.length); else t.setSelectionRange(t.value.length, t.value.length); };
+A.docDigitado = (ds, el) => { docRasc()[E.ui.pc.fichaId + ':' + E.ui.pc.modal.modelo] = el.value; };
+function modalDoc() {
+  const m = E.ui.pc.modal, p = pac(E.ui.pc.fichaId), md = m.modelo && E.d.modelosDoc.find(x => x.id === m.modelo);
+  const cab = `<div class="painel-cab"><h2>${md ? md.nome : 'Documento'} · ${numNome(p)}</h2><button class="fechar" data-a="fecharModal" aria-label="Fechar">${ic('x', 20)}</button></div>`;
+  if (!md) return `<div class="modal">${cab}<div class="painel-corpo"><div class="doc-tipos">${E.d.modelosDoc.map(x => `<button class="btn doc-tipo" data-a="docModelo" data-id="${x.id}">${ic('arquivo', 20)} ${x.nome}</button>`).join('')}</div></div></div>`;
+  return `<div class="modal">${cab}<div class="painel-corpo">
+    <div class="campo"><label for="doc-prof">Assinado por</label><select id="doc-prof" data-campo="pc.modal.prof">${E.d.profissionais.map(x => `<option value="${x.id}" ${x.id === m.prof ? 'selected' : ''}>${x.nome}</option>`).join('')}</select></div>
+    <div class="campo"><label for="doc-texto">Texto</label><textarea id="doc-texto" rows="9" data-campo="pc.modal.texto" data-ao="docDigitado">${esc(m.texto)}</textarea></div>
+  </div><div class="painel-rodape rodape-dir"><button class="btn" data-a="abrirDoc">Voltar</button><button class="btn btn-pri" data-a="imprimirDocModal">${ic('arquivo', 16)} Imprimir</button></div></div>`;
+}
+/* imprime numa folha limpa (iframe escondido) e guarda em Arquivos */
+function imprimirDoc(titulo, texto, profId) {
+  const pr = profId && prof(profId);
+  const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(titulo)}</title><style>
+    body{font-family:Georgia,serif;color:#111;margin:48px 56px;font-size:15pt;line-height:1.6}
+    .cab{display:flex;align-items:center;gap:12px;border-bottom:2px solid #0A5C96;padding-bottom:10px;margin-bottom:28px}
+    .cab b{font-size:18pt;color:#08203F}.cab span{color:#40536F;font-size:11pt}
+    h1{font-size:17pt;text-align:center;letter-spacing:.08em;text-transform:uppercase;margin:0 0 24px}
+    .txt{white-space:pre-wrap}.local{margin-top:36px}.ass{margin-top:72px;text-align:center}
+    .ass hr{width:60%;border:0;border-top:1px solid #111;margin:0 auto 6px}</style></head><body>
+    <div class="cab"><b>OdontoVip</b><span>Unidade ${esc(E.d.unidade)} · Recife</span></div>
+    <h1>${esc(titulo)}</h1><div class="txt">${esc(texto)}</div>
+    <div class="local">Recife, ${dataExtenso(E.d.hoje)}.</div>
+    ${pr ? `<div class="ass"><hr>${esc(pr.nome)}<br>${/^Dra\./.test(pr.nome) ? 'Cirurgiã-dentista' : 'Cirurgião-dentista'} · CRO-PE ${esc(pr.cro || '______')}</div>` : ''}</body></html>`;
+  const f = document.createElement('iframe'); f.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0';
+  document.body.appendChild(f); f.contentDocument.open(); f.contentDocument.write(html); f.contentDocument.close();
+  setTimeout(() => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) {} setTimeout(() => f.remove(), 1000); }, 50);
+}
+function guardarDoc(pid, tipo, texto, profId) {
+  (E.d.arquivos[pid] = E.d.arquivos[pid] || []).push({ id: uid(), tipo, nome: profId ? `por ${prof(profId).curto}` : 'impresso', data: E.d.hoje, texto });
+}
+// sem Desfazer: o papel já saiu, o registro em Arquivos tem que ficar
+A.imprimirDocModal = () => { const m = E.ui.pc.modal, md = E.d.modelosDoc.find(x => x.id === m.modelo), pid = E.ui.pc.fichaId;
+  if (!m.texto.trim()) return;
+  imprimirDoc(md.nome, m.texto, m.prof); guardarDoc(pid, md.nome, m.texto, m.prof);
+  delete docRasc()[pid + ':' + m.modelo]; E.ui.pc.modal = null; semDesfazer(); render();
+  toast(`${md.nome} ${md.id === 'atestado' ? 'impresso e guardado' : 'impressa e guardada'} em Arquivos.`); };
 A.aprovarOrc = () => {
   const m = E.ui.pc.modal, c = contaOrc(m), pid = E.ui.pc.fichaId;
   if (!orcOk(c)) return;
@@ -784,8 +852,11 @@ function abaArquivos(p) {
   const arqs = E.d.arquivos[p.id] || [];
   return `<button class="btn btn-pri" data-a="enviarArq" style="margin-bottom:12px">+ Enviar arquivo</button> <span class="mini muted">ou arraste para cá</span>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">${arqs.map(a => { const cp = a.comp && comprovantes(p.id).find(x => x.id === a.comp);
-      return `<div class="cartao arq-cartao" style="text-align:center" ${cp ? `data-a="verCompPC" data-id="${cp.id}" role="button" tabindex="0"` : ''}><div class="arq-ic">${ic(cp ? 'assinar' : a.tipo === 'Radiografia' ? 'dente' : a.tipo === 'Ficha em papel' ? 'arquivo' : 'foto', 32)}</div><b class="mini">${esc(a.tipo)}</b><div class="mini muted">${esc(a.nome)} · ${dataBR(a.data)}</div>${cp ? (cp.assinado ? '<span class="tag paga">assinado</span>' : '<span class="tag vencida">falta assinatura</span>') : ''}</div>`; }).join('') || '<div class="vazio">Nenhum arquivo.</div>'}</div>`;
+      return `<div class="cartao arq-cartao" style="text-align:center" ${cp ? `data-a="verCompPC" data-id="${cp.id}" role="button" tabindex="0"` : a.texto ? `data-a="reimprimirDoc" data-id="${a.id}" role="button" tabindex="0" title="Imprimir de novo"` : ''}><div class="arq-ic">${ic(cp ? 'assinar' : a.tipo === 'Radiografia' ? 'dente' : a.tipo === 'Ficha em papel' || a.texto ? 'arquivo' : 'foto', 32)}</div>${a.texto ? `<span class="arq-imp" aria-hidden="true">${ic('imprimir', 16)}</span>` : ''}<b class="mini">${esc(a.tipo)}</b><div class="mini muted">${esc(a.nome)} · ${dataBR(a.data)}</div>${cp ? (cp.assinado ? '<span class="tag paga">assinado</span>' : '<span class="tag vencida">falta assinatura</span>') : ''}</div>`; }).join('') || '<div class="vazio">Nenhum arquivo.</div>'}</div>`;
 }
+/* documento emitido: tocar imprime de novo, igual ao que saiu */
+A.reimprimirDoc = ds => { const a = (E.d.arquivos[E.ui.pc.fichaId] || []).find(x => x.id === ds.id); if (!a) return;
+  const pr = E.d.profissionais.find(x => a.nome === `por ${x.curto}`); imprimirDoc(a.tipo, a.texto, pr && pr.id); };
 A.verCompPC = ds => { E.ui.pc.modal = { tipo: 'comp', id: ds.id }; render(); };
 function modalComp() { const pid = E.ui.pc.fichaId, cp = comprovantes(pid).find(x => x.id === E.ui.pc.modal.id), p = pac(pid);
   return `<div class="modal"><div class="painel-cab"><h2>Comprovante · ${numNome(p)}</h2><button class="fechar" data-a="fecharModal" aria-label="Fechar">${ic('x', 20)}</button></div><div class="painel-corpo">
@@ -810,13 +881,13 @@ function abaFinanceiro(p) {
 }
 /* todos os campos do cadastro, editáveis; "Salvar alterações" só acende se algo mudou */
 const CAMPOS_DADOS = [['nome', 'Nome completo'], ['cel', 'Celular'], ['nascBR', 'Data de nascimento'], ['cpf', 'CPF'], ['rg', 'RG'], ['cns', 'Nº do CNS'],
-  ['carteirinha', 'Nº da carteirinha'], ['validadeCart', 'Validade da carteirinha'],
+  ['email', 'E-mail'], ['carteirinha', 'Nº da carteirinha'], ['validadeCart', 'Validade da carteirinha'],
   ['responsavel', 'Responsável'], ['cep', 'CEP'], ['end', 'Endereço'], ['numeroDentalOffice', 'Nº no Dental Office'], ['obs', 'Observações']];
 const dadosPC = p => ({ ...Object.fromEntries(CAMPOS_DADOS.map(([k]) => [k, k === 'nascBR' ? dataBRc(p.nasc) : (p[k] || '')])), conv: p.conv, origem: p.origem || '' });
 function abaDados(p) {
   const pc = E.ui.pc; if (!pc.dados || pc.dados.id !== p.id) pc.dados = { id: p.id, f: dadosPC(p) };
   const f = pc.dados.f, mudou = JSON.stringify(f) !== JSON.stringify(dadosPC(p));
-  const campo = ([k, rot]) => `<div class="campo"><label>${rot}</label>${k === 'obs' ? `<textarea rows="2" data-campo="pc.dados.f.${k}" data-ao="dadosMudou">${esc(f[k])}</textarea>` : `<input value="${esc(f[k])}" data-campo="pc.dados.f.${k}" data-ao="dadosMudou">`}</div>`;
+  const campo = ([k, rot]) => `<div class="campo"><label>${rot}</label>${k === 'obs' ? `<textarea rows="2" data-campo="pc.dados.f.${k}" data-ao="dadosMudou">${esc(f[k])}</textarea>` : `<input value="${esc(f[k])}" ${k === 'email' ? 'type="email" inputmode="email"' : ''} data-campo="pc.dados.f.${k}" data-ao="dadosMudou">`}</div>`;
   return `<div class="cartao" style="max-width:760px"><div class="dados-grade">${CAMPOS_DADOS.map(campo).join('')}
     <div class="campo"><label>Convênio</label><select data-campo="pc.dados.f.conv" data-ao="dadosMudou">${E.d.convenios.map(c => `<option value="${c.id}" ${c.id === f.conv ? 'selected' : ''}>${c.nome}</option>`).join('')}</select></div>
     <div class="campo"><label>Como chegou</label><select data-campo="pc.dados.f.origem" data-ao="dadosMudou">${E.d.origens.map(x => `<option ${x === f.origem ? 'selected' : ''}>${x}</option>`).join('')}</select></div></div>
@@ -865,6 +936,7 @@ A.dadosMudou = () => { const pc = E.ui.pc, b = document.getElementById('btn-dado
 A.salvarDadosPC = () => { const pc = E.ui.pc, p = pac(pc.dados.id), f = pc.dados.f, iso = isoDeBR(f.nascBR);
   if (f.nome.trim().split(/\s+/).length < 2) { toast('Escreva o nome completo.'); return; }
   if (!iso) { toast('Confira a data de nascimento (dd/mm/aaaa).'); return; }
+  if (!emailValido(f.email)) { toast('Confira o e-mail (exemplo: nome@gmail.com) ou deixe em branco.'); return; }
   if (f.cpf && f.cpf !== p.cpf && !cpfValido(f.cpf)) { toast('Esse CPF não existe. Confira os números ou deixe em branco.'); return; }
   const novo = { ...f, nasc: iso }; delete novo.nascBR; pc.dados = null;
   comDesfazer('Dados salvos.', () => Object.assign(p, novo)); };
@@ -1084,7 +1156,50 @@ A.salvarPrecos = () => { const pc = E.ui.pc, ms = mudancasPreco(); if (ms.some(m
 A.importarPrecos = () => toast('No sistema real: escolha o arquivo Excel exportado do Dental Office (Personalizar → Procedimentos). Antes de salvar, mostra o que vai mudar.');
 
 /* ---------- modais ---------- */
-function modalHTML() { return ({ orc: modalOrc, rec: modalRec, fechar: modalFechar, comp: modalComp })[E.ui.pc.modal.tipo](); }
+function modalHTML() { return ({ orc: modalOrc, rec: modalRec, fechar: modalFechar, comp: modalComp, doc: modalDoc, foto: modalFoto })[E.ui.pc.modal.tipo](); }
+
+/* ---------- foto do paciente (R9): como no Dental Office, a webcam da recepção tira a foto no cadastro ---------- */
+/* círculo com a foto, ou as iniciais; tocar abre a câmera. A foto só fica na memória do protótipo. */
+function avatarPac(foto, nome, acao, tam, pid) {
+  const ini = (String(nome || '').trim().split(/\s+/).filter(Boolean).map(x => x[0]).slice(0, 2).join('') || '+').toUpperCase();
+  const dentro = `${foto ? `<img src="${foto}" alt="">` : `<span>${esc(ini)}</span>`}<i>${ic('camera', 14)}</i>`;
+  if (!acao) return `<span class="avatar-pac" style="--t:${tam}px" aria-hidden="true">${dentro}</span>`; // dentro de outro botão
+  return `<button class="avatar-pac" style="--t:${tam}px" data-a="${acao}" ${pid ? `data-id="${pid}"` : ''} aria-label="${foto ? 'Trocar a foto' : 'Tirar foto'}" data-dica="${foto ? 'Trocar a foto' : 'Tirar foto'}">${dentro}</button>`;
+}
+let camStream = null;
+const pararCamera = () => { if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; } };
+function abrirCamera(destino) {
+  E.ui.pc.modal = { tipo: 'foto', destino, erro: '' }; render();
+  const v = document.getElementById('cam-video');
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { E.ui.pc.modal.erro = 'Este computador não tem câmera. Escolha uma foto.'; render(); return; }
+  navigator.mediaDevices.getUserMedia({ video: true }).then(st => { camStream = st; const vv = document.getElementById('cam-video'); if (!vv) { pararCamera(); return; }
+      vv.srcObject = st; vv.onloadedmetadata = () => { const b = document.getElementById('cam-principal'); if (b) { b.disabled = false; b.focus(); } }; vv.play(); }) // "Tirar foto" só acende com a imagem pronta
+    .catch(() => { if (E.ui.pc.modal && E.ui.pc.modal.tipo === 'foto') { E.ui.pc.modal.erro = 'A câmera não abriu. Permita a câmera no navegador ou escolha uma foto.'; render(); const b = document.getElementById('cam-principal'); if (b) b.focus(); } });
+}
+A.fotoPac = ds => abrirCamera({ pac: ds.id });
+A.fotoNovoPac = () => abrirCamera({ novo: true });
+function modalFoto() {
+  const m = E.ui.pc.modal;
+  return `<div class="modal modal-foto"><div class="painel-cab"><h2>Foto do paciente</h2><button class="fechar" data-a="fecharFoto" aria-label="Fechar">${ic('x', 20)}</button></div><div class="painel-corpo">
+    ${m.erro ? `<div class="aviso-box aviso">${esc(m.erro)}</div>` : '<video id="cam-video" class="cam-video" autoplay playsinline muted></video>'}
+    <input id="cam-arquivo" class="so-leitor" type="file" accept="image/*" data-ao="fotoArquivo" tabindex="-1">
+    ${m.erro ? '' : '<button class="btn-link cam-arquivo" data-a="escolherFoto">ou escolher uma foto do computador</button>'}
+  </div><div class="painel-rodape rodape-dir"><button class="btn" data-a="fecharFoto">Cancelar</button>${m.erro
+    ? `<button class="btn btn-pri" id="cam-principal" data-a="escolherFoto">${ic('foto', 16)} Escolher foto do computador</button>`
+    : `<button class="btn btn-pri" id="cam-principal" data-a="tirarFoto" disabled>${ic('camera', 16)} Tirar foto</button>`}</div></div>`;
+}
+function guardarFoto(url) {
+  const d = E.ui.pc.modal.destino; pararCamera(); E.ui.pc.modal = null;
+  if (d.novo) { E.ui.pc.novoPac.foto = url; render(); return; }
+  const p = pac(d.pac); comDesfazer('Foto guardada.', () => { p.foto = url; });
+}
+A.tirarFoto = () => { const v = document.getElementById('cam-video'); if (!v || !v.videoWidth) return;
+  const lado = Math.min(v.videoWidth, v.videoHeight), c = document.createElement('canvas'); c.width = c.height = 320;
+  c.getContext('2d').drawImage(v, (v.videoWidth - lado) / 2, (v.videoHeight - lado) / 2, lado, lado, 0, 0, 320, 320);
+  guardarFoto(c.toDataURL('image/jpeg', .85)); };
+A.fotoArquivo = (ds, el) => { const f = el.files && el.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => guardarFoto(r.result); r.readAsDataURL(f); };
+A.escolherFoto = () => { const i = document.getElementById('cam-arquivo'); if (i) i.click(); };
+A.fecharFoto = () => { pararCamera(); E.ui.pc.modal = null; render(); };
 
 /* ---------- splash, troca de usuário, PIN (compartilhado com o celular) ---------- */
 function splashHTML(saud) {

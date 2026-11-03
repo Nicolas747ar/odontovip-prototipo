@@ -202,6 +202,13 @@ const DADOS = {
     { id: 'pd2', pac: 'pa108', prof: 'p-mar', data: '2026-10-28', ini: 600, proc: 'avaliacao' },
   ],
   ontem: { total: 248000, pix: 98000, cartao: 110000, credito: 78000, debito: 32000, dinheiro: 40000, atendidos: 27, faltas: 3, agendados: 31 },
+  /* T-012: modelos de documento. Só CAMPOS ({paciente}, {cpf}…), nunca o nome de um paciente.
+     Textos de exemplo: no sistema real entram os modelos de Word que a clínica já usa. */
+  modelosDoc: [
+    { id: 'receita', nome: 'Receita', texto: 'Paciente: {paciente}\n\nUso oral\n\n1. ' },
+    { id: 'atestado', nome: 'Atestado', texto: 'Atesto, para os devidos fins, que {paciente}{cpf} esteve sob meus cuidados profissionais em {data}, devendo afastar-se de suas atividades por {dias}.{cid}' },
+    { id: 'declaracao', nome: 'Declaração', texto: 'Declaro, para os devidos fins, que {paciente}{cpf} compareceu a esta clínica em {data}, às {inicio}, para atendimento odontológico.' },
+  ],
   /* vista do dono (R23). TUDO INVENTADO — nada aqui é número real da clínica (este repo é público).
      Prazeres e Norte ainda estão no Dental Office: entram no sistema depois (ADR-026); aqui só para o dono ver o desenho.
      conv = produção de convênio (guias): o plano paga em 30–60 dias. */

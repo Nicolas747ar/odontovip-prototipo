@@ -89,7 +89,7 @@ function celPaciente() {
         <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" style="flex:1" data-a="celCancelarAlerta">Cancelar</button><button class="btn btn-pri" style="flex:1" data-a="celSalvarAlerta">Salvar alerta</button></div></div>`
     : al.length ? `<div class="cel-alertas">${al.map(x => `<div>${ic('alerta', 16)} ${esc(x.texto)}</div>`).join('')}<button class="cel-alerta-mais" data-a="celNovoAlerta">+ Alerta</button></div>`
     : `<div class="cel-sem-alerta"><span>Sem alertas</span><button class="btn cel-btn-alerta" data-a="celNovoAlerta">+ Alerta</button></div>`;
-  return `<div class="cel-cab"><button class="cel-voltar" data-a="celTela" data-t="agenda">${ic('esq', 18)} Agenda</button><h2>${numNomeCel(p)}</h2><div class="sub">${idade(p.nasc)} anos · ${conv(p.conv).nome}</div></div>
+  return `<div class="cel-cab"><button class="cel-voltar" data-a="celTela" data-t="agenda">${ic('esq', 18)} Agenda</button><h2 class="cel-pac-tit">${p.foto ? `<img class="cel-foto" src="${p.foto}" alt="">` : ''}${numNomeCel(p)}</h2><div class="sub">${idade(p.nasc)} anos · ${conv(p.conv).nome}</div></div>
   ${faixaAl}
   <div class="cel-corpo" data-scroll="cel-pac">
     <button class="cel-card cel-ir" data-a="celTela" data-t="odonto"><span class="cel-ir-txt"><b>Odontograma e plano</b>
@@ -354,7 +354,7 @@ function celArquivo() {
 }
 
 /* dados básicos — blueprint/07 §A4d e 09-permisos */
-const dadosDe = p => ({ nome: p.nome, cel: p.cel, nasc: dataBRc(p.nasc), cpf: p.cpf || '', conv: p.conv });
+const dadosDe = p => ({ nome: p.nome, cel: p.cel, nasc: dataBRc(p.nasc), cpf: p.cpf || '', email: p.email || '', conv: p.conv });
 function celDados() {
   const c = E.ui.cel, p = pac(c.pacId); if (!c.dados || c.dados.id !== p.id) c.dados = { id: p.id, f: dadosDe(p) };
   const f = c.dados.f, er = c.dados.erro || {};
@@ -366,6 +366,7 @@ function celDados() {
     ${campo('Celular', 'cel', 'data-ao="celDadoMask" data-mask="cel" inputmode="tel"')}
     ${campo('Nascimento', 'nasc', 'data-ao="celDadoMask" data-mask="data" inputmode="numeric" placeholder="dd/mm/aaaa"')}
     ${campo('CPF', 'cpf', 'data-ao="celDadoMask" data-mask="cpf" inputmode="numeric"')}
+    ${campo('E-mail', 'email', 'type="email" inputmode="email" data-ao="celDadoMudou"')}
     <label class="cel-campo"><span>Convênio</span><select class="cel-input" data-campo="cel.dados.f.conv" data-ao="celDadoMudou">${E.d.convenios.map(x => `<option value="${x.id}" ${x.id === f.conv ? 'selected' : ''}>${x.nome}</option>`).join('')}</select></label>
     <div class="mini muted">Endereço, família e o resto do cadastro ficam no computador da recepção.</div>
   </div>
@@ -374,6 +375,7 @@ function celDados() {
 /* mesma regra do Salvar, campo por campo */
 function erroDado(k, v) {
   if (k === 'nome') return v.trim().split(/\s+/).length < 2 ? 'Escreva o nome completo.' : '';
+  if (k === 'email') return emailValido(v) ? '' : 'Confira o e-mail ou deixe em branco.';
   if (k === 'cel') return v.replace(/\D/g, '').length < 10 ? 'Faltam números no celular.' : '';
   if (k === 'nasc') { const iso = isoDeBR(v); return !iso || iso > E.d.hoje ? 'Confira a data (dd/mm/aaaa).' : ''; }
   // o dígito verificador só é conferido num CPF novo: os CPFs inventados do protótipo são inválidos de propósito
@@ -394,9 +396,9 @@ A.celDadoMask = (ds, el) => { mascara(el, ds.campo, ds.mask); A.celDadoMudou(ds,
 A.celSalvarDados = () => {
   const c = E.ui.cel, p = pac(c.pacId), f = c.dados.f;
   const iso = isoDeBR(f.nasc), erro = {};
-  ['nome', 'cel', 'nasc', 'cpf'].forEach(k => { const m = erroDado(k, f[k]); if (m) erro[k] = m; });
+  ['nome', 'cel', 'nasc', 'cpf', 'email'].forEach(k => { const m = erroDado(k, f[k]); if (m) erro[k] = m; });
   if (Object.keys(erro).length) { c.dados.erro = erro; E.ui.foco = 'cel-d-' + Object.keys(erro)[0]; render(); return; }
-  const novo = { nome: f.nome.trim(), cel: f.cel, nasc: iso, cpf: f.cpf, conv: f.conv };
+  const novo = { nome: f.nome.trim(), cel: f.cel, nasc: iso, cpf: f.cpf, email: (f.email || '').trim(), conv: f.conv };
   c.dados = null; c.tela = 'paciente';
   celGravar('Dados atualizados.', () => Object.assign(p, novo));
 };

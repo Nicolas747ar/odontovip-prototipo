@@ -172,6 +172,8 @@ function cpfValido(cpf) {
   const dv = n => { let s = 0; for (let i = 0; i < n; i++) s += +d[i] * (n + 1 - i); return (s * 10) % 11 % 10; };
   return dv(9) === +d[9] && dv(10) === +d[10];
 }
+/* e-mail é opcional; se escrito, tem que ter cara de e-mail (R10) */
+const emailValido = e => !e || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(e).trim());
 const semAcento = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 /* número exato primeiro; sem acento; telefone/CPF só com 3+ dígitos */
 function buscarPacientes(t) {
@@ -302,7 +304,7 @@ document.addEventListener('keydown', e => {
   if ((e.key === 'Enter' || e.key === ' ') && ativo.dataset && ativo.dataset.a && !['BUTTON', 'INPUT', 'TEXTAREA', 'SELECT', 'A'].includes(tag)) {
     e.preventDefault(); ativo.dispatchEvent(new MouseEvent('click', { bubbles: true })); return;
   }
-  if (e.key === 'Escape') { E.ui.pc.painel = null; E.ui.pc.modal = null; render(); }
+  if (e.key === 'Escape') { if (typeof pararCamera === 'function') pararCamera(); E.ui.pc.painel = null; E.ui.pc.modal = null; render(); } // a webcam não fica ligada
 });
 // fecha os resultados da busca ao clicar fora
 document.addEventListener('click', e => { if (!e.target.closest('.busca')) { const r = document.getElementById('busca-res'); if (r) r.classList.remove('aberto'); } }, true);

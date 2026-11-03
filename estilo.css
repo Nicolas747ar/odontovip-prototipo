@@ -833,3 +833,22 @@ i.sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:
 .cel-falta-assin .cel-ir-ic{color:var(--aviso)}
 .orc-linha{align-items:center}
 .orc-itens{display:block;font-size:14px}
+/* T-012 documentos (S-mac-6): só três botões grandes e o texto */
+.doc-tipos{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.doc-tipo{display:flex;flex-direction:column;align-items:center;gap:8px;padding:22px 10px;font-size:16px;font-weight:700}
+#doc-texto{width:100%;font:inherit;font-size:15px;line-height:1.5;padding:10px;border:1px solid var(--rule);border-radius:8px}
+.modal .painel-rodape .btn{min-height:46px}
+.arq-cartao{position:relative}
+.arq-imp{position:absolute;top:8px;right:8px;color:var(--ink-soft)}
+/* R9 foto e R10 e-mail (S-mac-7) */
+.avatar-pac{position:relative;flex:none;width:var(--t);height:var(--t);border-radius:50%;border:2px solid var(--rule);background:var(--info-bg);color:var(--brand-deep);font-weight:700;font-size:calc(var(--t) * .34);display:inline-flex;align-items:center;justify-content:center;padding:0;overflow:visible}
+.avatar-pac img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+.avatar-pac i{position:absolute;right:-2px;bottom:-2px;width:22px;height:22px;border-radius:50%;background:#fff;border:1px solid var(--rule);display:flex;align-items:center;justify-content:center;color:var(--ink-soft)}
+.avatar-pac:hover{border-color:var(--brand)}
+.modal-foto .cam-video{width:100%;max-height:360px;background:#0B1F3F;border-radius:10px;object-fit:cover}
+.cam-arquivo{display:inline-block;margin-top:10px;cursor:pointer}
+.cel-pac-tit{display:flex;align-items:center;gap:10px}
+.cel-foto{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none}
+.np-foto{display:flex;align-items:center;gap:12px;margin-bottom:12px;border:0;background:none;padding:0;cursor:pointer;font:inherit;text-align:left}
+.np-foto:hover .avatar-pac{border-color:var(--brand)}
+.so-leitor{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
