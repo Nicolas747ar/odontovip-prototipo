@@ -1,7 +1,7 @@
 /* Telas do celular — blueprint/07-pantallas-app.md */
 function celHTML() {
   const c = E.ui.cel;
-  const status = `<div class="cel-status"><span class="num">10:40</span><span>${E.ui.celForaWifi ? '4G' : 'Wi-Fi da clínica'} · 82%</span></div>`;
+  const status = `<div class="cel-status ${['splash', 'login'].includes(c.tela) ? 'claro' : ''}"><span class="num">10:40</span><span>${E.ui.celForaWifi ? '4G' : 'Wi-Fi da clínica'} · 82%</span></div>`;
   if (c.tela === 'splash') {
     if (!c.timer) c.timer = setTimeout(() => { if (E.ui.cel.tela === 'splash') { E.ui.cel.tela = 'login'; render(); } }, 1400);
     return `<div class="cel">${status}${splashHTML('OdontoVip')}</div>`;
@@ -9,17 +9,23 @@ function celHTML() {
   if (c.tela === 'login') return `<div class="cel">${status}${sobreHTML('cel')}</div>`;
   const u = usu(c.usuario);
   if (['dono', 'admin'].includes(u.papel)) return `<div class="cel">${status}${telaDono()}</div>`;
-  const comAbas = ['agenda', 'pacientes', 'eu'].includes(c.tela);
+  const comAbas = ['hoje', 'agenda', 'pacientes', 'eu'].includes(c.tela);
   const faixa = E.ui.celForaWifi ? `<div class="cel-faixa off">${ic('alerta', 15)} Fora do Wi-Fi da clínica · dados das 10:40${c.fila.length ? ` · ${c.fila.length} para enviar` : ''}</div>` : '';
-  const corpo = ({ agenda: celAgenda, paciente: celPaciente, evolucao: celEvo, evoOk: celEvoOk, comprovante: celComprovante, foto: celFoto, pacientes: celPacientes, eu: celEu,
+  const corpo = ({ hoje: celHoje, agenda: celAgenda, paciente: celPaciente, evolucao: celEvo, evoOk: celEvoOk, comprovante: celComprovante, foto: celFoto, pacientes: celPacientes, eu: celEu,
     odonto: celOdonto, dente: celDenteTela, anam: celAnam, arquivo: celArquivo, anamForm: celAnamForm, assinar: celAssinar, dados: celDados, arquivos: celArquivos, evos: celEvos, retorno: celRetornoTela })[c.tela]();
   return `<div class="cel">${status}${faixa}${corpo}
-    ${comAbas ? `<nav class="cel-abas">${[['agenda', 'agenda', 'Agenda'], ['pacientes', 'pacientes', 'Pacientes'], ['eu', 'usuario', 'Eu']].map(([t, i, n]) => `<button class="${c.tela === t ? 'ativo' : ''}" data-a="celTela" data-t="${t}">${ic(i, 22)}${n}</button>`).join('')}</nav>` : ''}</div>`;
+    ${comAbas ? celAbas([['hoje', 'inicio', 'Hoje'], ['agenda', 'agenda', 'Agenda'], ['pacientes', 'pacientes', 'Pacientes'], ['eu', 'usuario', 'Eu']], c.tela, 'celTela') : ''}</div>`;
 }
 function entrarCel(id) {
   const c = E.ui.cel; c.usuario = id; c.pinUsu = null; c.pinBuf = ''; c.pinErro = '';
-  c.tela = ['dono', 'admin'].includes(usu(id).papel) ? 'dono' : 'agenda'; render();
+  c.tela = ['dono', 'admin'].includes(usu(id).papel) ? 'dono' : 'hoje'; render();
 }
+/* barra de abas de baixo (ADR-028): a ativa ganha a pílula azul atrás do ícone */
+const celAbas = (abas, atual, acao) => `<nav class="cel-abas">${abas.map(([t, i, n]) => `<button class="${atual === t ? 'ativo' : ''}" data-a="${acao}" data-t="${t}" aria-current="${atual === t ? 'page' : 'false'}"><span class="aba-ic">${ic(i, 24)}</span>${n}</button>`).join('')}</nav>`;
+/* cabeçalho azul com o selo e o saludo (maqueta ADR-028) */
+const saudacao = () => E.d.agoraMin < 720 ? 'Bom dia' : E.d.agoraMin < 1080 ? 'Boa tarde' : 'Boa noite';
+const celTopo = (pequeno, titulo, extra = '', dir = '', cls = '') => `<div class="c-topo ${cls}"><div class="c-lin"><span class="selo"><img src="selo.png" alt=""></span>
+  <div class="ola"><small>${pequeno}</small><b>${titulo}</b></div>${dir}</div>${extra}</div>`;
 A.celTela = ds => { if (ds.t === 'anamNova') { A.celAnamNova(); return; } E.ui.cel.tela = ds.t; render(); };
 /* grava agora; fora do Wi-Fi fica marcado como "para enviar" (nada se perde) */
 function celGravar(msg, fn) {
@@ -60,11 +66,54 @@ function celAgenda() {
   // quem já foi atendido (ou faltou) desce para um grupo próprio: não some, mas não atrapalha o que vem
   const feitos = meus.filter(a => ['atendido', 'faltou'].includes(a.estado));
   const resto = meus.filter(a => !agora.includes(a) && !feitos.includes(a));
-  return `<div class="cel-cab"><h2>Hoje · qui 29/10</h2><div class="sub">${esc(u.nome)} · ${meus.length} pacientes</div></div>
-  <div class="cel-corpo" data-scroll="cel-agenda">
+  return `${celTopo(`${esc(u.nome)} · ${meus.length} pacientes`, 'Agenda de hoje', '', '', 'c-topo-baixo')}
+  <div class="cel-corpo c-corpo c-plano" data-scroll="cel-agenda">
     ${agora.length ? `<div class="grupo-tit">Agora</div>${agora.map(cardAg).join('')}` : ''}
     <div class="grupo-tit">Próximos</div>${resto.map(cardAg).join('') || '<div class="vazio">Nenhum outro paciente hoje.</div>'}
     ${feitos.length ? `<details class="cel-feitos"><summary class="grupo-tit">Já atendidos hoje (${feitos.length})</summary>${feitos.map(cardAg).join('')}</details>` : ''}
+  </div>`;
+}
+/* Hoje da dentista (maqueta ADR-028): o próximo paciente em destaque, depois os que vêm */
+const avCel = (p, cls = '') => `<span class="av av${p.numero % 4} ${cls}" aria-hidden="true">${esc(iniciais(p.nome))}</span>`;
+function pilulaPag(pid) {
+  if (pac(pid).conv !== 'part') return '';
+  if (!plano(pid).some(i => i.estado === 'aprovado')) return semOrcamentoAprovado(pid) ? `<span class="est est-chegou-aviso">${ic('alerta', 15)} Sem orçamento aprovado</span>` : '';
+  if (!pagoParaComecar(pid)) return `<span class="est est-chegou-aviso">${ic('caixa', 15)} Ainda não pagou ${brl(aCobrarHoje(pid))}</span>`;
+  const ps = parcelas(pid), prox = parcelasAbertas(pid)[0];
+  if (ps.length && !ps.some(x => x.pago) && prox) return `<span class="est est-confirmado">${ic('check', 15)} Liberado · 1ª parcela ${dataBR(prox.venc)}</span>`;
+  return `<span class="est est-chegou">${ic('check', 15)} Pago</span>`;
+}
+function heroAg(a) {
+  const p = pac(a.pac), al = alertas(p.id), desde = tempo(Math.max(0, E.d.agoraMin - (a.chegouAs ?? a.ini)));
+  const tag = a.estado === 'chegou' ? `${ic('chegou', 15)} Próximo · chegou há ${desde}` : a.estado === 'em_atendimento' ? `${ic('atendendo', 15)} Em atendimento · há ${desde}`
+    : atrasado(a) ? `${ic('relogio', 15)} Próximo · atraso de ${tempo(E.d.agoraMin - a.ini)}` : `${ic('relogio', 15)} Próximo · às ${hhmm(a.ini)}`;
+  const pills = [['chegou', 'em_atendimento'].includes(a.estado) ? pilulaPag(p.id) : '', al.length ? `<span class="est est-faltou">${ic('alerta', 15)} ${esc(al[0].texto)}</span>` : ''].filter(Boolean).join('');
+  const bot = a.estado === 'chegou' ? `<button class="btn btn-pri c-hero-btn" data-a="celIniciar" data-id="${a.id}">${ic('play', 20)} Iniciar atendimento</button>`
+    : a.estado === 'em_atendimento' ? `<div class="c-hero-duas"><button class="btn" data-a="celAbrirPac" data-id="${p.id}">Abrir ficha</button><button class="btn btn-pri" data-a="celFinalizar" data-id="${a.id}">Finalizar</button></div>`
+    : `<button class="btn c-hero-btn" data-a="celAbrirPac" data-id="${p.id}">Abrir ficha</button>`;
+  return `<section class="cel-card c-hero ${a.estado === 'em_atendimento' ? 'atend' : ''}"><div class="c-tag ${atrasado(a) ? 'tarde' : ''}">${tag}</div>
+    <div class="c-hero-pac" data-a="celAbrirPac" data-id="${p.id}">${avCel(p, 'av-g')}<div><b>${esc(p.nome)}</b><small>${hhmm(a.ini)}${a.proc ? ' · ' + esc(proc(a.proc).nome) : ''}</small></div></div>
+    ${pills ? `<div class="c-pills">${pills}</div>` : ''}${bot}</section>`;
+}
+function filaCel(a) {
+  const p = pac(a.pac), e = atrasado(a) ? 'faltou' : a.estado, [ico, rot] = atrasado(a) ? ['relogio', `Atraso de ${tempo(E.d.agoraMin - a.ini)}`] : ESTADOS[a.estado];
+  return `<button class="c-fila" data-a="celAbrirPac" data-id="${p.id}"><span class="h num">${hhmm(a.ini)}</span>${avCel(p)}
+    <span class="c-fila-txt"><b>${esc(p.nome)}${alertas(p.id).length ? ` <span class="alerta-ico">${ic('alerta', 16)}</span>` : ''}</b><small>${a.proc ? esc(proc(a.proc).nome) : ''}</small></span>
+    <span class="c-est est-${e}" role="img" aria-label="${rot}" title="${rot}">${ic(ico, 18)}</span></button>`;
+}
+function celHoje() {
+  const u = usu(E.ui.cel.usuario), meus = E.d.agendamentos.filter(a => a.prof === u.prof && a.pac && !['desmarcou', 'remarcado'].includes(a.estado)).sort((a, b) => a.ini - b.ini);
+  const agora = meus.filter(a => ['chegou', 'em_atendimento'].includes(a.estado)).sort((a, b) => (b.estado === 'em_atendimento') - (a.estado === 'em_atendimento'));
+  const feitos = meus.filter(a => ['atendido', 'faltou'].includes(a.estado));
+  const resto = meus.filter(a => !agora.includes(a) && !feitos.includes(a));
+  const tarde = resto.filter(atrasado), prox = resto.filter(a => !atrasado(a));
+  const hero = agora[0] || prox[0], depois = [...agora.slice(1), ...prox.filter(a => a !== hero)];
+  return `${celTopo('quinta, 29 de outubro', `${saudacao()}, ${esc(u.nome)}`, `<div class="c-resumo"><span>${ic('agenda', 16)} ${meus.length} pacientes</span><span>${ic('checks', 16)} ${feitos.filter(a => a.estado === 'atendido').length} atendidos</span></div>`)}
+  <div class="cel-corpo c-corpo" data-scroll="cel-hoje">
+    ${hero ? heroAg(hero) : '<section class="cel-card c-hero"><div class="vazio">Nenhum paciente agora.</div></section>'}
+    ${depois.length ? `<div class="c-tit"><h3>Depois</h3><button class="btn-link" data-a="celTela" data-t="agenda">Ver agenda</button></div><section class="cel-card c-lista">${depois.map(filaCel).join('')}</section>` : ''}
+    ${tarde.length ? `<div class="c-tit"><h3>Não chegaram</h3></div><section class="cel-card c-lista">${tarde.map(filaCel).join('')}</section>` : ''}
+    ${feitos.length ? `<details class="cel-feitos"><summary class="grupo-tit">Já atendidos hoje (${feitos.length})</summary><section class="cel-card c-lista">${feitos.map(filaCel).join('')}</section></details>` : ''}
   </div>`;
 }
 A.celIniciar = ds => {
@@ -92,7 +141,7 @@ function celPaciente() {
         <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" style="flex:1" data-a="celCancelarAlerta">Cancelar</button><button class="btn btn-pri" style="flex:1" data-a="celSalvarAlerta">Salvar alerta</button></div></div>`
     : al.length ? `<div class="cel-alertas">${al.map(x => `<div>${ic('alerta', 16)} ${esc(x.texto)}</div>`).join('')}</div><button class="cel-alerta-link" data-a="celNovoAlerta">Adicionar alerta</button>`
     : `<button class="cel-alerta-link" data-a="celNovoAlerta">Adicionar alerta</button>`; // fora da faixa vermelha: o aviso fica limpo
-  return `<div class="cel-cab"><button class="cel-voltar" data-a="celTela" data-t="agenda">${ic('esq', 18)} Agenda</button><h2 class="cel-pac-tit">${p.foto ? `<img class="cel-foto" src="${p.foto}" alt="">` : ''}${numNomeCel(p)}</h2><div class="sub">${idade(p.nasc)} anos · ${conv(p.conv).nome}</div></div>
+  return `<div class="cel-cab"><button class="cel-voltar" data-a="celTela" data-t="hoje">${ic('esq', 18)} Hoje</button><h2 class="cel-pac-tit">${p.foto ? `<img class="cel-foto" src="${p.foto}" alt="">` : ''}${numNomeCel(p)}</h2><div class="sub">${idade(p.nasc)} anos · ${conv(p.conv).nome}</div></div>
   ${faixaAl}
   <div class="cel-corpo" data-scroll="cel-pac">
     <button class="cel-card cel-ir" data-a="celTela" data-t="odonto"><span class="cel-ir-txt"><b>Odontograma e plano</b>
@@ -453,7 +502,7 @@ function celEvoOk() {
     ${aCobrarHoje(p.id) && !c.evoPendente ? `<div class="aviso-box info">${ic('caixa', 16)} Ficou pendente: a recepção cobra <b>${brl(aCobrarHoje(p.id))}</b> na saída (o combinado é pagar antes de começar)${formaPrevistaHoje(p.id) ? ` · prevista: ${esc(formaPrevistaHoje(p.id))}` : ''}.</div>` : ''}
     ${retornoPendente(p.id) ? `<div class="aviso-box ok">${ic('remarcar', 16)} Retorno pedido: ${esc(resumoRetorno(retornoPendente(p.id))) || 'a recepção vai marcar'}.</div>` : ''}
     <b>Próximo passo</b>
-    <div class="chips">${retornoPendente(p.id) || c.compSalvo ? '' : `<button data-a="celRetorno">${ic('remarcar', 18)} Pedir retorno</button>`}<button data-a="celTela" data-t="agenda">${retornoPendente(p.id) ? 'Voltar à agenda' : 'Nada, voltar à agenda'}</button></div>
+    <div class="chips">${retornoPendente(p.id) || c.compSalvo ? '' : `<button data-a="celRetorno">${ic('remarcar', 18)} Pedir retorno</button>`}<button data-a="celTela" data-t="hoje">${retornoPendente(p.id) ? 'Voltar para Hoje' : 'Nada, voltar para Hoje'}</button></div>
     ${c.compSalvo ? '' : '<div class="mini muted">“Pedir retorno” manda para a recepção quando e para quê. Ela marca o horário e já diz o valor ao paciente.</div>'}
   </div>`;
 }
@@ -534,7 +583,7 @@ A.celRetQuando = ds => { E.ui.cel.retorno.quando = +ds.v; render(); };
 A.celRetItem = (ds, el) => { E.ui.cel.retorno.itens[ds.id] = el.checked; };
 A.celEnviarRetorno = () => { const c = E.ui.cel, r = c.retorno;
   const novo = { id: uid(), pac: c.pacId, prof: profCel(), feito: false, quando: r.quando, itens: Object.keys(r.itens).filter(k => r.itens[k]), obs: r.obs.trim() };
-  c.retorno = null; c.tela = 'agenda';
+  c.retorno = null; c.tela = 'hoje';
   celGravar('Pedido de retorno enviado à recepção.', () => E.d.pedidosRetorno.push(novo)); };
 
 /* foto */
@@ -566,22 +615,25 @@ function celListaPacs(t) {
   // o estado de hoje ao lado do nome: atendido continua na lista, com o selo "Atendido"
   // mais de uma consulta hoje: mostra o estado de cada uma (ex.: Atendido + A confirmar), na ordem do horário
   const estHoje = p => [...new Set(E.d.agendamentos.filter(x => x.pac === p.id && x.prof === u.prof && !['desmarcou', 'remarcado'].includes(x.estado)).sort((a, b) => a.ini - b.ini).map(x => x.estado))].map(e => ' ' + estadoHTML(e)).join('');
-  return [...new Set(lista)].map(p => `<div class="cel-card" data-a="celAbrirPac" data-id="${p.id}"><b>${numNomeCel(p)}</b> <span class="muted">· ${idade(p.nasc)} anos</span>${estHoje(p)}${p.inativo ? ' <span class="tag inativo">inativo</span>' : ''}${alertas(p.id).length ? ` <span class="alerta-ico">${ic('alerta', 15)}</span>` : ''}</div>`).join('') || '<div class="vazio">Ninguém encontrado.</div>';
+  // ADR-028: uma tarjeta só, com linhas (avatar · nome · idade e estado de hoje), como "Depois"
+  const linhas = [...new Set(lista)].map(p => `<button class="c-fila" data-a="celAbrirPac" data-id="${p.id}">${avCel(p)}<span class="c-fila-txt"><b>${esc(p.nome)}${alertas(p.id).length ? ` <span class="alerta-ico">${ic('alerta', 16)}</span>` : ''}</b>
+    <small>nº ${p.numero} · ${idade(p.nasc)} anos${p.inativo ? ' · inativo' : ''}</small>${estHoje(p) ? `<span class="c-fila-est">${estHoje(p)}</span>` : ''}</span>${ic('dir', 20)}</button>`).join('');
+  return linhas ? `<section class="cel-card c-lista">${linhas}</section>` : '<div class="vazio">Ninguém encontrado.</div>';
 }
 function celPacientes() {
-  return `<div class="cel-cab"><h2>Pacientes</h2><input placeholder="Nome, nº ou celular" value="${esc(E.ui.cel.busca)}" data-campo="cel.busca" data-ao="celBusca" style="width:100%;margin-top:8px;padding:12px;border:1px solid var(--rule);border-radius:10px;font-size:16px"></div>
-  <div class="cel-corpo"><div class="grupo-tit">${E.ui.cel.busca.trim().length >= 2 ? 'Resultados' : 'Seus pacientes de hoje'}</div><div id="cel-res">${celListaPacs(E.ui.cel.busca)}</div></div>`;
+  return `${celTopo(esc(usu(E.ui.cel.usuario).nome), 'Pacientes', `<label class="c-busca">${ic('busca', 20)}<input placeholder="Nome, nº ou celular" value="${esc(E.ui.cel.busca)}" data-campo="cel.busca" data-ao="celBusca"></label>`, '', 'c-topo-baixo')}
+  <div class="cel-corpo c-corpo c-plano"><div class="c-tit"><h3>${E.ui.cel.busca.trim().length >= 2 ? 'Resultados' : 'Seus pacientes de hoje'}</h3></div><div id="cel-res">${celListaPacs(E.ui.cel.busca)}</div></div>`;
 }
 A.celBusca = (ds, el) => { document.getElementById('cel-res').innerHTML = celListaPacs(el.value); };
 
 function celEu() {
   const u = usu(E.ui.cel.usuario);
-  return `<div class="cel-cab"><h2>${esc(u.nome)}</h2><div class="sub">${E.d.unidade}</div></div>
-  <div class="cel-corpo"><div class="cel-card">Versão do app: <b>protótipo 0.1</b><br><span class="mini muted">Conectado ao computador da recepção pelo QR code.</span></div>
-    <button class="btn" style="width:100%;min-height:52px;margin-bottom:10px" data-a="celSair">Trocar usuário</button>
+  return `${celTopo(esc(E.d.unidade), esc(u.nome), '', '', 'c-topo-baixo')}
+  <div class="cel-corpo c-corpo c-plano"><div class="cel-card">Versão do app: <b>protótipo 0.1</b><br><span class="mini muted">Conectado ao computador da recepção pelo QR code.</span></div>
+    <button class="btn" style="width:100%;min-height:52px;margin-bottom:10px" data-a="celSair">Sair</button>
     ${MODO_CEL ? '<button class="btn" style="width:100%;min-height:52px;background:var(--gold-light)" data-a="abrirTestes">Tarefas de teste do protótipo</button>' : ''}</div>`;
 }
-A.celSair = () => { Object.assign(E.ui.cel, { usuario: null, tela: 'login', pinUsu: null, pinBuf: '' }); render(); };
+A.celSair = () => { Object.assign(E.ui.cel, { usuario: null, tela: 'login', pinUsu: null, pinBuf: '', donoAba: 'resumo' }); render(); };
 
 /* dono — Caixa do dia */
 /* dono — R23 (03/11): as três unidades juntas, particular × convênio, acumulado do mês, faltas e retornos.
@@ -598,14 +650,14 @@ function donoBoaViagemHoje(corte) {
 function donoBarra(part, conv) {
   const tot = part + conv;
   return `<div class="dono-barra" role="img" aria-label="Particular ${pct(part, tot)}%, convênio ${pct(conv, tot)}%"><i class="b-part" style="width:${pct(part, tot)}%"></i><i class="b-conv" style="width:${pct(conv, tot)}%"></i></div>
-    <div class="dono-linha"><span><i class="sw b-part"></i> Particular · recebido</span><b class="num">${brl(part)}</b></div>
-    <div class="dono-linha"><span><i class="sw b-conv"></i> Convênio · produzido<br><span class="dono-sub">o plano paga em 30 a 60 dias</span></span><b class="num">${brl(conv)}</b></div>`;
+    <div class="dono-leg"><div><span><i class="sw b-part"></i>Particular</span><b class="num">${brl(part).replace(',00', '')}</b><small>recebido</small></div>
+      <div class="dir"><span><i class="sw b-conv"></i>Convênio</span><b class="num">${brl(conv).replace(',00', '')}</b><small>a receber em 30–60 dias</small></div></div>`;
 }
 function donoUnidade(u, m) {
-  const fal = pct(m.faltas, m.atendidos + m.faltas);
-  return `<div class="dono-uni"><div class="dono-uni-cab"><b>${esc(u.nome)}</b>${u.aoVivo ? (E.ui.clinicaSemInternet ? '<span class="tag-parado">parado às 10:25</span>' : '<span class="tag-vivo">ao vivo</span>') : '<span class="tag-ex">exemplo</span>'}</div>
-    <div class="dono-uni-valor num">${brl(m.part)}</div>
-    <div class="dono-sub">${m.conv ? `+ ${brl(m.conv)} de convênio · ` : 'só particular · '}${m.atendidos} atendidos · ${faltaTxt(m.faltas, fal)}</div></div>`;
+  const fal = pct(m.faltas, m.atendidos + m.faltas), alta = fal >= FALTA_ALTA;
+  const tag = u.aoVivo ? (E.ui.clinicaSemInternet ? '<span class="tag-parado">parado às 10:25</span>' : '') : '<span class="tag-ex">exemplo</span>';
+  return `<div class="dono-uni"><span class="uni-ic">${ic('local', 20)}</span><span class="uni-txt"><b>${esc(u.nome)} ${tag}</b><small>${m.atendidos} atendidos</small></span>
+    <span class="uni-val"><b class="num">${brl(m.part).replace(',00', '')}</b><small class="${alta ? 'txt-erro' : ''}">${alta ? ic('alerta', 14) + ' ' : ''}${m.faltas} ${m.faltas === 1 ? 'falta' : 'faltas'} · ${fal}%</small></span></div>`;
 }
 /* faltas: a cor nunca sozinha — acima de 25% vai com ícone e a palavra (regra 18) */
 const FALTA_ALTA = 25;
@@ -615,12 +667,12 @@ function telaDono() {
   const c = E.ui.cel, semNet = E.ui.clinicaSemInternet, corte = semNet ? 625 : 1e9, cx = E.d.caixa, aba = c.diaDono || 'hoje';
   const bv = donoBoaViagemHoje(corte);
   // ADR-027: só o aviso que muda a leitura (sem internet); "exemplo" fica na etiqueta de cada unidade
-  const mais = (k, tit, html) => `<details class="cel-card dono-mais" ${(c.donoAberto || {})[k] ? 'open' : ''} ontoggle="(E.ui.cel.donoAberto = E.ui.cel.donoAberto || {})['${k}'] = this.open"><summary><b>${tit}</b></summary>${html}</details>`;
+  const mais = (k, tit, html) => `<details class="cel-card dono-mais" ${((c.donoAberto = c.donoAberto || { forma: true }))[k] ? 'open' : ''} ontoggle="(E.ui.cel.donoAberto = E.ui.cel.donoAberto || {})['${k}'] = this.open"><summary><b>${tit}</b></summary>${html}</details>`;
   const avisoNet = semNet && aba !== 'ontem' ? `<div class="dono-banda net">${ic('semrede', 18)}<span><b>Sem atualização desde 10:25.</b> A clínica pode estar sem internet: os números podem estar velhos.</span></div>` : '';
   let corpo = '';
   if (aba === 'ontem') {
     const o = E.d.ontem;
-    corpo = `<div class="cel-card"><div class="dono-rot">Recebido ontem · ${esc(E.d.unidade)}</div><div class="dono-total num">${brl(o.total)}</div></div>
+    corpo = `<div class="cel-card c-total"><div class="dono-rot">Recebido ontem · ${esc(E.d.unidade)}</div><div class="dono-total num">${brl(o.total)}</div></div>
       <div class="cel-card"><b>Por forma de pagamento</b>${[['Pix', o.pix], ['Cartão crédito', o.credito], ['Cartão débito', o.debito], ['Dinheiro', o.dinheiro]].filter(([, v]) => v).map(([f, v]) => `<div class="dono-linha"><span>${formaHTML(f)}</span><b class="num">${brl(v)}</b></div>`).join('')}</div>
       <div class="cel-card"><b>Pacientes</b><div class="dono-linha"><span>Agendados</span><b>${o.agendados}</b></div><div class="dono-linha"><span>Atendidos</span><b>${o.atendidos}</b></div>
         <div class="dono-linha"><span>Faltaram</span><b>${faltaTxt(o.faltas, pct(o.faltas, o.atendidos + o.faltas))}</b></div></div>`;
@@ -632,9 +684,9 @@ function telaDono() {
     const part = soma('part'), conv = soma('conv'), varMes = pct(part, E.d.mesPassadoMesmoPeriodo) - 100;
     const fal = pct(soma('faltas'), soma('atendidos') + soma('faltas')), cr = E.d.campanhaRetorno;
     const pedidos = E.d.pedidosRetorno.length, pedidosFeitos = E.d.pedidosRetorno.filter(r => r.feito).length;
-    corpo = `<div class="cel-card"><div class="dono-rot">Recebido no mês · 01 a 29/10 · 3 unidades</div><div class="dono-total num">${brl(part)}</div>
-        <div class="dono-var ${varMes >= 0 ? 'sobe' : 'desce'}">${varMes >= 0 ? '+' : ''}${varMes}% em relação a 01 a 29/09</div>${donoBarra(part, conv)}</div>
-      <div class="cel-card"><b>Por unidade</b>${us.map(([u, m]) => donoUnidade(u, m)).join('')}</div>
+    corpo = `<div class="cel-card c-total"><div class="dono-rot">Recebido no mês · 01 a 29/10 · 3 unidades</div><div class="dono-total num">${brl(part)}</div>
+        <div class="dono-var ${varMes >= 0 ? 'sobe' : 'desce'}">${ic(varMes >= 0 ? 'sobe' : 'desce', 16)} ${varMes >= 0 ? '+' : ''}${varMes}% em relação a 01 a 29/09</div>${donoBarra(part, conv)}</div>
+      <div class="c-tit"><h3>Por unidade</h3></div><div class="cel-card c-lista">${us.map(([u, m]) => donoUnidade(u, m)).join('')}</div>
       ${mais('mesFaltas', 'Faltas no mês', `<div class="dono-grande ${fal >= FALTA_ALTA ? 'txt-erro' : ''}">${fal}%</div>
         <div class="dono-sub">${soma('faltas')} faltas em ${soma('atendidos') + soma('faltas')} consultas que deviam acontecer</div>
         ${us.map(([u, m]) => { const f = pct(m.faltas, m.atendidos + m.faltas); return `<div class="dono-linha"><span>${esc(u.nome)}</span><span class="dono-mini"><i class="${f >= FALTA_ALTA ? 'alta' : ''}" style="width:${Math.min(100, f * 2)}%"></i></span><b class="num ${f >= FALTA_ALTA ? 'txt-erro' : ''}">${f >= FALTA_ALTA ? ic('alerta', 14) + ' ' : ''}${f}%</b></div>`; }).join('')}
@@ -650,8 +702,8 @@ function telaDono() {
     const part = us.reduce((s, u) => s + u.part, 0), conv = us.reduce((s, u) => s + u.conv, 0);
     const porForma = {}; us.forEach(u => Object.entries(u.porForma).forEach(([f, v]) => { if (f !== 'Convênio') porForma[f] = (porForma[f] || 0) + v; }));
     const ag = us.reduce((s, u) => s + u.agendados, 0), at = us.reduce((s, u) => s + u.atendidos, 0), fa = us.reduce((s, u) => s + u.faltas, 0);
-    corpo = `<div class="cel-card"><div class="dono-rot">Recebido hoje · 3 unidades</div><div class="dono-total num">${brl(part)}</div>${donoBarra(part, conv)}</div>
-      <div class="cel-card"><b>Por unidade</b>${us.map(u => donoUnidade(u, u)).join('')}</div>
+    corpo = `<div class="cel-card c-total"><div class="dono-rot">Recebido hoje · 3 unidades</div><div class="dono-total num">${brl(part)}</div>${donoBarra(part, conv)}</div>
+      <div class="c-tit"><h3>Por unidade</h3></div><div class="cel-card c-lista">${us.map(u => donoUnidade(u, u)).join('')}</div>
       ${mais('pac', 'Pacientes hoje', `<div class="dono-linha"><span>Agendados</span><b>${ag}</b></div><div class="dono-linha"><span>Atendidos até agora</span><b>${at}</b></div>
         <div class="dono-linha"><span>Faltaram</span><b>${faltaTxt(fa, pct(fa, at + fa))}</b></div>
 `)}
@@ -662,13 +714,28 @@ function telaDono() {
         <div class="dono-linha"><span>Caixa</span>${cx.fechado ? `<span class="cx-status fechado">${ic('cadeado', 14)} Fechado às ${hhmm(cx.hora)}</span>` : '<span class="cx-status aberto"><span class="ponto"></span>Aberto</span>'}</div>
         ${cx.fechado && cx.dif ? `<div class="dono-linha txt-erro"><span>Gaveta</span><b>${cx.dif > 0 ? 'sobrou' : 'faltou'} ${brl(Math.abs(cx.dif))}</b></div>` : ''}`)}`;
   }
-  return `<div class="dono-topo"><div class="ola">Bom dia, ${esc(usu(E.ui.cel.usuario).nome)}</div><div class="dono-tit">${aba === 'ontem' ? `OdontoVip · ${esc(E.d.unidade)}` : 'OdontoVip · as três unidades'}</div>
-    <div class="quando">qui 29/10 · ${avisoNet ? 'sem atualização desde 10:25' : 'atualizado às 10:40'}</div><div class="fio"></div></div>
-  <div class="cel-corpo" data-scroll="cel-dono">
-    <div class="seg seg-cel" style="margin-bottom:12px">${[['hoje', 'Hoje'], ['ontem', 'Ontem'], ['mes', 'Mês']].map(([k, t]) => `<button class="${aba === k ? 'ativo' : ''}" data-a="donoDia" data-v="${k}">${t}</button>`).join('')}</div>
-    ${avisoNet}${corpo}
-    <button class="btn" style="width:100%;margin-top:12px" data-a="celSair">Sair</button>
-    ${MODO_CEL ? '<button class="btn" style="width:100%;margin-top:10px;background:var(--gold-light)" data-a="abrirTestes">Tarefas de teste do protótipo</button>' : ''}
-  </div>`;
+  const seg = `<div class="c-seg">${[['hoje', 'Hoje'], ['ontem', 'Ontem'], ['mes', 'Mês']].map(([k, t]) => `<button class="${aba === k ? 'on' : ''}" data-a="donoDia" data-v="${k}" aria-pressed="${aba === k}">${t}</button>`).join('')}</div>`;
+  const quando = avisoNet ? 'sem atualização desde 10:25' : 'atualizado às 10:40';
+  const sec = c.donoAba || 'resumo';
+  let tela = `${celTopo(quando, `${saudacao()}, ${esc(usu(E.ui.cel.usuario).nome)}`, seg)}
+  <div class="cel-corpo c-corpo" data-scroll="cel-dono">${avisoNet}${corpo}</div>`;
+  if (sec !== 'resumo') tela = `${celTopo(quando, { retornos: 'Retornos', orcamentos: 'Orçamentos', eu: esc(usu(E.ui.cel.usuario).nome) }[sec], '', '', sec === 'eu' ? 'c-topo-baixo' : '')}<div class="cel-corpo c-corpo ${sec === 'eu' ? 'c-plano' : ''}">${donoSecao(sec)}</div>`;
+  return tela + celAbas([['resumo', 'graficos', 'Resumo'], ['retornos', 'msg', 'Retornos'], ['orcamentos', 'recibo', 'Orçamentos'], ['eu', 'usuario', 'Eu']], sec, 'donoAba');
 }
+/* abas do dono: retornos (campanha no WhatsApp e pedidos das dentistas), orçamentos e "Eu" — os mesmos números do Resumo · Mês */
+function donoSecao(sec) {
+  const cr = E.d.campanhaRetorno, a = E.d.bvMesAntes, us = [a, ...E.d.outrasUnidades.map(u => u.mes)];
+  const soma = k => us.reduce((s, m) => s + (m[k] || 0), 0);
+  if (sec === 'retornos') { const pedidos = E.d.pedidosRetorno.length, feitos = E.d.pedidosRetorno.filter(r => r.feito).length;
+    return `<div class="cel-card c-total"><div class="dono-rot">Campanha de retorno no WhatsApp · outubro <span class="tag-ex">exemplo</span></div>
+      <div class="dono-funil"><div><b class="num">${milBR(cr.enviadas)}</b><span>mensagens</span></div>${ic('dir', 18)}<div><b class="num">${cr.marcadas}</b><span>marcaram</span></div>${ic('dir', 18)}<div><b class="num">${cr.vieram}</b><span>vieram</span></div></div>
+      <div class="dono-sub">${pct(cr.marcadas, cr.enviadas)}% marcaram · custo ${brl(cr.custo)} = ${brl(Math.round(cr.custo / Math.max(1, cr.vieram)))} por paciente que veio</div></div>
+      ${pedidos ? `<div class="cel-card"><div class="dono-linha"><span>Retornos pedidos pelas dentistas (Boa Viagem)</span><b class="num">${feitos} de ${pedidos} marcados</b></div></div>` : ''}`; }
+  if (sec === 'orcamentos') return `<div class="cel-card c-total"><div class="dono-rot">Orçamentos no mês · 3 unidades</div><div class="dono-total num">${pct(soma('orcAprov'), soma('orcFeitos'))}%</div><div class="dono-sub">foram aprovados</div></div>
+    <div class="cel-card"><div class="dono-linha"><span>Feitos</span><b class="num">${soma('orcFeitos')}</b></div><div class="dono-linha"><span>Aprovados</span><b class="num">${soma('orcAprov')}</b></div></div>`;
+  return `<div class="cel-card">${esc(usu(E.ui.cel.usuario).nome)}<br><span class="mini muted">Vê os números das três unidades. Nomes e fichas de pacientes nunca saem da clínica.</span></div>
+    <button class="btn" style="width:100%;margin-top:4px" data-a="celSair">Sair</button>
+    ${MODO_CEL ? '<button class="btn" style="width:100%;margin-top:10px;background:var(--gold-light)" data-a="abrirTestes">Tarefas de teste do protótipo</button>' : ''}`;
+}
+A.donoAba = ds => { E.ui.cel.donoAba = ds.t; E.ui.zerarScroll = 'cel-dono'; render(); };
 A.donoDia = ds => { E.ui.cel.diaDono = ds.v; E.ui.zerarScroll = 'cel-dono'; render(); };

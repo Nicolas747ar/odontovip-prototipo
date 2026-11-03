@@ -223,4 +223,32 @@ const DADOS = {
   mesPassadoMesmoPeriodo: 9310000, // recebido particular 01–29/09, as três unidades
   /* campanha de retorno por WhatsApp (o dono: "mando 500 mensagens, consigo marcar 100 consultas") */
   campanhaRetorno: { enviadas: 1000, marcadas: 196, vieram: 141, custo: 9000 },
+  /* WhatsApp (blueprint/12, ADR-028): listas automáticas, nomes inventados. No protótipo nada é enviado. */
+  whatsapp: {
+    amanha: [
+      { id: 'w1', nome: 'Carla Vieira', hora: '08:30', prof: 'Dra. Helena', proc: 'Canal · sessão 3' },
+      { id: 'w2', nome: 'Tiago Rocha', hora: '09:00', prof: 'Dr. Rafael', proc: 'Manutenção do aparelho' },
+      { id: 'w3', nome: 'Renata Alves', hora: '09:40', prof: 'Dra. Marcelly', proc: 'Clareamento' },
+      { id: 'w4', nome: 'Igor Matos', hora: '10:20', prof: 'Dr. Rafael', proc: 'Avaliação' },
+      { id: 'w5', nome: 'Lara Pinto', hora: '11:00', prof: 'Dra. Marcelly', proc: 'Limpeza' },
+      { id: 'w6', nome: 'Bruno Lacerda', hora: '14:00', prof: 'Dra. Helena', proc: 'Retorno' },
+      { id: 'w7', nome: 'Paula Gomes', hora: '15:00', prof: 'Dra. Marcelly', proc: 'Restauração' },
+      { id: 'w8', nome: 'Joana Pires', hora: '16:20', prof: 'Dr. Rafael', proc: 'Avaliação' },
+    ],
+    faltouOntem: [
+      { id: 'w9', nome: 'Rafaela Torres', hora: '09:00', prof: 'Dra. Marcelly', proc: 'Avaliação' },
+      { id: 'w10', nome: 'Mário Cunha', hora: '14:30', prof: 'Dr. Rafael', proc: 'Manutenção do aparelho' },
+      { id: 'w11', nome: 'Sílvia Prado', hora: '16:00', prof: 'Dra. Helena', proc: 'Limpeza' },
+    ],
+    retornoMes: [
+      { id: 'w12', nome: 'Eduardo Lima', ultima: '28/04', prof: 'Dra. Marcelly', proc: 'Limpeza' },
+      { id: 'w13', nome: 'Fátima Souza', ultima: '02/05', prof: 'Dra. Helena', proc: 'Limpeza' },
+      { id: 'w14', nome: 'Gustavo Reis', ultima: '06/05', prof: 'Dra. Marcelly', proc: 'Revisão' },
+      { id: 'w15', nome: 'Helena Brito', ultima: '11/05', prof: 'Dr. Rafael', proc: 'Avaliação' },
+      { id: 'w16', nome: 'Ivan Moraes', ultima: '15/05', prof: 'Dra. Marcelly', proc: 'Limpeza' },
+      { id: 'w17', nome: 'Júlio Nery', ultima: '20/05', prof: 'Dra. Helena', proc: 'Revisão' },
+    ],
+    naoQuerem: 1, // pediram para não receber mensagens: ficam fora das listas
+    enviados: [],
+  },
 };

@@ -304,7 +304,7 @@ document.addEventListener('keydown', e => {
   if ((e.key === 'Enter' || e.key === ' ') && ativo.dataset && ativo.dataset.a && !['BUTTON', 'INPUT', 'TEXTAREA', 'SELECT', 'A'].includes(tag)) {
     e.preventDefault(); ativo.dispatchEvent(new MouseEvent('click', { bubbles: true })); return;
   }
-  if (e.key === 'Escape') { if (typeof pararCamera === 'function') pararCamera(); E.ui.pc.painel = null; E.ui.pc.modal = null; render(); } // a webcam não fica ligada
+  if (e.key === 'Escape') { if (typeof pararCamera === 'function') pararCamera(); E.ui.pc.menuLinha = null; E.ui.pc.painel = null; E.ui.pc.modal = null; render(); } // a webcam não fica ligada
 });
 // fecha os resultados da busca ao clicar fora
 document.addEventListener('click', e => { if (!e.target.closest('.busca')) { const r = document.getElementById('busca-res'); if (r) r.classList.remove('aberto'); } }, true);

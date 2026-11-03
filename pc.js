@@ -1,34 +1,49 @@
 /* Telas do computador — blueprint/06-pantallas-pc.md */
-const K = 1.5; // px por minuto na agenda (40 min = 60 px: cabem hora, nome e procedimento)
+const K = 1.8; // px por minuto na agenda (40 min = 72 px: cabem estado, nome e procedimento — ADR-028)
 const usuPC = () => usu(E.ui.pc.usuario);
 function pode(acao, u = usuPC()) {
   const p = u.papel;
   return {
     // admin = Suely Maria, esposa do dono e coordenadora: vê tudo como o dono (Nicolas, 03/11 — ADR-023)
     caixa: ['recepcao', 'dono', 'admin'], clinico: ['dentista', 'dono', 'admin'], indicar: ['dentista'], alerta: ['dentista'],
-    finPac: ['recepcao', 'dono', 'admin'], config: ['dono', 'admin'], evolucao: ['dentista'], recusar: ['dentista', 'recepcao', 'admin'], cadastro: ['recepcao', 'dono', 'admin'],
+    finPac: ['recepcao', 'dono', 'admin'], config: ['dono', 'admin'],
+    relatorios: ['dono', 'admin'], whatsapp: ['recepcao', 'dono', 'admin'], evolucao: ['dentista'], recusar: ['dentista', 'recepcao', 'admin'], cadastro: ['recepcao', 'dono', 'admin'],
     anamnese: ['dentista'], // o dono lê a anamnese, mas quem preenche é a dentista (a ficha guarda qual profissional fez)
-  }[acao].includes(p) || (!!u.fin && ['caixa', 'finPac'].includes(acao)); // fin: dentista da família que também cuida do financeiro
+  }[acao].includes(p) || (!!u.fin && ['caixa', 'finPac', 'relatorios'].includes(acao)); // fin: dentista da família que também cuida do financeiro
 }
 
 function pcHTML() {
-  const u = usuPC(), pc = E.ui.pc;
+  const u = usuPC(), pc = E.ui.pc, fechado = !!pc.menuFechado;
+  const nFin = pode('finPac') ? contaFinHoje() : 0;
+  // ADR-028: menu com ícone + nome; fechado (☰) fica só o ícone e o nome aparece ao passar o mouse
   const menu = [['hoje', 'inicio', 'Hoje'], ['agenda', 'agenda', 'Agenda'], ['pacientes', 'pacientes', 'Pacientes']];
-  if (pode('caixa')) menu.push(['caixa', 'caixa', 'Caixa']);
+  if (pode('caixa')) menu.push(['caixa', 'caixa', 'Caixa', nFin]);
+  const gestao = [];
+  if (pode('relatorios')) gestao.push(['relatorios', 'graficos', 'Relatórios']);
+  if (pode('whatsapp')) gestao.push(['whatsapp', 'msg', 'WhatsApp']);
   const ativo = pc.tela === 'ficha' || pc.tela === 'novoPac' ? 'pacientes' : pc.tela;
-  return `<div class="pc">
+  const item = ([id, ico, nome, badge]) => `<button class="menu-item ${ativo === id ? 'ativo' : ''}" data-a="tela" data-t="${id}" ${fechado ? `data-dica="${nome}" aria-label="${nome}"` : ''}><span class="ico">${ic(ico, 21)}</span><span class="menu-nome">${nome}</span>${badge ? `<b class="menu-badge" aria-label="${badge} pendentes">${badge}</b>` : ''}</button>`;
+  const nPend = pendenciasHoje().n;
+  return `<div class="pc ${fechado ? 'menu-fechado' : ''}">
   <header class="pc-topo">
-    <div class="marca"><img src="selo.png" alt=""><b>OdontoVip</b><span>· ${E.d.unidade}</span></div>
-    <div class="busca">${ic('busca', 17, 'ic-busca')}<input id="busca-global" placeholder="Buscar paciente: nome, CPF, telefone ou nº   ( / )" data-ao="buscaGlobal" autocomplete="off"><div id="busca-res" class="busca-res"></div></div>
-    ${E.ui.clinicaSemInternet
-      ? '<span class="conexao aviso" title="O sistema funciona normal. Só o WhatsApp e o resumo do dono esperam a internet voltar."><span class="ponto"></span>Sem internet — tudo funciona</span>'
-      : '<span class="conexao ok"><span class="ponto"></span>Conectado</span>'}
-    <button class="btn-usuario" data-a="trocarUsuario">${esc(u.nome)} · ${u.rotulo} ${ic('baixo', 14)}</button>
+    <button class="hamb" data-a="menuPC" aria-label="${fechado ? 'Mostrar menu' : 'Esconder menu'}" aria-expanded="${!fechado}">${ic('menu', 22)}</button>
+    <div class="marca"><span class="selo"><img src="selo.png" alt=""></span><span class="marca-txt"><b>OdontoVip</b><span>Gestão da clínica</span></span></div>
+    <button class="unid" data-a="trocarUnidade">${ic('local', 16)} ${esc(E.d.unidade)} ${ic('baixo', 16)}</button>
+    <div class="busca">${ic('busca', 18, 'ic-busca')}<input id="busca-global" placeholder="Buscar paciente: nome, CPF, telefone ou nº" data-ao="buscaGlobal" autocomplete="off"><span class="atalho" aria-hidden="true">/</span><div id="busca-res" class="busca-res"></div></div>
+    <div class="topo-dir">
+      ${E.ui.clinicaSemInternet
+        ? '<span class="conexao aviso" title="O sistema funciona normal. Só o WhatsApp e o resumo do dono esperam a internet voltar."><span class="ponto"></span>Sem internet — tudo funciona</span>'
+        : '<span class="conexao ok"><span class="ponto"></span>Conectado</span>'}
+      <button class="topo-ico" data-a="verPendencias" data-dica="${nPend ? `${nPend} pendências de hoje` : 'Nenhuma pendência hoje'}" aria-label="Pendências de hoje: ${nPend}">${ic('sino', 20)}${nPend ? '<b></b>' : ''}</button>
+      <button class="usu" data-a="trocarUsuario" aria-label="Trocar usuário"><span class="av">${iniciais(u.nome)}</span><span class="usu-txt"><b>${esc(u.nome)}</b><span>${esc(u.rotulo.split(' · ')[0])}</span></span>${ic('baixo', 16)}</button>
+    </div>
   </header>
   <nav class="pc-menu">
-    ${menu.map(([id, ico, nome]) => `<button class="menu-item ${ativo === id ? 'ativo' : ''}" data-a="tela" data-t="${id}"><span class="ico">${ic(ico, 19)}</span>${nome}</button>`).join('')}
+    ${menu.map(item).join('')}
+    ${gestao.length ? `<div class="menu-grupo">Gestão</div>${gestao.map(item).join('')}` : ''}
     <div class="menu-sep"></div>
-    ${pode('config') ? `<button class="menu-item ${pc.tela === 'config' ? 'ativo' : ''}" data-a="tela" data-t="config"><span class="ico">${ic('config', 19)}</span>Configurações</button>` : ''}
+    ${pode('config') ? item(['config', 'config', 'Configurações']) : ''}
+    <button class="menu-item" data-a="menuPC" ${fechado ? 'data-dica="Mostrar menu" aria-label="Mostrar menu"' : ''}><span class="ico">${ic(fechado ? 'expandir' : 'recolher', 21)}</span><span class="menu-nome">Esconder menu</span></button>
   </nav>
   <main class="pc-conteudo" data-scroll="pc-main">${telaPC()}</main>
   ${pc.painel ? '<div class="cortina" data-a="fecharPainel"></div>' + painelHTML() : ''}
@@ -36,8 +51,12 @@ function pcHTML() {
   ${pc.sobre ? sobreHTML('pc') : ''}
   </div>`;
 }
+A.verPendencias = () => { const pc = E.ui.pc; pc.tela = 'hoje'; pc.abaHoje = 'agenda'; pc.painel = null; pc.modal = null; render();
+  const c = document.querySelector('.h-cartao-atencao'), m = document.querySelector('[data-scroll="pc-main"]'); if (c && m) m.scrollTo({ top: Math.max(0, c.offsetTop - 16), behavior: 'smooth' }); };
+A.menuPC = () => { E.ui.pc.menuFechado = !E.ui.pc.menuFechado; render(); };
+A.trocarUnidade = () => toast('Por enquanto só Boa Viagem. Prazeres e Norte entram no mesmo sistema depois (ADR-026).');
 function telaPC() {
-  return ({ hoje: telaHoje, agenda: telaAgenda, pacientes: telaPacientes, novoPac: telaNovoPac, ficha: telaFicha, caixa: telaCaixa, config: telaConfig })[E.ui.pc.tela]();
+  return ({ hoje: telaHoje, agenda: telaAgenda, pacientes: telaPacientes, novoPac: telaNovoPac, ficha: telaFicha, caixa: telaCaixa, config: telaConfig, relatorios: telaRelatorios, whatsapp: telaWhatsApp })[E.ui.pc.tela]();
 }
 A.tela = ds => { const pc = E.ui.pc; pc.tela = ds.t; pc.painel = null; pc.modal = null; pc.anamForm = null; pc.evoForm = null; render(); };
 A.fecharPainel = () => { E.ui.pc.painel = null; render(); };
@@ -82,59 +101,75 @@ const estadoPos = a => { const f = fixo(a.id); return f ? f.antes : a.estado; };
 const minDesde = m => Math.max(0, E.d.agoraMin - m);
 const tempo = min => min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`;
 function pacHoje(p, meta) {
-  return `<span class="h-pac"><span class="h-nome"><b>${numNome(p)}</b>${alertas(p.id).length ? `<span class="alerta-ico" title="${esc(alertas(p.id).map(x => x.texto).join(' · '))}">${ic('alerta', 15)}</span>` : ''}</span>
-    <span class="h-meta">${meta}</span></span>`;
+  return `<span class="h-pac">${avPac(p)}<span class="h-pac-txt"><span class="h-nome"><b>${esc(p.nome)}</b>${alertas(p.id).length ? `<span class="alerta-ico" title="${esc(alertas(p.id).map(x => x.texto).join(' · '))}">${ic('alerta', 15)}</span>` : ''}</span>
+    <span class="h-meta">${meta}</span></span></span>`;
 }
 // sem a cadeira: ela está na Agenda e no detalhe; aqui o procedimento precisa caber inteiro
 const numNome = p => `nº&nbsp;${p.numero}&nbsp;· ${esc(p.nome)}`;
 const metaAg = a => [prof(a.prof).curto, a.proc ? proc(a.proc).nome : ''].filter(Boolean).map(esc).join(' · ');
 /* botão só com ícone: o nome aparece ao passar o mouse/focar e é lido pelo leitor de tela */
 const botaoIco = (ico, dica, attrs, cls = '') => `<button class="btn-ico ${cls}" aria-label="${dica}" data-dica="${dica}" ${attrs}>${ic(ico, 18)}</button>`;
+/* avatar com as iniciais (ADR-028); a cor fica fixa por paciente */
+const avPac = p => `<span class="av av${p.numero % 4}" aria-hidden="true">${esc(iniciais(p.nome))}</span>`;
+const atrasado = a => ['a_confirmar', 'confirmado'].includes(a.estado) && a.ini + 15 < E.d.agoraMin;
+/* pastilha do estado: ícone + palavra (ADR-028). Atrasado é a exceção, em vermelho */
+const pastilhaHoje = a => atrasado(a) ? `<span class="est est-faltou">${ic('relogio', 15)} Atraso de ${tempo(minDesde(a.ini))}</span>` : estadoHTML(a.estado);
 
-/* lista do dia no jeito do PEC (Danielle, R2–R5): horário marcado · chegada · símbolo do estado ·
-   paciente · telefone · ações em ícone para a recepção ir marcando */
+/* lista do dia (maqueta ADR-028): hora · estado · paciente · a ação principal e o resto no ⋯ */
 function linhaHoje(a) {
   const f = fixo(a.id); if (f) return linhaFixa(a.id, hhmm(a.ini), f);
-  const p = pac(a.pac), ag = E.d.agoraMin, e = a.estado, at = `data-id="${a.id}"`;
-  const marcar = (est, ico, dica, cls) => botaoIco(ico, dica, `data-a="estadoAg" data-o="hoje" ${at} data-e="${est}"`, cls);
-  let acoes = '';
-  if (e === 'a_confirmar') acoes += marcar('confirmado', 'check', 'Confirmar consulta');
-  if (['a_confirmar', 'confirmado'].includes(e)) acoes += marcar('chegou', 'chegou', 'Presente na unidade', 'ok');
-  if (['a_confirmar', 'confirmado'].includes(e) && a.ini < ag) acoes += marcar('faltou', 'x', 'Paciente ausente (faltou)', 'perigo');
-  if (['a_confirmar', 'confirmado'].includes(e)) acoes += botaoIco('desmarcar', 'Cancelar consulta (pede o motivo)', `data-a="cancelarHoje" ${at}`);
+  const p = pac(a.pac), e = a.estado, tarde = atrasado(a);
+  const acoes = [];
+  const est = (v, txt, ico) => ({ txt, ico, attrs: `data-a="estadoAg" data-o="hoje" data-id="${a.id}" data-e="${v}"` });
   // presente sem pagar: cobrar ANTES de atender (ADR-025); atendido: só o que ficou pendente + retorno
   const antes = ['chegou', 'em_atendimento'].includes(e) && !pagoParaComecar(p.id) ? aCobrarHoje(p.id) : 0;
   const semOrc = ['chegou', 'em_atendimento'].includes(e) && !antes && semOrcamentoAprovado(p.id);
   const devido = e === 'atendido' ? aCobrarHoje(p.id) : 0, ret = e === 'atendido' ? retornoPendente(p.id) : null;
-  if (antes && pode('caixa')) acoes += botaoIco('caixa', `Cobrar antes de atender: ${brl(antes)}`, `data-a="abrirReceber" data-pac="${p.id}"`, 'cobrar antes');
-  if (devido && pode('caixa')) acoes += botaoIco('caixa', `Ficou pendente: receber ${brl(devido)}`, `data-a="abrirReceber" data-pac="${p.id}"`, 'cobrar');
-  if (ret) acoes += botaoIco('remarcar', 'Agendar o retorno pedido', `data-a="agendarRetorno" data-id="${ret.id}"`, 'retorno');
-  // chegada: hora + quanto tempo está aguardando / em atendimento
+  if (antes && pode('caixa')) acoes.push({ txt: `Receber ${brl(antes).replace(',00', '')}`, ico: 'caixa', attrs: `data-a="abrirReceber" data-pac="${p.id}"`, pri: true });
+  if (semOrc && pode('caixa')) acoes.push({ txt: 'Fazer orçamento', ico: 'arquivo', attrs: `data-a="orcDaFicha" data-id="${p.id}"` });
+  if (devido && pode('caixa')) acoes.push({ txt: `Receber ${brl(devido).replace(',00', '')}`, ico: 'caixa', attrs: `data-a="abrirReceber" data-pac="${p.id}"` });
+  if (ret) acoes.push({ txt: 'Agendar retorno', ico: 'remarcar', attrs: `data-a="agendarRetorno" data-id="${ret.id}"` });
+  // perto da hora (1 h antes ou depois) quem chega é o normal: "Presente" vem primeiro, mesmo sem ter confirmado
+  const perto = a.ini - 60 <= E.d.agoraMin;
+  const presente = { ...est('chegou', 'Presente', 'chegou'), sec: tarde }, confirmar = est('confirmado', 'Confirmar consulta', 'check');
+  if (e === 'a_confirmar') acoes.push(...(perto ? [presente, confirmar] : [confirmar, presente]));
+  if (e === 'confirmado') acoes.push(presente);
+  if (tarde) acoes.push(est('faltou', 'Faltou', 'x'));
+  if (['a_confirmar', 'confirmado'].includes(e)) acoes.push({ txt: 'Cancelar consulta', ico: 'desmarcar', attrs: `data-a="cancelarHoje" data-id="${a.id}"` });
+  acoes.push({ txt: 'Ver detalhes', ico: 'arquivo', attrs: `data-a="abrirAg" data-id="${a.id}"` });
+  const [prin, ...resto] = acoes.length > 1 || acoes[0].txt !== 'Ver detalhes' ? acoes : [null];
+  const principal = prin && prin.txt !== 'Ver detalhes' ? prin : null;
+  const menu = principal ? resto : acoes;
+  const aberto = E.ui.pc.menuLinha === a.id;
   const desde = minDesde(a.chegouAs ?? a.ini);
-  const chegada = a.chegouAs != null ? `<b class="num">${hhmm(a.chegouAs)}</b>${e === 'chegou' ? `<span class="h-espera ${desde >= 15 ? 'demora' : ''}">aguardando ${tempo(desde)}</span>`
-    : e === 'em_atendimento' ? `<span class="h-espera atend">há ${tempo(desde)}</span>` : ''}` : '<span class="muted">—</span>';
-  const extra = e === 'chegou' ? `aguardando ${tempo(desde)}` : e === 'em_atendimento' ? `há ${tempo(desde)}` : e === 'desmarcou' && a.motivo ? `motivo: ${esc(a.motivo)}`
-    : [devido ? `falta pagar ${brl(devido)}` : '', ret ? 'pediu retorno' : ''].filter(Boolean).join(' · ');
-  const extraAntes = antes ? ` · não pagou ainda (${brl(antes)})` : '';
-  return `<div class="h-linha h-dia est-linha-${e}" data-a="abrirAg" ${at}><span class="hora num">${hhmm(a.ini)}</span><span class="h-chegada">${chegada}</span>
-    <span class="h-est">${estadoIco(e, extra + extraAntes)}</span>${pacHoje(p, metaAg(a) + (e === 'desmarcou' && a.motivo ? ` · <span class="h-motivo">motivo: ${esc(a.motivo)}</span>` : ''))}<span class="h-tel num">${esc(p.cel)}</span><span class="acoes">${acoes}</span></div>`;
+  const sob = e === 'chegou' ? `<small class="h-espera ${desde >= 15 ? 'demora' : ''}">espera ${tempo(desde)}</small>` : e === 'em_atendimento' ? `<small class="h-espera atend">há ${tempo(desde)}</small>` : '';
+  return `<div class="h-linha h-dia est-linha-${e} ${e === 'em_atendimento' ? 'agora' : ''}" data-a="abrirAg" data-id="${a.id}"><span class="hora num">${hhmm(a.ini)}${sob}</span>
+    <span class="h-est">${pastilhaHoje(a)}</span>${pacHoje(p, `nº ${p.numero} · ${metaAg(a)}` + (e === 'desmarcou' && a.motivo ? ` · <span class="h-motivo">motivo: ${esc(a.motivo)}</span>` : ''))}
+    <span class="acoes">${principal ? `<button class="btn btn-peq ${principal.pri ? 'btn-pri' : principal.sec ? 'btn-sec' : ''}" ${principal.attrs}>${principal.txt}</button>` : ''}
+      <span class="linha-mais"><button class="btn-ico" data-a="abrirMenuLinha" data-id="${a.id}" aria-label="Mais ações" aria-expanded="${aberto}" data-dica="Mais ações">${ic('pontos', 18)}</button>
+      ${aberto ? `<span class="linha-menu" role="menu">${menu.map(x => `<button role="menuitem" ${x.attrs.replace('data-a="', 'data-a="linhaMenu" data-acao="')}>${ic(x.ico, 17)} ${x.txt}</button>`).join('')}</span>` : ''}</span></span></div>`;
 }
-function itemAtencao(ico, cor, titulo, meta, acoes, quando, id) {
+A.abrirMenuLinha = ds => { const pc = E.ui.pc; pc.menuLinha = pc.menuLinha === ds.id ? null : ds.id; render(); };
+A.linhaMenu = (ds, el, e) => { E.ui.pc.menuLinha = null; A[ds.acao](ds, el, e); };
+// o menu ⋯ fecha ao clicar fora dele
+document.addEventListener('click', e => { if (E.ui.pc.menuLinha && !e.target.closest('.linha-menu,[data-a="abrirMenuLinha"]')) { E.ui.pc.menuLinha = null; if (!e.target.closest('[data-a]')) render(); } }, true);
+/* pendência: ícone · o que fazer · quem · botões (maqueta ADR-028) */
+function itemAtencao(ico, cor, titulo, meta, acoes, quando, id, grupo) {
   const f = id && fixo(id);
   if (f) return `<div class="h-atencao h-feito" style="min-height:${f.altura}px"><span class="h-ico ok">${ic('check', 18)}</span><span class="h-feito-txt">${f.txt}</span><span class="acoes"><button class="btn btn-peq" data-a="desfazerFixo" data-id="${id}">Desfazer</button></span></div>`;
-  return `<div class="h-atencao"><span class="h-ico ${cor}">${ic(ico, 18)}</span><span class="h-pac"><b>${quando ? `<span class="h-quando">${quando}</span>` : ''}${titulo}</b><span class="h-meta">${meta}</span></span><span class="acoes">${acoes}</span></div>`;
+  return `<div class="h-atencao"><span class="h-ico ${cor}">${ic(ico, 18)}</span><span class="pend-txt"><b>${grupo || titulo}</b><span class="h-meta">${grupo ? `${quando ? quando + ' · ' : ''}${titulo} · ` : ''}${meta}</span>${acoes ? `<span class="acoes">${acoes}</span>` : ''}</span></div>`;
 }
-/* filtro da lista: os chips servem também de legenda dos símbolos (R6) */
-// "Em aberto" (padrão) = quem ainda vai ser atendido hoje; "Todos" inclui atendidos, faltas e cancelados
-const FILTROS_HOJE = [['abertos', null, 'Em aberto'], ['todos', null, 'Todos'], ['a_confirmar'], ['confirmado'], ['chegou'], ['em_atendimento'], ['atendido'], ['faltou'], ['desmarcou']];
-function telaHoje() {
-  const t = totaisDia(), ag = E.d.agoraMin, pc = E.ui.pc;
-  const verFin = pode('finPac'), aba = verFin && pc.abaHoje === 'fin' ? 'fin' : 'agenda', filtro = pc.filtroHoje || 'abertos';
-  const doDia = E.d.agendamentos.filter(a => a.pac && estadoPos(a) !== 'remarcado').sort((a, b) => a.ini - b.ini);
-  const ativos = doDia.filter(a => ATIVOS.includes(estadoPos(a)));
+const FILTROS_HOJE = [['abertos', 'Em aberto'], ['todos', 'Todos'], ['clinica', 'Na clínica'], ['atendido', 'Atendidos']];
+function doDiaHoje() { return E.d.agendamentos.filter(a => a.pac && estadoPos(a) !== 'remarcado').sort((a, b) => a.ini - b.ini); }
+function contaFinHoje() {
+  const vencidas = E.d.pacientes.filter(p => parcelasAbertas(p.id).some(x => x.venc < E.d.hoje)).length;
+  const vencHoje = Object.values(E.d.parcelas).flat().filter(x => x.venc === E.d.hoje && saldoParcela(x) > 0).length;
+  return vencidas + vencHoje;
+}
+/* pendências do dia: o mesmo número aparece no sino da barra de cima */
+function pendenciasHoje() {
+  const ag = E.d.agoraMin, doDia = doDiaHoje(), ativos = doDia.filter(a => ATIVOS.includes(estadoPos(a)));
   const naoVeio = ativos.filter(a => ['a_confirmar', 'confirmado'].includes(estadoPos(a)) && a.ini + 15 < ag);
-  const vencidas = E.d.pacientes.filter(p => parcelasAbertas(p.id).some(x => x.venc < E.d.hoje));
-  const vencHoje = Object.entries(E.d.parcelas).flatMap(([pid, ps]) => ps.filter(x => x.venc === E.d.hoje && saldoParcela(x) > 0).map(x => ({ pid, x })));
   const anteriores = E.d.pendentesAnteriores.filter(x => !x.fechado || fixo(x.id));
   // saída: atendido hoje com algo pendente na recepção (cobrar e/ou agendar o retorno)
   const saidas = [...new Set(doDia.filter(a => estadoPos(a) === 'atendido').map(a => a.pac))]
@@ -144,56 +179,70 @@ function telaHoje() {
   // ADR-025: quem está na unidade (ou já na cadeira) e ainda não pagou o que vence hoje
   const antes = pode('caixa') ? [...new Set(doDia.filter(a => ['chegou', 'em_atendimento'].includes(estadoPos(a))).map(a => a.pac))]
     .filter(pid => !pagoParaComecar(pid) || semOrcamentoAprovado(pid)).map(pid => ({ pid, ag: doDia.filter(a => a.pac === pid && ['chegou', 'em_atendimento'].includes(estadoPos(a)))[0], devido: aCobrarHoje(pid), semOrc: pagoParaComecar(pid) })) : [];
-  const grupo = (tit, itens, cls = '') => itens.length ? `<div class="h-grupo ${cls}">${tit}</div>${itens.join('')}` : ''; // sem número solto: a lista já mostra quantos são
-  const pendencias = [
-    grupo(`${ic('caixa', 15)} Cobrar antes de atender`, antes.map(s => { const p = pac(s.pid), naCadeira = s.ag.estado === 'em_atendimento';
-      if (s.semOrc) return itemAtencao('alerta', 'aviso', numNome(p), `${esc(prof(s.ag.prof).curto)} · ${naCadeira ? 'já está na cadeira' : 'presente na unidade'}<br><b>Sem orçamento aprovado:</b> fazer o orçamento e receber antes de começar`,
-        `<button class="btn btn-peq" data-a="orcDaFicha" data-id="${s.pid}">Fazer orçamento</button>`);
-      return itemAtencao('caixa', naCadeira ? 'erro' : 'aviso', numNome(p),
-        `${esc(prof(s.ag.prof).curto)} · ${naCadeira ? '<b>já está na cadeira sem pagar</b>' : 'presente na unidade'}${formaPrevistaHoje(s.pid) ? `<br>prevista: ${esc(formaPrevistaHoje(s.pid))}` : ''}`,
-        `<button class="btn btn-peq" data-a="abrirReceber" data-pac="${s.pid}">Receber ${brl(s.devido)}</button>`); })),
-    grupo('Saída: o que ficou pendente e retorno', saidas.map(s => { const p = pac(s.pid);
-      const linhas = [`${esc(prof(s.ag.prof).curto)} · atendido`, s.devido && pode('caixa') ? `<b class="saida-valor">Ficou pendente: ${brl(s.devido)}</b>${formaPrevistaHoje(s.pid) ? ` · prevista: ${esc(formaPrevistaHoje(s.pid))}` : ''}` : '', s.ret ? `Retorno ${esc(resumoRetorno(s.ret)) || 'pedido'}` : ''].filter(Boolean).join('<br>');
-      return itemAtencao(s.devido && pode('caixa') ? 'relogio' : 'remarcar', s.devido && pode('caixa') ? 'aviso' : 'info', numNome(p), linhas,
-        (s.devido && pode('caixa') ? `<button class="btn btn-peq" data-a="abrirReceber" data-pac="${s.pid}">Receber ${brl(s.devido)}</button>` : '')
-        + (s.ret ? `<button class="btn btn-peq" data-a="agendarRetorno" data-id="${s.ret.id}">Agendar retorno</button>` : '')); })),
-    grupo('Não chegaram', naoVeio.map(a => { const p = pac(a.pac);
-      return itemAtencao('relogio', 'aviso', numNome(p), `${esc(prof(a.prof).curto)} · atraso de ${tempo(minDesde(a.ini))}`,
-        `<button class="btn btn-peq" data-a="estadoAg" data-o="hoje" data-id="${a.id}" data-e="chegou">Presente</button><button class="btn btn-peq" data-a="estadoAg" data-o="hoje" data-id="${a.id}" data-e="faltou">Faltou</button>`, `Hoje ${hhmm(a.ini)}`, a.id); })),
-    grupo('Pedidos de retorno', retornos.map(r => { const p = pac(r.pac);
-      return itemAtencao('remarcar', 'info', numNome(p), `${esc(prof(r.prof).curto)} pediu o retorno${resumoRetorno(r) ? ' · ' + esc(resumoRetorno(r)) : ''}`, `<button class="btn btn-peq" data-a="agendarRetorno" data-id="${r.id}">Agendar</button>`); })),
-    grupo('Ficaram abertas de outros dias', anteriores.map(x => { const p = pac(x.pac);
-      return itemAtencao('calendarioX', 'neutro', numNome(p), `${esc(prof(x.prof).curto)} · ninguém marcou se veio`,
-        `<button class="btn btn-peq" data-a="fecharAnterior" data-id="${x.id}" data-e="atendido">Veio</button><button class="btn btn-peq" data-a="fecharAnterior" data-id="${x.id}" data-e="faltou">Faltou</button>`, `${dataBR(x.data)} ${hhmm(x.ini)}`, x.id); })),
-  ].join('');
-  const nPend = antes.length + saidas.length + naoVeio.filter(a => !fixo(a.id)).length + retornos.length + anteriores.filter(x => !fixo(x.id)).length;
-  const nFin = vencidas.length + vencHoje.length;
-  const kpi = (n, txt, ico, cls = '') => `<div class="kpi kpi-h ${cls}"><span class="kpi-ic">${ic(ico, 18)}</span><b class="num">${n}</b><span>${txt}</span></div>`;
-  const passa = (a, k) => k === 'todos' || (k === 'abertos' ? ATIVOS.includes(estadoPos(a)) : estadoPos(a) === k);
+  const nome = p => esc(p.nome);
+  const html = [
+    ...antes.map(s => { const p = pac(s.pid), naCadeira = s.ag.estado === 'em_atendimento';
+      if (s.semOrc) return itemAtencao('alerta', 'aviso', nome(p), `${esc(prof(s.ag.prof).curto)} · sem orçamento aprovado`,
+        `<button class="btn btn-peq btn-pri" data-a="orcDaFicha" data-id="${s.pid}">Fazer orçamento</button>`, '', '', 'Fazer o orçamento antes de atender');
+      return itemAtencao('dinheiro', naCadeira ? 'erro' : 'aviso', nome(p),
+        `${esc(prof(s.ag.prof).curto)}${naCadeira ? ' · <b>já está na cadeira</b>' : ''}${formaPrevistaHoje(s.pid) ? ` · prevista: ${esc(formaPrevistaHoje(s.pid))}` : ''}`,
+        `<button class="btn btn-peq btn-pri" data-a="abrirReceber" data-pac="${s.pid}">Receber ${brl(s.devido).replace(',00', '')}</button>`, '', '', 'Cobrar antes de atender'); }),
+    ...saidas.map(s => { const p = pac(s.pid), cobra = s.devido && pode('caixa');
+      const linhas = [cobra ? `ficou ${brl(s.devido)}${formaPrevistaHoje(s.pid) ? ` · prevista: ${esc(formaPrevistaHoje(s.pid))}` : ''}` : '', s.ret ? `retorno ${esc(resumoRetorno(s.ret)) || 'pedido'}` : ''].filter(Boolean).join(' · ');
+      return itemAtencao(cobra ? 'recibo' : 'remarcar', 'info', nome(p), linhas,
+        (cobra ? `<button class="btn btn-peq" data-a="abrirReceber" data-pac="${s.pid}">Receber ${brl(s.devido).replace(',00', '')}</button>` : '')
+        + (s.ret ? `<button class="btn btn-peq" data-a="agendarRetorno" data-id="${s.ret.id}">Agendar retorno</button>` : ''), '', '', cobra ? 'Saída com valor pendente' : 'Saída: agendar o retorno'); }),
+    ...naoVeio.map(a => { const p = pac(a.pac);
+      return itemAtencao('relogio', 'erro', nome(p), `era às ${hhmm(a.ini)} · <span class="num">${esc(p.cel)}</span>`,
+        `<button class="btn btn-peq" data-a="estadoAg" data-o="hoje" data-id="${a.id}" data-e="chegou">Presente</button><button class="btn btn-peq" data-a="estadoAg" data-o="hoje" data-id="${a.id}" data-e="faltou">Faltou</button>`, '', a.id, 'Não chegou'); }),
+    ...retornos.map(r => { const p = pac(r.pac);
+      return itemAtencao('remarcar', 'info', nome(p), `${esc(prof(r.prof).curto)}${resumoRetorno(r) ? ' · ' + esc(resumoRetorno(r)) : ''}`, `<button class="btn btn-peq" data-a="agendarRetorno" data-id="${r.id}">Agendar</button>`, '', '', 'Pedido de retorno'); }),
+    ...anteriores.map(x => { const p = pac(x.pac);
+      return itemAtencao('calendarioX', 'neutro', nome(p), `${esc(prof(x.prof).curto)} · ninguém marcou se veio`,
+        `<button class="btn btn-peq" data-a="fecharAnterior" data-id="${x.id}" data-e="atendido">Veio</button><button class="btn btn-peq" data-a="fecharAnterior" data-id="${x.id}" data-e="faltou">Faltou</button>`, `${dataBR(x.data)} ${hhmm(x.ini)}`, x.id, 'Ficou aberta de outro dia'); }),
+  ];
+  const n = antes.length + saidas.length + naoVeio.filter(a => !fixo(a.id)).length + retornos.length + anteriores.filter(x => !fixo(x.id)).length;
+  const todas = E.ui.pc.pendTodas, MAX = 4;
+  return { n, html: (todas ? html : html.slice(0, MAX)).join('') + (html.length > MAX ? `<button class="btn-link pend-mais" data-a="pendTodas">${todas ? 'Mostrar menos' : `Ver todas (${html.length})`}</button>` : '') };
+}
+A.pendTodas = () => { E.ui.pc.pendTodas = !E.ui.pc.pendTodas; render(); };
+function telaHoje() {
+  const t = totaisDia(), pc = E.ui.pc;
+  const verFin = pode('finPac'), aba = verFin && pc.abaHoje === 'fin' ? 'fin' : 'agenda', filtro = pc.filtroHoje || 'abertos';
+  const doDia = doDiaHoje();
+  const vencidas = E.d.pacientes.filter(p => parcelasAbertas(p.id).some(x => x.venc < E.d.hoje));
+  const vencHoje = Object.entries(E.d.parcelas).flatMap(([pid, ps]) => ps.filter(x => x.venc === E.d.hoje && saldoParcela(x) > 0).map(x => ({ pid, x })));
+  const pend = pendenciasHoje(), nFin = vencidas.length + vencHoje.length;
+  const kpi = (n, txt, ico, cls) => `<div class="kpi kpi-h ${cls}"><span class="kpi-ic">${ic(ico, 22)}</span><span><b class="num">${n}</b><span>${txt}</span></span></div>`;
+  const passa = (a, k) => k === 'todos' || (k === 'abertos' ? ATIVOS.includes(estadoPos(a)) : k === 'clinica' ? ['chegou', 'em_atendimento'].includes(estadoPos(a)) : estadoPos(a) === k);
   const conta = k => doDia.filter(a => passa(a, k)).length;
-  // ADR-027: um só seletor no lugar de 9 pastilhas (os números já estão no resumo do dia)
-  const opcoes = FILTROS_HOJE.filter(([k]) => ['abertos', 'todos'].includes(k) || conta(k)).map(([k, , rot]) => `<option value="${k}" ${filtro === k ? 'selected' : ''}>${rot || ESTADOS[k][1]} (${conta(k)})</option>`).join('');
   const lista = doDia.filter(a => passa(a, filtro));
   const agenda = `<div class="grade-2 grade-hoje">
-    <div class="cartao"><h3>Pacientes de hoje <span class="h-cont">${doDia.filter(a => estadoPos(a) !== 'desmarcou').length}</span></h3>
-      <label class="h-filtro"><span class="h-filtro-rot">Filtro</span><select data-ao="filtroHojeSel" aria-label="Filtro da lista">${opcoes}</select></label>
-      <div class="h-dia h-dia-cab" aria-hidden="true"><span>Marcado</span><span>Chegada</span><span>Status</span><span>Paciente</span><span>Telefone</span><span></span></div>
+    <div class="cartao h-lista"><div class="cartao-cab"><h3>Pacientes de hoje</h3>
+      <div class="tabs" role="tablist" aria-label="Filtro da lista">${FILTROS_HOJE.map(([k, rot]) => `<button role="tab" aria-selected="${filtro === k}" class="${filtro === k ? 'on' : ''}" data-a="filtroHoje" data-v="${k}">${rot} <span class="num">${conta(k)}</span></button>`).join('')}</div></div>
+      <div class="h-dia h-dia-cab" aria-hidden="true"><span>Hora</span><span>Status</span><span>Paciente</span><span></span></div>
       ${lista.map(linhaHoje).join('') || '<div class="vazio">Ninguém nesse filtro.</div>'}</div>
-    <div class="cartao h-cartao-atencao"><h3>${ic('prancheta', 15)} Pendências diárias <span class="h-cont ${nPend ? 'alerta' : ''}">${nPend}</span></h3>${pendencias || `<div class="vazio">${ic('checks', 22)}<br>Tudo em dia.</div>`}</div>
+    <div class="cartao h-cartao-atencao"><div class="cartao-cab"><h3>Pendências</h3>${pend.n ? `<span class="cont">${pend.n}</span>` : ''}</div>${pend.html || `<div class="vazio">${ic('checks', 22)}<br>Tudo em dia.</div>`}</div>
   </div>`;
   // financeiro separado da agenda (R3): só quem tem acesso ao financeiro vê a aba
   const fin = `<div class="grade-2">
-    <div class="cartao"><h3>Parcelas vencidas <span class="h-cont ${vencidas.length ? 'alerta' : ''}">${vencidas.length}</span></h3>
+    <div class="cartao"><div class="cartao-cab"><h3>Parcelas vencidas</h3>${vencidas.length ? `<span class="cont alerta">${vencidas.length}</span>` : ''}</div>
       ${vencidas.map(p => itemAtencao('caixa', 'erro', numNome(p), `${brl(parcelasAbertas(p.id).filter(x => x.venc < E.d.hoje).reduce((s, x) => s + saldoParcela(x), 0))} em atraso · ${esc(p.cel)}`,
         pode('caixa') ? `<button class="btn btn-peq" data-a="abrirReceber" data-pac="${p.id}">Receber</button>` : '')).join('') || '<div class="vazio">Nenhuma parcela vencida.</div>'}</div>
-    <div class="cartao"><h3>Vence hoje e falta receber <span class="h-cont">${vencHoje.length}</span></h3>
+    <div class="cartao"><div class="cartao-cab"><h3>Vence hoje e falta receber</h3>${vencHoje.length ? `<span class="cont">${vencHoje.length}</span>` : ''}</div>
       ${vencHoje.map(({ pid, x }) => itemAtencao('caixa', 'aviso', numNome(pac(pid)), `parcela ${x.n} de ${x.de} · falta ${brl(saldoParcela(x))}`,
         pode('caixa') ? `<button class="btn btn-peq" data-a="abrirReceber" data-pac="${pid}">Receber</button>` : '')).join('') || '<div class="vazio">Nada vence hoje.</div>'}
-      ${pode('caixa') ? `<button class="btn-link" data-a="tela" data-t="caixa" style="margin-top:10px">Abrir o Caixa →</button>` : ''}</div>
+      ${pode('caixa') ? `<button class="btn-link" data-a="tela" data-t="caixa" style="margin:10px 20px 16px">Abrir o Caixa →</button>` : ''}</div>
   </div>`;
-  return `<div class="titulo-tela"><h1>Hoje</h1><span class="sub">quinta, 29 de outubro · ${hhmm(ag)}</span><button class="btn btn-pri" style="margin-left:auto" data-a="novoAg">${ic('mais', 16)} Novo agendamento</button></div>
-  <div class="h-resumo"><b>${t.agendados}</b> agendados · <b>${t.aConfirmar}</b> a confirmar · <b>${t.naClinica}</b> na unidade · <b>${t.atendidos}</b> atendidos · <b>${t.faltas}</b> faltaram</div>
-  ${verFin ? `<div class="abas" role="tablist"><button class="aba ${aba === 'agenda' ? 'ativo' : ''}" role="tab" aria-selected="${aba === 'agenda'}" data-a="abaHoje" data-v="agenda">${ic('agenda', 15)} Agenda do dia</button><button class="aba ${aba === 'fin' ? 'ativo' : ''}" role="tab" aria-selected="${aba === 'fin'}" data-a="abaHoje" data-v="fin">${ic('caixa', 15)} Financeiro${nFin ? ` <span class="h-cont alerta">${nFin}</span>` : ''}</button></div>` : ''}
+  return `<div class="titulo-tela"><h1>Hoje</h1><span class="sub">quinta, 29 de outubro</span>
+    ${verFin ? `<div class="tabs tabs-titulo" role="tablist"><button role="tab" aria-selected="${aba === 'agenda'}" class="${aba === 'agenda' ? 'on' : ''}" data-a="abaHoje" data-v="agenda">Agenda do dia</button><button role="tab" aria-selected="${aba === 'fin'}" class="${aba === 'fin' ? 'on' : ''}" data-a="abaHoje" data-v="fin">Financeiro${nFin ? ` <span class="cont alerta">${nFin}</span>` : ''}</button></div>` : ''}
+    <span class="titulo-acoes">${pode('caixa') ? `<button class="btn btn-sec" data-a="abrirReceber">${ic('dinheiro', 18)} Receber pagamento</button>` : ''}<button class="btn btn-pri" data-a="novoAg">${ic('mais', 18)} Novo agendamento</button></span></div>
+  <div class="kpis-h">
+    ${kpi(t.agendados, `agendados · ${t.aConfirmar} a confirmar`, 'agenda', 'azul')}
+    ${kpi(t.naClinica, 'na clínica agora', 'chegou', 'ambar')}
+    ${kpi(t.atendidos, `atendidos · ${t.faltas} ${t.faltas === 1 ? 'falta' : 'faltas'}`, 'checks', 'verde')}
+    ${pode('caixa') ? kpi(brl(t.total).replace(',00', ''), 'recebido hoje', 'caixa', 'teal') : kpi(E.d.pedidosRetorno.filter(r => !r.feito).length, 'pedidos de retorno', 'remarcar', 'teal')}
+  </div>
   ${aba === 'fin' ? fin : agenda}`;
 }
 /* "Fazer orçamento" direto das Pendências: abre a ficha no Financeiro com o orçamento */
@@ -238,16 +287,17 @@ function eventoAgenda(a) {
   const passado = a.ini + a.dur <= E.d.agoraMin ? ' passado' : '';
   if (!a.pac) return `<div class="ag-ev e-comp${passado}" style="top:${top}px;height:${h}px" data-a="abrirAg" data-id="${a.id}" title="${hhmm(a.ini)}–${fim} · ${esc(a.tipo)}">
     <span class="ev-l1"><b class="num">${hhmm(a.ini)}</b></span><span class="ev-nome">${esc(a.tipo)}</span>${h >= 52 && a.obs ? `<span class="ev-proc">${esc(a.obs)}</span>` : ''}</div>`;
-  const p = pac(a.pac), al = alertas(p.id).length;
-  const est = `<span class="ev-est">${ic(ESTADOS[a.estado][0], 13)}<span>${ESTADOS[a.estado][1]}</span></span>`;
-  return `<div class="ag-ev e-${a.estado}${passado}${h < 52 ? ' baixo' : ''}" style="top:${top}px;height:${h}px" data-a="abrirAg" data-id="${a.id}" title="${hhmm(a.ini)}–${fim} · nº ${p.numero} ${esc(p.nome)} · ${ESTADOS[a.estado][1]}">
-    <span class="ev-l1"><b class="num">${hhmm(a.ini)}</b>${h < 52 ? '' : est}</span>
-    <span class="ev-nome">${al ? `<span class="alerta-ico">${ic('alerta', 14)}</span>` : ''}nº ${p.numero} · ${esc(p.nome)}</span>
-    ${h >= 52 && a.proc ? `<span class="ev-proc">${esc(proc(a.proc).nome)}</span>` : ''}${h < 52 ? est : ''}</div>`;
+  const p = pac(a.pac), al = alertas(p.id).length, [ico, rot] = ESTADOS[a.estado], curto = h < 52;
+  // maqueta ADR-028: 1ª linha colorida (ícone · hora · estado), depois o nome e o procedimento; turno curto = uma linha só
+  const alerta = al ? `<span class="alerta-ico">${ic('alerta', 14)}</span>` : '';
+  return `<div class="ag-ev e-${a.estado}${passado}${curto ? ' baixo' : ''}" style="top:${top}px;height:${h}px" data-a="abrirAg" data-id="${a.id}" title="${hhmm(a.ini)}–${fim} · nº ${p.numero} ${esc(p.nome)} · ${rot}">
+    ${curto ? `<span class="ev-l1">${ic(ico, 14)}<b class="num">${hhmm(a.ini)}</b><span class="ev-nome">${alerta}${esc(p.nome)}</span><span class="so-leitor">${rot}</span></span>`
+      : `<span class="ev-l1">${ic(ico, 14)}<b class="num">${hhmm(a.ini)}</b><span class="ev-est"><span>· ${rot}</span></span></span>
+    <span class="ev-nome">${alerta}${esc(p.nome)}</span>${a.proc ? `<span class="ev-proc">${esc(proc(a.proc).nome)}</span>` : ''}`}</div>`;
 }
 function telaAgenda() {
   const ver = E.ui.pc.agendaVer;
-  const todas = ver === 'prof' ? E.d.profissionais.map(p => ({ id: p.id, nome: p.curto, sub: p.esp, ini: iniciaisProf(p.nome) }))
+  const todas = ver === 'prof' ? E.d.profissionais.map(p => ({ id: p.id, nome: p.curto, sub: `${cad(p.cadeira).nome} · ${p.esp}`, ini: iniciaisProf(p.nome) }))
     : E.d.cadeiras.map(c => ({ id: c.id, nome: c.nome, sub: (E.d.profissionais.find(p => p.cadeira === c.id) || {}).curto || '', ini: c.nome.replace(/\D/g, '') || '·' }));
   // R12 (Danielle): "por profissional, só a profissional"; dá para abrir mais de uma e voltar ao "Mapa geral"
   const vis = (E.ui.pc.agendaSo || {})[ver] || [];
@@ -273,7 +323,6 @@ function telaAgenda() {
     <button class="${vis.length ? '' : 'on'}" data-a="agendaSo" data-id="" aria-pressed="${!vis.length}">${ic('agenda', 15)} Mapa geral</button>
     ${todas.map(c => `<button class="${vis.includes(c.id) ? 'on' : ''}" title="Toque em mais de um para comparar" data-a="agendaSo" data-id="${c.id}" aria-pressed="${vis.includes(c.id)}"><span class="ag-av mini-av">${esc(c.ini)}</span> ${esc(c.nome)} <span class="mini">${contar(c.id)}</span></button>`).join('')}
   </div>
-  <div class="ag-resumo-txt">${resumo.map(([e, n]) => `<b>${n}</b> ${PLURAL[e][n === 1 ? 0 : 1]}`).join(' · ')}</div>
   <div class="agenda" data-scroll="agenda" style="grid-template-columns:64px repeat(${cols.length},minmax(180px,1fr))">
     <div class="ag-cab ag-cab-vazia"></div>${cols.map(c => `<div class="ag-cab"><span class="ag-av">${esc(c.ini)}</span><span class="ag-cab-txt"><b>${esc(c.nome)}</b><small>${esc(c.sub)}</small></span></div>`).join('')}
     <div class="ag-horas" style="height:${altura}px">${horas.map(h => `<div class="ag-hora num" style="top:${(h - 8) * 60 * K}px">${String(h).padStart(2, '0')}:00</div>`).join('')}
@@ -534,7 +583,7 @@ function linhasPacs(t) {
   const daAba = p => !p.excluido && (aba === 'inativos' ? !!p.inativo : !p.inativo);
   const lista = t && t.trim().length >= 2 ? buscarPacientes(t).filter(daAba) : E.d.pacientes.filter(daAba).sort((a, b) => b.numero - a.numero);
   return lista.map(p => { const prox = proximaConsulta(p.id);
-    return `<tr class="clic" data-a="abrirFicha" data-id="${p.id}"><td><b>${numNome(p)}</b>${p.inativo ? ` <span class="tag inativo">inativo · ${esc(p.inativo.motivo.toLowerCase())}</span>` : ''} ${alertas(p.id).length ? `<span class="alerta-ico">${ic('alerta', 15)}</span>` : ''}</td>
+    return `<tr class="clic" data-a="abrirFicha" data-id="${p.id}"><td><span class="td-pac">${avPac(p)}<span><b>${esc(p.nome)}</b>${alertas(p.id).length ? ` <span class="alerta-ico">${ic('alerta', 15)}</span>` : ''}<small>nº ${p.numero}</small></span></span>${p.inativo ? ` <span class="tag inativo">inativo · ${esc(p.inativo.motivo.toLowerCase())}</span>` : ''}</td>
     <td>${idade(p.nasc)}</td><td class="num">${esc(p.cel)}</td><td>${conv(p.conv).nome}</td><td>${prox ? 'hoje ' + hhmm(prox.ini) : '—'}</td></tr>`; }).join('')
     || `<tr><td colspan="5" class="vazio">Ninguém com “${esc(t)}”. <button class="btn-link" data-a="novoPaciente" data-nome="${esc(t)}">+ Cadastrar</button></td></tr>`;
 }
@@ -542,7 +591,7 @@ function telaPacientes() {
   const n = k => E.d.pacientes.filter(p => k === 'excluidos' ? p.excluido : !p.excluido && (k === 'inativos' ? p.inativo : !p.inativo)).length, aba = E.ui.pc.abaPacs || 'ativos';
   const bot = (k, t) => `<button class="${aba === k ? 'ativo' : ''}" data-a="abaPacs" data-v="${k}">${t} <span class="mini">${n(k)}</span></button>`;
   return `<div class="titulo-tela"><h1>Pacientes</h1><span class="seg">${bot('ativos', 'Ativos')}${bot('inativos', 'Inativos')}${bot('excluidos', 'Excluídos')}</span><button class="btn btn-pri" style="margin-left:auto" data-a="novoPaciente">${ic('mais', 16)} Novo paciente</button></div>
-  <input id="busca-pacs" placeholder="Buscar por nome, CPF, telefone ou nº" value="${esc(E.ui.pc.buscaPac)}" data-campo="pc.buscaPac" data-ao="filtraPacs" style="width:100%;max-width:520px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px;margin-bottom:12px">
+  <label class="campo-busca">${ic('busca', 18)}<input id="busca-pacs" placeholder="Buscar por nome, CPF, telefone ou nº" value="${esc(E.ui.pc.buscaPac)}" data-campo="pc.buscaPac" data-ao="filtraPacs"></label>
   <table class="tab"><thead><tr><th>Paciente</th><th>Idade</th><th>Celular</th><th>Convênio</th><th>Próxima consulta</th></tr></thead><tbody id="tab-pacs">${linhasPacs(E.ui.pc.buscaPac)}</tbody></table>`;
 }
 A.abaPacs = ds => { E.ui.pc.abaPacs = ds.v; render(); };
@@ -1210,10 +1259,11 @@ function sobreHTML(alvo) {
   const s = alvo === 'pc' ? E.ui.pc : E.ui.cel;
   if (s.sobre === 'splash' || s.tela === 'splash') return splashHTML(alvo === 'pc' ? `Bom dia, ${E.d.unidade}.` : 'OdontoVip');
   const lista = alvo === 'pc' ? E.d.usuarios : E.d.usuarios.filter(u => u.papel !== 'recepcao');
-  if (!s.pinUsu) return `<div class="sobre"><h2>Quem é você?</h2><div class="cards-usu">${lista.map(u => `<button class="card-usu ${alvo === 'pc' && u.id === E.ui.pc.usuario ? 'atual' : ''}" data-a="escolherUsu" data-alvo="${alvo}" data-id="${u.id}"><div class="ini">${iniciais(u.nome)}</div><b>${esc(u.nome)}</b><small>${u.rotulo}${alvo === 'pc' && u.id === E.ui.pc.usuario ? ' · agora' : ''}</small></button>`).join('')}</div>
+  const selo = '<span class="sobre-selo"><img src="selo.png" alt="OdontoVip"></span>';
+  if (!s.pinUsu) return `<div class="sobre">${selo}<h2>Quem é você?</h2><div class="cards-usu">${lista.map(u => `<button class="card-usu ${alvo === 'pc' && u.id === E.ui.pc.usuario ? 'atual' : ''}" data-a="escolherUsu" data-alvo="${alvo}" data-id="${u.id}"><div class="ini">${iniciais(u.nome)}</div><b>${esc(u.nome)}</b><small>${u.rotulo}${alvo === 'pc' && u.id === E.ui.pc.usuario ? ' · agora' : ''}</small></button>`).join('')}</div>
     ${alvo === 'pc' ? '<button class="btn-link" data-a="cancelarTroca">Cancelar</button>' : ''}</div>`;
   const u = usu(s.pinUsu);
-  return `<div class="sobre"><div class="card-usu" style="border:0;background:none"><div class="ini">${iniciais(u.nome)}</div><b>${esc(u.nome)}</b></div>
+  return `<div class="sobre">${selo}<div class="card-usu" style="border:0;background:none;box-shadow:none"><div class="ini">${iniciais(u.nome)}</div><b>${esc(u.nome)}</b></div>
     <div class="pin-tit">Digite seu PIN <span class="mini muted">(no protótipo: 1234)</span></div>
     <div class="pin-pontos">${[0, 1, 2, 3].map(i => `<i class="${s.pinBuf.length > i ? 'on' : ''}"></i>`).join('')}</div>
     <div class="pin-erro">${s.pinErro || ''}</div>
@@ -1240,3 +1290,84 @@ A.pinTecla = ds => {
   }
   render();
 };
+
+/* ---------- RELATÓRIOS (ADR-028): os números do dono na tela grande — só totais, nada de nomes ---------- */
+function telaRelatorios() {
+  const per = E.ui.pc.relPer || 'hoje', bv = donoBoaViagemHoje(1e9);
+  let us;
+  if (per === 'mes') { const a = E.d.bvMesAntes;
+    us = [{ nome: E.d.unidade, aoVivo: true, part: a.part + bv.part, conv: a.conv + bv.conv, atendidos: a.atendidos + bv.atendidos, faltas: a.faltas + bv.faltas, orcFeitos: a.orcFeitos, orcAprov: a.orcAprov },
+      ...E.d.outrasUnidades.map(u => ({ nome: u.nome, ...u.mes }))];
+  } else us = [bv, ...E.d.outrasUnidades.map(u => ({ nome: u.nome, ...u.hoje }))];
+  const soma = k => us.reduce((s2, u) => s2 + (u[k] || 0), 0);
+  const part = soma('part'), conv = soma('conv'), at = soma('atendidos'), fa = soma('faltas'), fal = pct(fa, at + fa);
+  const kpi = (n, txt, ico, cls) => `<div class="kpi kpi-h ${cls}"><span class="kpi-ic">${ic(ico, 22)}</span><span><b class="num">${n}</b><span>${txt}</span></span></div>`;
+  const tag = u => u.aoVivo ? '<span class="tag-vivo">ao vivo</span>' : '<span class="tag-ex">exemplo</span>';
+  const tabela = `<table class="tab"><thead><tr><th>Unidade</th><th class="dir">Particular</th><th class="dir">Convênio</th><th class="dir">Atendidos</th><th class="dir">Faltas</th></tr></thead><tbody>
+    ${us.map(u => { const f = pct(u.faltas, u.atendidos + u.faltas); return `<tr><td><span class="td-pac"><span class="uni-ic">${ic('local', 18)}</span><b>${esc(u.nome)}</b> ${tag(u)}</span></td><td class="dir num"><b>${brl(u.part)}</b></td><td class="dir num">${brl(u.conv)}</td><td class="dir num">${u.atendidos}</td>
+      <td class="dir num ${f >= FALTA_ALTA ? 'txt-erro' : ''}">${f >= FALTA_ALTA ? ic('alerta', 14) + ' ' : ''}${u.faltas} · ${f}%</td></tr>`; }).join('')}</tbody></table>`;
+  const porForma = {}; if (per === 'hoje') us.forEach(u => Object.entries(u.porForma || {}).forEach(([f, v]) => { if (f !== 'Convênio') porForma[f] = (porForma[f] || 0) + v; }));
+  const formas = Object.entries(porForma).sort((x, y) => y[1] - x[1]), maxF = formas.length ? formas[0][1] : 1;
+  const cr = E.d.campanhaRetorno;
+  const lado = per === 'hoje'
+    ? `<div class="cartao"><h3>Por forma de pagamento</h3>${formas.map(([f, v]) => `<div class="rel-barra"><span>${formaHTML(f)}</span><span class="rel-trilho"><i style="width:${Math.round(v / maxF * 100)}%"></i></span><b class="num">${brl(v)}</b></div>`).join('')}</div>`
+    : `<div class="cartao"><h3>Orçamentos no mês</h3><div class="rel-grande num">${pct(soma('orcAprov'), soma('orcFeitos'))}%</div><div class="muted">aprovados · ${soma('orcAprov')} de ${soma('orcFeitos')}</div></div>
+       <div class="cartao"><h3>Retorno pelo WhatsApp <span class="tag-ex">exemplo</span></h3><div class="dono-funil"><div><b class="num">${milBR(cr.enviadas)}</b><span>mensagens</span></div>${ic('dir', 18)}<div><b class="num">${cr.marcadas}</b><span>marcaram</span></div>${ic('dir', 18)}<div><b class="num">${cr.vieram}</b><span>vieram</span></div></div>
+         <div class="muted mini">custo ${brl(cr.custo)} · ${brl(Math.round(cr.custo / Math.max(1, cr.vieram)))} por paciente que veio</div></div>`;
+  return `<div class="titulo-tela"><h1>Relatórios</h1><span class="sub">${per === 'mes' ? '01 a 29 de outubro' : 'quinta, 29 de outubro'} · 3 unidades</span>
+    <span class="titulo-acoes"><span class="tabs" role="tablist">${[['hoje', 'Hoje'], ['mes', 'Mês']].map(([k, t]) => `<button role="tab" aria-selected="${per === k}" class="${per === k ? 'on' : ''}" data-a="relPer" data-v="${k}">${t}</button>`).join('')}</span></span></div>
+  <div class="kpis-h">
+    ${kpi(brl(part).replace(',00', ''), 'particular recebido', 'caixa', 'azul')}
+    ${kpi(brl(conv).replace(',00', ''), 'convênio a receber', 'arquivo', 'teal')}
+    ${kpi(at, 'atendidos', 'checks', 'verde')}
+    ${kpi(`${fal}%`, `faltas · ${fa} de ${at + fa} consultas`, 'relogio', fal >= FALTA_ALTA ? 'vermelho' : 'ambar')}
+  </div>
+  <div class="grade-rel"><div class="cartao rel-uni"><div class="cartao-cab"><h3>Por unidade</h3></div>${tabela}</div><div class="rel-lado">${lado}</div></div>
+  <p class="nota-leve">${ic('cadeado', 15)} Só totais. Prazeres e Norte são exemplo até entrarem no sistema.</p>`;
+}
+A.relPer = ds => { E.ui.pc.relPer = ds.v; render(); };
+
+/* ---------- WHATSAPP (blueprint/12): listas automáticas → ver a mensagem → enviar com o custo à vista ---------- */
+const WA_LISTAS = {
+  amanha: { rot: 'Confirmar amanhã', cat: 'Utilidade', preco: 3.5, ico: 'agenda',
+    msg: c => `Olá, ${c.nome.split(' ')[0]}! Sua consulta na Odonto Vip Boa Viagem é amanhã, sexta 30/10, às ${c.hora} com ${c.prof}. Responda SIM para confirmar ou REMARCAR para escolher outro horário.`,
+    meta: c => `${c.hora} · ${c.prof} · ${c.proc}` },
+  faltouOntem: { rot: 'Faltou ontem', cat: 'Utilidade', preco: 3.5, ico: 'x',
+    msg: c => `Olá, ${c.nome.split(' ')[0]}. Sentimos sua falta ontem na Odonto Vip. Quer marcar outro horário? Responda REMARCAR e a recepção fala com você.`,
+    meta: c => `era às ${c.hora} · ${c.prof}` },
+  retornoMes: { rot: 'Retorno de 6 meses', cat: 'Marketing', preco: 32.17, ico: 'remarcar',
+    msg: c => `Olá, ${c.nome.split(' ')[0]}! Já faz 6 meses da sua última consulta na Odonto Vip. Está na hora da revisão. Responda QUERO e a gente agenda para você.`,
+    meta: c => `última consulta ${c.ultima} · ${c.prof}` },
+};
+function telaWhatsApp() {
+  const pc = E.ui.pc, k = pc.waLista || 'amanha', L = WA_LISTAS[k], w = E.d.whatsapp, lista = w[k];
+  pc.waSel = pc.waSel || {};
+  const sel = lista.filter(c => pc.waSel[c.id] !== false), envio = w.enviados.find(x => x.lista === k);
+  const custo = Math.round(sel.length * L.preco), ex = sel[0] || lista[0];
+  return `<div class="titulo-tela"><h1>WhatsApp</h1><span class="sub">mensagens para os pacientes</span>
+    <span class="titulo-acoes"><span class="tag-ex">${ic('alerta', 14)} protótipo: nada é enviado de verdade</span></span></div>
+  <div class="tabs wa-tabs" role="tablist">${Object.entries(WA_LISTAS).map(([id, x]) => `<button role="tab" aria-selected="${k === id}" class="${k === id ? 'on' : ''}" data-a="waLista" data-v="${id}">${ic(x.ico, 16)} ${x.rot} <span class="cont">${w[id].length}</span></button>`).join('')}</div>
+  <div class="grade-wa">
+    <div class="cartao h-lista"><div class="cartao-cab"><h3>${L.rot}</h3><span class="cont">${sel.length} de ${lista.length}</span>
+      <button class="btn-link" style="margin-left:auto" data-a="waTodos">${sel.length === lista.length ? 'Desmarcar todos' : 'Marcar todos'}</button></div>
+      ${lista.map((c, i) => `<label class="wa-linha"><input type="checkbox" ${pc.waSel[c.id] !== false ? 'checked' : ''} data-a="waSel" data-id="${c.id}" ${envio ? 'disabled' : ''}>
+        <span class="av av${i % 4}">${esc(iniciais(c.nome))}</span><span class="h-pac-txt"><b>${esc(c.nome)}</b><span class="h-meta">${esc(L.meta(c))}</span></span>
+        ${envio && envio.ids.includes(c.id) ? `${waSaiu(envio) ? `<span class="est est-chegou">${ic('check', 15)} Enviada</span>` : `<span class="est est-confirmado">${ic('relogio', 15)} Na fila</span>`}` : ''}</label>`).join('')}
+      ${w.naoQuerem ? `<p class="nota-leve wa-nota">${ic('cadeado', 15)} ${w.naoQuerem} paciente pediu para não receber mensagens e fica fora da lista.</p>` : ''}</div>
+    <div class="wa-lado">
+      <div class="cartao"><h3>Mensagem</h3><div class="wa-fone"><div class="wa-balao">${esc(L.msg(ex))}<span class="wa-hora num">10:40</span></div></div></div>
+      ${E.ui.clinicaSemInternet ? `<div class="aviso-box aviso">${ic('semrede', 16)} <b>Sem internet:</b> as mensagens ficam na fila e saem quando a internet voltar.</div>` : ''}
+      ${envio ? `<div class="cartao wa-ok">${ic('checks', 22)}<div><b>${waSaiu(envio) ? `Enviado às ${envio.hora} para` : `Na fila de envio às ${envio.hora} ·`} ${envio.ids.length} pacientes</b><span class="muted">custo estimado ${brl(envio.custo)} · as respostas “SIM” confirmam a consulta sozinhas</span></div></div>`
+        : `<button class="btn btn-pri wa-enviar" data-a="waEnviar" ${sel.length ? '' : 'disabled'}>${ic('enviar', 18)} ${sel.length ? `Enviar a ${sel.length} ${sel.length === 1 ? 'paciente' : 'pacientes'} · ${brl(custo)} estimado` : 'Marque ao menos um paciente'}</button>`}
+    </div>
+  </div>`;
+}
+A.waLista = ds => { E.ui.pc.waLista = ds.v; render(); };
+A.waSel = (ds, el) => { E.ui.pc.waSel[ds.id] = el.checked; render(); };
+A.waTodos = () => { const pc = E.ui.pc, l = E.d.whatsapp[pc.waLista || 'amanha'], todos = l.every(c => pc.waSel[c.id] !== false); l.forEach(c => { pc.waSel[c.id] = !todos; }); render(); };
+A.waEnviar = () => { const pc = E.ui.pc, k = pc.waLista || 'amanha', L = WA_LISTAS[k], ids = E.d.whatsapp[k].filter(c => pc.waSel[c.id] !== false).map(c => c.id);
+  if (!ids.length) return;
+  comDesfazer(`${ids.length} mensagens de “${L.rot}” na fila de envio.`, () => { E.d.whatsapp.enviados.push({ lista: k, ids, hora: hhmm(E.d.agoraMin), custo: Math.round(ids.length * L.preco), criado: Date.now() }); });
+  // passados os 10 s do Desfazer, as mensagens saem (sem internet, continuam na fila)
+  setTimeout(() => { if (E.ui.pc.tela === 'whatsapp') render(); }, 10100); };
+const waSaiu = env => !E.ui.clinicaSemInternet && Date.now() - (env.criado || 0) > 10000;
