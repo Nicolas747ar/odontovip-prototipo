@@ -42,7 +42,7 @@ function raizesPath(qtd, w, r) {
 /* ---------- condições: o que o dente É (cor de preenchimento) ---------- */
 const CONDICOES = {
   higido: ['Hígido', '#2e9e5b'], cariado: ['Cariado', '#d6342c'], restaurado: ['Restaurado', '#2f6fd6'],
-  fraturado: ['Fraturado', '#9a4a2f'], acompanhamento: ['Em acompanhamento', '#d29b1f'], canal: ['Canal tratado', '#e0702a'],
+  fraturado: ['Fraturado', '#1f2328'] /* preto, como pediu a Dra. Marcelly (R19) */, acompanhamento: ['Em acompanhamento', '#d29b1f'], canal: ['Canal tratado', '#e0702a'],
   coroa: ['Coroa', '#a8792c'], implante: ['Implante', '#7b4fd6'], extraido: ['Extraído', '#ffffff'], ausente: ['Ausente', '#8a96a8'],
 };
 const ABREV = { higido: 'H', cariado: 'C', restaurado: 'R', fraturado: 'F', acompanhamento: 'A', canal: 'Ca', coroa: 'Co', implante: 'I', extraido: 'X', ausente: 'Au' };
@@ -99,7 +99,9 @@ function denteSVG(pid, n, op = {}) {
   const aDente = op.cel ? 'celDente' : 'dente';
   const flip = sup ? '' : ' scale(1,-1)';
   const sumido = est.geral === 'ausente' || est.geral === 'extraido';
-  const corCoroaCond = est.geral && !sumido ? CONDICOES[est.geral][1] : null;
+  // condição escolhida sem nenhuma face marcada = vale para o dente todo: mostra a prévia na coroa
+  const geralVista = op.previa && !(op.sel || []).length ? op.previa : est.geral;
+  const corCoroaCond = geralVista && !sumido ? CONDICOES[geralVista][1] : null;
   const fillCoroa = corCoroaCond ? corCoroaCond + '55' : '#fffdf8';
   const bordaCoroa = temPend ? '#1880BF' : corCoroaCond || '#93a2b6';
   const tracejado = temPend && !aprovado ? 'stroke-dasharray="3 2"' : '';
@@ -118,9 +120,9 @@ function denteSVG(pid, n, op = {}) {
   const lado = { top: sup ? 'V' : 'L', bottom: sup ? 'L' : 'V', right: mesialDir ? 'M' : 'D', left: mesialDir ? 'D' : 'M' };
   const rotFace = f => f === 'L' ? (sup ? 'P' : 'L') : f === 'O' ? (ehAnterior(n) ? 'I' : 'O') : f;
   const fillFace = f => {
-    if ((op.sel || []).includes(f)) return '#dbe9f6';
+    if ((op.sel || []).includes(f)) return op.previa ? CONDICOES[op.previa][1] : '#dbe9f6'; // prévia da condição escolhida
     if (est.faces[f]) return CONDICOES[est.faces[f]][1];
-    if (corCoroaCond && ['coroa', 'fraturado', 'acompanhamento', 'cariado', 'restaurado'].includes(est.geral)) return corCoroaCond + '88';
+    if (corCoroaCond && ['coroa', 'fraturado', 'acompanhamento', 'cariado', 'restaurado'].includes(geralVista)) return corCoroaCond + '88';
     return '#fffdf8';
   };
   const fx = (W - S) / 2, fy = FY;
@@ -212,7 +214,7 @@ function painelDente(pid, n, podeInd) {
   const est = estadoDente(pid, n);
   const hoje = [...(est.geral ? [[est.geral, 'dente inteiro']] : []), ...(est.canal ? [['canal', 'raiz']] : []), ...Object.entries(est.faces).map(([f, c]) => [c, 'face ' + f])];
   return `<div class="painel-dente">
-    <div style="text-align:center">${denteSVG(pid, n, { escala: 2.3, rotulos: true, sel: pc.denteFaces, clicavel: podeInd })}
+    <div style="text-align:center">${denteSVG(pid, n, { escala: 2.3, rotulos: true, sel: pc.denteFaces, previa: pc.denteCond, clicavel: podeInd })}
       <div class="mini muted">${podeInd ? (nf ? 'Faces marcadas: <b>' + pc.denteFaces.join(', ') + '</b>' : 'Toque nas faces para marcar') : ''}</div></div>
     <div><b style="font-size:17px">Dente ${n}</b> <span class="muted">· ${nomeDente(n)}</span>
       <div class="grupo-tit">Como está hoje</div>

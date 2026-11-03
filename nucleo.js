@@ -46,11 +46,15 @@ function addAlerta(pid, texto, nivel = 'grave') { if (!alertas(pid).some(a => a.
 
 /* ---------- regras de negócio (no sistema real: packages/dominio) ---------- */
 const ESTADOS = {
-  a_confirmar: ['relogio', 'A confirmar'], confirmado: ['check', 'Confirmado'], chegou: ['chegou', 'Chegou'],
+  /* nomes pedidos pela recepção (Danielle, 02/11 — AUDITORIA-QA.md R1), iguais aos do PEC */
+  a_confirmar: ['relogio', 'A confirmar'], confirmado: ['check', 'Confirmado'], chegou: ['chegou', 'Presente na unidade'],
   em_atendimento: ['atendendo', 'Em atendimento'], atendido: ['checks', 'Atendido'], faltou: ['x', 'Faltou'],
   desmarcou: ['desmarcar', 'Desmarcou'], remarcado: ['remarcar', 'Remarcado'],
 };
 const estadoHTML = e => `<span class="est est-${e}">${ic(ESTADOS[e][0], 13)} ${ESTADOS[e][1]}</span>`;
+/* só o símbolo, como o "bonequinho" do PEC: a palavra aparece ao passar o mouse ou focar (R2).
+   Leitor de tela lê o nome pelo aria-label. */
+const estadoIco = (e, extra = '') => `<span class="est est-${e} est-ico" role="img" tabindex="0" aria-label="${ESTADOS[e][1]}${extra ? ' · ' + extra : ''}" data-dica="${ESTADOS[e][1]}${extra ? ' · ' + extra : ''}">${ic(ESTADOS[e][0], 16)}</span>`;
 const ATIVOS = ['a_confirmar', 'confirmado', 'chegou', 'em_atendimento'];
 /* estado do item do plano: ícone + palavra, nunca um círculo que parece botão de opção */
 const PLANO_EST = { indicado: ['indicado', 'Indicado'], aprovado: ['aprovado', 'Aprovado'], realizado: ['feito', 'Feito'], recusado: ['recusado', 'Paciente não quis'], observado: ['aprovado', 'Aprovado'] };
@@ -135,6 +139,15 @@ function gerarParcelas(pid, total, n, primeiro) {
     const v = i === n ? total - base * (n - 1) : base;
     parcelas(pid).push({ id: uid(), n: i, de: n, venc: somaMeses(primeiro, i - 1), valor: v, pago: 0 });
   }
+}
+/* saída do paciente (Nicolas, 02/11): quanto cobrar hoje = parcelas que vencem hoje ou já venceram */
+const aCobrarHoje = pid => parcelas(pid).filter(p => p.venc <= E.d.hoje).reduce((s, p) => s + saldoParcela(p), 0);
+const QUANDO_RETORNO = { 7: 'em 7 dias', 15: 'em 15 dias', 30: 'em 30 dias', 180: 'em 6 meses' };
+const retornoPendente = pid => E.d.pedidosRetorno.find(r => r.pac === pid && !r.feito);
+/* "em 15 dias · Restauração 2 faces · 46 (R$ 190,00)" — o que a recepção precisa para marcar e dizer o valor */
+function resumoRetorno(r) {
+  const its = (r.itens || []).map(id => plano(r.pac).find(i => i.id === id)).filter(Boolean);
+  return [r.quando ? QUANDO_RETORNO[r.quando] : '', its.map(i => `${nomeItem(i)} (${brl(valorItem(i, r.pac))})`).join(' + ')].filter(Boolean).join(' · ');
 }
 function hojeDoPaciente(pid) { return E.d.agendamentos.filter(a => a.pac === pid).sort((a, b) => a.ini - b.ini); }
 function proximaConsulta(pid) { return hojeDoPaciente(pid).find(a => ATIVOS.includes(a.estado) && a.ini >= E.d.agoraMin - 60); }
@@ -248,6 +261,8 @@ document.addEventListener('keydown', e => {
   if ((e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) || (e.key.toLowerCase() === 'k' && (e.ctrlKey || e.metaKey))) {
     const b = document.getElementById('busca-global'); if (b) { e.preventDefault(); b.focus(); b.select(); } return;
   }
+  // novo agendamento: Enter sem nenhum resultado abre o cadastro rápido
+  if (ativo.id === 'busca-ag' && e.key === 'Enter' && document.querySelector('#res-ag .btn-novo-pac')) { e.preventDefault(); A.cadastrarDaBusca(); return; }
   if (ativo.id === 'busca-global' && ['ArrowDown', 'ArrowUp', 'Enter'].includes(e.key)) {
     const itens = [...document.querySelectorAll('#busca-res [data-a="abrirFicha"]')];
     if (e.key === 'Enter') {
@@ -255,6 +270,8 @@ document.addEventListener('keydown', e => {
       const sel = itens.find(i => i.classList.contains('sel'));
       if (sel) A.abrirFicha({ id: sel.dataset.id });
       else if (itens.length === 1) A.abrirFicha({ id: itens[0].dataset.id });
+      // "112" + Enter: o nº exato vem primeiro na busca e abre direto (mesmo que o número apareça num telefone)
+      else if (itens.length > 1 && /^\d+$/.test(ativo.value.trim()) && (pac(itens[0].dataset.id) || {}).numero === +ativo.value.trim()) A.abrirFicha({ id: itens[0].dataset.id });
       else if (itens.length > 1) { itens[0].classList.add('sel'); toast('Há mais de um paciente. Use as setas ou clique no certo.'); }
       return;
     }
@@ -278,7 +295,7 @@ const TAREFAS = [
   { id: 'T1', meta: 60, onde: 'Computador', txt: 'A paciente nova <b>Mariana Alves</b> liga e quer uma <b>limpeza hoje às 15:00 com a Dra. Helena</b>. Cadastre e agende.' },
   { id: 'T2', meta: 5, onde: 'Computador', txt: 'O paciente <b>nº 105</b> acabou de chegar. Marque a chegada.' },
   { id: 'T3', meta: 30, onde: 'Celular', txt: 'Você é a <b>Dra. Marcelly</b> (PIN 1234). Atenda o paciente que já chegou e registre a evolução marcando o que foi feito.' },
-  { id: 'T4', meta: 60, onde: 'Computador', txt: 'A <b>Ana Lima (nº 112)</b> aprovou a restauração e a limpeza, <b>não</b> o clareamento, em <b>3x</b>. Hoje ela paga <b>R$ 50,00 no Pix</b>. Faça o orçamento e receba.' },
+  { id: 'T4', meta: 60, onde: 'Computador', txt: 'A <b>Ana Lima (nº 112)</b> aprovou a restauração e o clareamento, <b>não</b> a limpeza, em <b>3x</b>. Hoje ela paga <b>R$ 50,00 no Pix</b>. Faça o orçamento e receba.' },
   { id: 'T5', meta: 10, onde: 'Computador', txt: 'Abra a ficha da <b>Beatriz Santos que tem 52 anos</b>.' },
   { id: 'T6', meta: 10, onde: 'Computador', txt: 'Uma paciente da manhã <b>não veio</b>. Encontre e marque a falta.' },
   { id: 'T7', meta: 10, onde: 'Computador', txt: 'Troque o usuário do computador para a <b>Dra. Helena</b> (PIN 1234).' },
@@ -314,6 +331,8 @@ A.simNet = (ds, el) => { E.ui.clinicaSemInternet = el.checked; render(); };
 function renderTestes() {
   const el = document.getElementById('testes'); const T = E.ui.testes;
   if (!T.aberto) { el.innerHTML = ''; return; }
+  // o cronômetro redesenha a cada 0,5 s: sem guardar a rolagem, as tarefas de baixo ficavam inalcançáveis
+  const rolagem = el.querySelector('.testes') ? el.querySelector('.testes').scrollTop : 0;
   el.innerHTML = `<div class="testes"><div class="painel-cab"><h2>Tarefas de teste</h2><button class="fechar" data-a="abrirTestes" aria-label="Fechar">${ic('x', 20)}</button></div>
   <div class="sim-toggles mini">
     <b>Simular</b>
@@ -331,6 +350,7 @@ function renderTestes() {
     </div>`; }).join('')}
   <div class="tarefa"><button class="btn btn-peq" data-a="copiarResultados">Copiar resultados</button> <button class="btn btn-peq" data-a="recomecar">Recomeçar com dados novos</button>
   <textarea id="resultados-txt" style="display:none;width:100%;height:120px;margin-top:8px"></textarea></div></div>`;
+  if (rolagem) el.querySelector('.testes').scrollTop = rolagem;
 }
 
 function iniciar() {
