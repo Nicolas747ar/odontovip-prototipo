@@ -547,35 +547,97 @@ function celEu() {
 A.celSair = () => { Object.assign(E.ui.cel, { usuario: null, tela: 'login', pinUsu: null, pinBuf: '' }); render(); };
 
 /* dono — Caixa do dia */
+/* dono — R23 (03/11): as três unidades juntas, particular × convênio, acumulado do mês, faltas e retornos.
+   Só números: nomes e fichas de pacientes nunca saem da clínica. */
+const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+function donoBoaViagemHoje(corte) {
+  const recs = E.d.recebimentos.filter(r => r.hora <= corte), t = totaisDia();
+  const porForma = {}, porProf = {};
+  recs.forEach(r => { porForma[r.forma] = (porForma[r.forma] || 0) + r.valor; porProf[r.prof] = (porProf[r.prof] || 0) + r.valor; });
+  const conv = recs.filter(r => r.forma === 'Convênio').reduce((s, r) => s + r.valor, 0);
+  return { id: 'bv', nome: E.d.unidade, aoVivo: true, part: recs.reduce((s, r) => s + r.valor, 0) - conv, conv, porForma, porProf,
+    agendados: t.agendados, atendidos: t.atendidos, faltas: t.faltas, aReceber: t.aReceberHoje };
+}
+function donoBarra(part, conv) {
+  const tot = part + conv;
+  return `<div class="dono-barra" role="img" aria-label="Particular ${pct(part, tot)}%, convênio ${pct(conv, tot)}%"><i class="b-part" style="width:${pct(part, tot)}%"></i><i class="b-conv" style="width:${pct(conv, tot)}%"></i></div>
+    <div class="dono-linha"><span><i class="sw b-part"></i> Particular · recebido</span><b class="num">${brl(part)}</b></div>
+    <div class="dono-linha"><span><i class="sw b-conv"></i> Convênio · produzido<br><span class="dono-sub">o plano paga em 30 a 60 dias</span></span><b class="num">${brl(conv)}</b></div>`;
+}
+function donoUnidade(u, m) {
+  const fal = pct(m.faltas, m.atendidos + m.faltas);
+  return `<div class="dono-uni"><div class="dono-uni-cab"><b>${esc(u.nome)}</b>${u.aoVivo ? '<span class="tag-vivo">ao vivo</span>' : '<span class="tag-ex">exemplo</span>'}</div>
+    <div class="dono-uni-valor num">${brl(m.part)}</div>
+    <div class="dono-sub">${m.conv ? `+ ${brl(m.conv)} de convênio · ` : 'só particular · '}${m.atendidos} atendidos · ${faltaTxt(m.faltas, fal)}</div></div>`;
+}
+/* faltas: a cor nunca sozinha — acima de 25% vai com ícone e a palavra (regra 18) */
+const FALTA_ALTA = 25;
+const faltaTxt = (n, f) => f >= FALTA_ALTA ? `<span class="txt-erro">${ic('alerta', 15)} ${n} faltas (${f}% · alto)</span>` : `${n} faltas (${f}%)`;
+const milBR = n => Number(n).toLocaleString('pt-BR');
 function telaDono() {
-  const c = E.ui.cel, semNet = E.ui.clinicaSemInternet, corte = semNet ? 625 : 1e9;
-  let tot, ag;
-  if (c.diaDono === 'ontem') {
-    const o = E.d.ontem; tot = { total: o.total, porForma: { Pix: o.pix, 'Cartão': o.cartao, Dinheiro: o.dinheiro }, porProf: null }; ag = { agendados: o.agendados, atendidos: o.atendidos, faltas: o.faltas };
+  const c = E.ui.cel, semNet = E.ui.clinicaSemInternet, corte = semNet ? 625 : 1e9, cx = E.d.caixa, aba = c.diaDono || 'hoje';
+  const bv = donoBoaViagemHoje(corte);
+  // avisos sempre no alto e com ícone (QA S-mac-3): exemplo × real, e sem internet em toda aba com dados de hoje
+  const avisoEx = real => `<div class="dono-banda ex">${ic('alerta', 18)}<span><b>Prazeres e Norte são exemplo.</b> Dinheiro real: <b>${brl(real)}</b> (Boa Viagem). As outras unidades entram no sistema depois.</span></div>`;
+  const avisoNet = semNet && aba !== 'ontem' ? `<div class="dono-banda net">${ic('semrede', 18)}<span><b>Sem atualização desde 10:25.</b> A clínica pode estar sem internet: os números podem estar velhos.</span></div>` : '';
+  let corpo = '';
+  if (aba === 'ontem') {
+    const o = E.d.ontem;
+    corpo = `<div class="dono-banda info">${ic('agenda', 18)}<span>Ontem: só <b>Boa Viagem</b> (o dia inteiro). Para comparar as três unidades, use <b>Mês</b>.</span></div>
+      <div class="cel-card"><div class="dono-rot">Recebido ontem · ${esc(E.d.unidade)}</div><div class="dono-total num">${brl(o.total)}</div></div>
+      <div class="cel-card"><b>Por forma de pagamento</b>${[['Pix', o.pix], ['Cartão crédito', o.credito], ['Cartão débito', o.debito], ['Dinheiro', o.dinheiro]].filter(([, v]) => v).map(([f, v]) => `<div class="dono-linha"><span>${formaHTML(f)}</span><b class="num">${brl(v)}</b></div>`).join('')}</div>
+      <div class="cel-card"><b>Pacientes</b><div class="dono-linha"><span>Agendados</span><b>${o.agendados}</b></div><div class="dono-linha"><span>Atendidos</span><b>${o.atendidos}</b></div>
+        <div class="dono-linha"><span>Faltaram</span><b>${faltaTxt(o.faltas, pct(o.faltas, o.atendidos + o.faltas))}</b></div></div>`;
+  } else if (aba === 'mes') {
+    const a = E.d.bvMesAntes;
+    const bvMes = { part: a.part + bv.part, conv: a.conv + bv.conv, agendados: a.agendados + bv.agendados, atendidos: a.atendidos + bv.atendidos, faltas: a.faltas + bv.faltas, orcFeitos: a.orcFeitos, orcAprov: a.orcAprov };
+    const us = [[bv, bvMes], ...E.d.outrasUnidades.map(u => [u, u.mes])];
+    const soma = k => us.reduce((s, [, m]) => s + (m[k] || 0), 0);
+    const part = soma('part'), conv = soma('conv'), varMes = pct(part, E.d.mesPassadoMesmoPeriodo) - 100;
+    const fal = pct(soma('faltas'), soma('atendidos') + soma('faltas')), cr = E.d.campanhaRetorno;
+    const pedidos = E.d.pedidosRetorno.length, pedidosFeitos = E.d.pedidosRetorno.filter(r => r.feito).length;
+    corpo = `${avisoEx(bvMes.part)}<div class="cel-card"><div class="dono-rot">Recebido no mês · 01 a 29/10 · 3 unidades</div><div class="dono-total num">${brl(part)}</div>
+        <div class="dono-var ${varMes >= 0 ? 'sobe' : 'desce'}">${varMes >= 0 ? '+' : ''}${varMes}% em relação a 01 a 29/09</div></div>
+      <div class="cel-card"><b>Por unidade</b>${us.map(([u, m]) => donoUnidade(u, m)).join('')}</div>
+      <div class="cel-card"><b>Particular × convênio</b>${donoBarra(part, conv)}</div>
+      <div class="cel-card"><b>Faltas no mês</b><div class="dono-grande ${fal >= FALTA_ALTA ? 'txt-erro' : ''}">${fal}%</div>
+        <div class="dono-sub">${soma('faltas')} faltas em ${soma('atendidos') + soma('faltas')} consultas que deviam acontecer</div>
+        ${us.map(([u, m]) => { const f = pct(m.faltas, m.atendidos + m.faltas); return `<div class="dono-linha"><span>${esc(u.nome)}</span><span class="dono-mini"><i class="${f >= FALTA_ALTA ? 'alta' : ''}" style="width:${Math.min(100, f * 2)}%"></i></span><b class="num ${f >= FALTA_ALTA ? 'txt-erro' : ''}">${f >= FALTA_ALTA ? ic('alerta', 14) + ' ' : ''}${f}%</b></div>`; }).join('')}
+        <div class="dono-sub">${FALTA_ALTA}% ou mais é alto: fica em vermelho, com o sinal de alerta.</div>
+        <div class="dono-dica">${ic('relogio', 16)} Lembrete no WhatsApp na véspera é o que mais reduz faltas.</div></div>
+      <div class="cel-card"><div class="dono-uni-cab"><b>Retorno de pacientes (campanha no WhatsApp)</b><span class="tag-ex">exemplo</span></div>
+        <div class="dono-funil"><div><b class="num">${milBR(cr.enviadas)}</b><span>mensagens</span></div>${ic('dir', 18)}<div><b class="num">${cr.marcadas}</b><span>marcaram</span></div>${ic('dir', 18)}<div><b class="num">${cr.vieram}</b><span>vieram</span></div></div>
+        <div class="dono-sub">${pct(cr.marcadas, cr.enviadas)}% marcaram · custo ${brl(cr.custo)} = ${brl(Math.round(cr.custo / Math.max(1, cr.vieram)))} por paciente que veio</div>
+        ${pedidos ? `<div class="dono-linha" style="margin-top:6px"><span>Retornos pedidos pelas dentistas (Boa Viagem)</span><b class="num">${pedidosFeitos} de ${pedidos} marcados</b></div>` : ''}</div>
+      <div class="cel-card"><b>Orçamentos</b><div class="dono-linha"><span>Feitos</span><b class="num">${soma('orcFeitos')}</b></div><div class="dono-linha"><span>Aprovados</span><b class="num">${soma('orcAprov')}</b></div>
+        <div class="dono-linha"><span>Aprovação</span><b class="num">${pct(soma('orcAprov'), soma('orcFeitos'))}%</b></div></div>`;
   } else {
-    const recs = E.d.recebimentos.filter(r => r.hora <= corte);
-    const porForma = {}, porProf = {};
-    recs.forEach(r => { porForma[r.forma] = (porForma[r.forma] || 0) + r.valor; porProf[r.prof] = (porProf[r.prof] || 0) + r.valor; });
-    tot = { total: recs.reduce((s, r) => s + r.valor, 0), porForma, porProf };
-    const t = totaisDia(); ag = { agendados: t.agendados, atendidos: t.atendidos, faltas: t.faltas, aReceber: t.aReceberHoje };
+    const us = [bv, ...E.d.outrasUnidades.map(u => ({ ...u.hoje, nome: u.nome }))];
+    const part = us.reduce((s, u) => s + u.part, 0), conv = us.reduce((s, u) => s + u.conv, 0);
+    const porForma = {}; us.forEach(u => Object.entries(u.porForma).forEach(([f, v]) => { if (f !== 'Convênio') porForma[f] = (porForma[f] || 0) + v; }));
+    const ag = us.reduce((s, u) => s + u.agendados, 0), at = us.reduce((s, u) => s + u.atendidos, 0), fa = us.reduce((s, u) => s + u.faltas, 0);
+    corpo = `${avisoEx(bv.part)}<div class="cel-card"><div class="dono-rot">Recebido hoje · 3 unidades</div><div class="dono-total num">${brl(part)}</div><div class="dono-sub">até agora · particular (dinheiro que já entrou)</div></div>
+      <div class="cel-card"><b>Por unidade</b>${us.map(u => donoUnidade(u, u)).join('')}</div>
+      <div class="cel-card"><b>Particular × convênio</b>${donoBarra(part, conv)}</div>
+      <div class="cel-card"><b>Pacientes hoje</b><div class="dono-linha"><span>Agendados</span><b>${ag}</b></div><div class="dono-linha"><span>Atendidos até agora</span><b>${at}</b></div>
+        <div class="dono-linha"><span>Faltaram</span><b>${faltaTxt(fa, pct(fa, at + fa))}</b></div>
+        <div class="dono-sub">A porcentagem é sobre as ${at + fa} consultas que já deviam ter acontecido (atendidos + faltas), não sobre os ${ag} agendados do dia.</div></div>
+      <div class="cel-card"><b>Por forma de pagamento</b>${Object.entries(porForma).sort((a, b) => b[1] - a[1]).map(([f, v]) => `<div class="dono-linha"><span>${formaHTML(f)}</span><b class="num">${brl(v)}</b></div>`).join('')}</div>
+      <div class="cel-card"><b>Boa Viagem · por profissional</b>${Object.entries(bv.porProf).map(([id, v]) => `<div class="dono-linha"><span>${id && prof(id) ? prof(id).curto : 'Sem profissional'}</span><b class="num">${brl(v)}</b></div>`).join('')}
+        <div class="dono-sub">É o que foi recebido. A comissão é calculada à parte, sobre o que cada um fez.</div></div>
+      <div class="cel-card"><b>Boa Viagem · caixa</b>
+        <div class="dono-linha"><span>Vence hoje e falta receber</span><b class="num">${brl(bv.aReceber)}</b></div>
+        <div class="dono-linha"><span>Caixa</span>${cx.fechado ? `<span class="cx-status fechado">${ic('cadeado', 14)} Fechado às ${hhmm(cx.hora)}</span>` : '<span class="cx-status aberto"><span class="ponto"></span>Aberto</span>'}</div>
+        ${cx.fechado && cx.dif ? `<div class="dono-linha txt-erro"><span>Gaveta</span><b>${cx.dif > 0 ? 'sobrou' : 'faltou'} ${brl(Math.abs(cx.dif))}</b></div>` : ''}</div>`;
   }
-  const var_ = c.diaDono === 'hoje' ? Math.round((tot.total / E.d.ontem.total - 1) * 100) : null;
-  const cx = E.d.caixa;
-  return `<div class="dono-topo"><div class="ola">Bom dia, ${esc(usu(E.ui.cel.usuario).nome)}</div><div class="dono-tit">Caixa do dia · ${E.d.unidade}</div>
-    <div class="quando">qui 29/10 · ${semNet && c.diaDono === 'hoje' ? 'sem atualização desde 10:25 — a clínica pode estar sem internet' : 'atualizado às 10:40'}</div><div class="fio"></div></div>
-  <div class="cel-corpo">
-    <div class="seg" style="margin-bottom:12px"><button class="${c.diaDono === 'hoje' ? 'ativo' : ''}" data-a="donoDia" data-v="hoje">Hoje</button><button class="${c.diaDono === 'ontem' ? 'ativo' : ''}" data-a="donoDia" data-v="ontem">Ontem</button></div>
-    <div class="cel-card"><div class="mini muted" style="letter-spacing:.06em">RECEBIDO ${c.diaDono === 'hoje' ? 'HOJE' : 'ONTEM'}</div><div class="dono-total num">${brl(tot.total)}</div>
-      ${var_ != null ? `<div class="mini muted">até agora · ontem o dia todo foi ${brl(E.d.ontem.total)}</div>` : ''}</div>
-    <div class="cel-card"><b>Por forma de pagamento</b>${Object.entries(tot.porForma).sort((a, b) => b[1] - a[1]).map(([f, v]) => `<div class="dono-linha"><span>${formaHTML(f === 'Cartão' ? 'Cartão crédito' : f).replace('Cartão crédito', f)}</span><b class="num">${brl(v)}</b></div>`).join('')}</div>
-    <div class="cel-card"><b>Pacientes</b><div class="dono-linha"><span>Agendados</span><b>${ag.agendados}</b></div><div class="dono-linha"><span>Atendidos</span><b>${ag.atendidos}</b></div><div class="dono-linha"><span>Faltaram</span><b>${ag.faltas}</b></div></div>
-    ${tot.porProf ? `<div class="cel-card"><b>Por profissional</b>${Object.entries(tot.porProf).map(([id, v]) => `<div class="dono-linha"><span>${id && prof(id) ? prof(id).curto : 'Sem profissional'}</span><b class="num">${brl(v)}</b></div>`).join('')}</div>` : ''}
-    ${ag.aReceber != null ? `<div class="cel-card"><div class="dono-linha"><span>Vence hoje e falta receber</span><b class="num">${brl(ag.aReceber)}</b></div>
-      <div class="dono-linha"><span>Caixa</span>${cx.fechado ? `<span class="cx-status fechado">${ic('cadeado', 14)} Fechado às ${hhmm(cx.hora)}</span>` : '<span class="cx-status aberto"><span class="ponto"></span>Aberto</span>'}</div>
-      ${cx.fechado && cx.dif ? `<div class="dono-linha" style="color:var(--erro)"><span>Gaveta</span><b>${cx.dif > 0 ? 'sobrou' : 'faltou'} ${brl(Math.abs(cx.dif))}</b></div>` : ''}</div>` : ''}
-    <div class="mini muted" style="text-align:center">Aqui aparecem só números. Nomes e fichas de pacientes nunca saem da clínica.</div>
+  return `<div class="dono-topo"><div class="ola">Bom dia, ${esc(usu(E.ui.cel.usuario).nome)}</div><div class="dono-tit">${aba === 'ontem' ? `OdontoVip · ${esc(E.d.unidade)}` : 'OdontoVip · as três unidades'}</div>
+    <div class="quando">qui 29/10 · ${avisoNet ? 'sem atualização desde 10:25' : 'atualizado às 10:40'}</div><div class="fio"></div></div>
+  <div class="cel-corpo" data-scroll="cel-dono">
+    <div class="seg seg-cel" style="margin-bottom:12px">${[['hoje', 'Hoje'], ['ontem', 'Ontem'], ['mes', 'Mês']].map(([k, t]) => `<button class="${aba === k ? 'ativo' : ''}" data-a="donoDia" data-v="${k}">${t}</button>`).join('')}</div>
+    ${avisoNet}${corpo}
+    <div class="mini muted" style="text-align:center;margin-top:8px">Aqui aparecem só números. Nomes e fichas de pacientes nunca saem da clínica.</div>
     <button class="btn" style="width:100%;margin-top:12px" data-a="celSair">Sair</button>
     ${MODO_CEL ? '<button class="btn" style="width:100%;margin-top:10px;background:var(--gold-light)" data-a="abrirTestes">Tarefas de teste do protótipo</button>' : ''}
   </div>`;
 }
-A.donoDia = ds => { E.ui.cel.diaDono = ds.v; render(); };
+A.donoDia = ds => { E.ui.cel.diaDono = ds.v; E.ui.zerarScroll = 'cel-dono'; render(); };

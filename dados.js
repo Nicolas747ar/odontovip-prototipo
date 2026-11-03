@@ -198,5 +198,19 @@ const DADOS = {
     { id: 'pd1', pac: 'pa111', prof: 'p-hel', data: '2026-10-27', ini: 840, proc: 'limpeza' },
     { id: 'pd2', pac: 'pa108', prof: 'p-mar', data: '2026-10-28', ini: 600, proc: 'avaliacao' },
   ],
-  ontem: { total: 248000, pix: 98000, cartao: 110000, dinheiro: 40000, atendidos: 27, faltas: 3, agendados: 31 },
+  ontem: { total: 248000, pix: 98000, cartao: 110000, credito: 78000, debito: 32000, dinheiro: 40000, atendidos: 27, faltas: 3, agendados: 31 },
+  /* vista do dono (R23). TUDO INVENTADO — nada aqui é número real da clínica (este repo é público).
+     Prazeres e Norte ainda estão no Dental Office: entram no sistema depois (ADR-026); aqui só para o dono ver o desenho.
+     conv = produção de convênio (guias): o plano paga em 30–60 dias. */
+  outrasUnidades: [
+    { id: 'prazeres', nome: 'Prazeres', hoje: { part: 318000, conv: 142000, porForma: { Pix: 151000, 'Cartão crédito': 97000, 'Cartão débito': 38000, Dinheiro: 32000 }, agendados: 48, atendidos: 24, faltas: 9 },
+      mes: { part: 4870000, conv: 2215000, agendados: 1118, atendidos: 702, faltas: 231, orcFeitos: 372, orcAprov: 189 } },
+    { id: 'norte', nome: 'Norte', hoje: { part: 187000, conv: 96000, porForma: { Pix: 88000, 'Cartão crédito': 61000, Dinheiro: 38000 }, agendados: 34, atendidos: 19, faltas: 6 },
+      mes: { part: 2960000, conv: 1430000, agendados: 806, atendidos: 498, faltas: 164, orcFeitos: 251, orcAprov: 131 } },
+  ],
+  /* Boa Viagem antes de hoje (01–28/10); o de hoje vem ao vivo dos agendamentos e recebimentos */
+  bvMesAntes: { part: 2140000, conv: 0, agendados: 512, atendidos: 389, faltas: 71, orcFeitos: 128, orcAprov: 74 },
+  mesPassadoMesmoPeriodo: 9310000, // recebido particular 01–29/09, as três unidades
+  /* campanha de retorno por WhatsApp (o dono: "mando 500 mensagens, consigo marcar 100 consultas") */
+  campanhaRetorno: { enviadas: 1000, marcadas: 196, vieram: 141, custo: 9000 },
 };

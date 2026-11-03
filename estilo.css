@@ -783,3 +783,36 @@ fieldset.so-ver .btn,fieldset.so-ver input,fieldset.so-ver select,fieldset.so-ve
 .cx-mudou{font-size:14px}
 .arq-cartao .mini{font-size:14px}
 #rec-motivo-txt{width:100%;padding:9px 10px;border:1px solid var(--rule);border-radius:8px;margin-top:4px}
+
+/* ===== Vista do dono (R23, 03/11 — S-mac-3) ===== */
+.dono-rot{font-size:16px;font-weight:700;letter-spacing:.06em;color:var(--ink-soft);text-transform:uppercase}
+.dono-sub{font-size:16px;color:var(--ink-soft);line-height:1.35}
+.dono-var{display:inline-flex;align-items:center;gap:4px;font-size:16px;font-weight:700;margin-top:4px}
+.dono-var.sobe{color:var(--ok)} .dono-var.desce{color:var(--erro)}
+.dono-uni{padding:10px 0;border-bottom:1px solid var(--rule)}
+.dono-uni:last-child{border-bottom:0}
+.dono-uni-cab{display:flex;align-items:center;gap:8px;font-size:17px}
+.dono-uni-valor{font-size:26px;font-weight:700;color:var(--navy);line-height:1.2}
+.tag-vivo,.tag-ex{font-size:16px;font-weight:700;border-radius:999px;padding:1px 8px}
+.tag-vivo{background:var(--ok-bg);color:var(--ok)}
+.tag-ex{background:var(--bg);color:var(--ink-soft);border:1px dashed var(--ink-faint)}
+.dono-barra{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--bg);margin:10px 0 4px}
+.dono-barra i{display:block;height:100%}
+.b-part{background:var(--brand-deep)} .b-conv{background:#5B6B82} /* dourado é só marca (identidade visual §1); cor que não se repete nas formas de pagamento */
+i.sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.dono-grande{font-size:40px;font-weight:700;color:var(--navy);line-height:1.1;margin-top:4px}
+.txt-erro{color:var(--erro)!important}
+.dono-mini{flex:1;height:8px;background:var(--bg);border-radius:4px;margin:0 10px;align-self:center;overflow:hidden}
+.dono-mini i{display:block;height:100%;background:#9aa8bb}
+.dono-mini i.alta{background:var(--erro)}
+.dono-dica{display:flex;gap:6px;align-items:flex-start;font-size:16px;color:var(--brand-deep);background:var(--info-bg);border-radius:8px;padding:8px 10px;margin-top:8px}
+.dono-funil{display:flex;align-items:center;justify-content:space-between;gap:4px;margin:10px 0 6px}
+.dono-funil>div{display:flex;flex-direction:column;align-items:center;flex:1}
+.dono-funil b{font-size:26px;color:var(--navy)}
+.dono-funil span{font-size:16px;color:var(--ink-soft)}
+.dono-banda{display:flex;gap:8px;align-items:flex-start;border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:16px;line-height:1.35}
+.dono-banda .ic{flex:none;margin-top:2px}
+.dono-banda.ex{background:var(--aviso-bg);color:#5c3d00;border:1px solid #e7c873}
+.dono-banda.net{background:var(--erro-bg);color:var(--erro);border:1px solid #f3c3be;font-weight:600} /* sem internet: tom mais forte e outro ícone que o aviso de exemplo */
+.dono-banda.info{background:var(--info-bg);color:var(--brand-deep)}
+.cel .dono-linha{font-size:16px}
