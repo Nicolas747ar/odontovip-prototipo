@@ -223,6 +223,35 @@ const DADOS = {
   mesPassadoMesmoPeriodo: 9310000, // recebido particular 01–29/09, as três unidades
   /* campanha de retorno por WhatsApp (o dono: "mando 500 mensagens, consigo marcar 100 consultas") */
   campanhaRetorno: { enviadas: 1000, marcadas: 196, vieram: 141, custo: 9000 },
+  /* semana da agenda (inventado): pacientes e horários livres por dia e dentista; quinta 29/10 vem dos agendamentos */
+  semana: [
+    { dia: '2026-10-26', rot: 'Seg 26', 'p-mar': [8, 2], 'p-hel': [5, 3], 'p-raf': [7, 1] },
+    { dia: '2026-10-27', rot: 'Ter 27', 'p-mar': [7, 3], 'p-hel': [6, 2], 'p-raf': [6, 2] },
+    { dia: '2026-10-28', rot: 'Qua 28', 'p-mar': [9, 1], 'p-hel': [4, 4], 'p-raf': [8, 0] },
+    { dia: '2026-10-29', rot: 'Qui 29' },
+    { dia: '2026-10-30', rot: 'Sex 30', 'p-mar': [6, 4], 'p-hel': [5, 3], 'p-raf': [4, 4] },
+    { dia: '2026-10-31', rot: 'Sáb 31', 'p-mar': [3, 1], 'p-hel': [0, 0], 'p-raf': [2, 2] },
+  ],
+  /* Painel (Relatórios, 03/11): evolução das 3 unidades nos últimos 6 meses — números de exemplo, sem nomes */
+  painel: {
+    meses: [
+      { rot: 'mai', part: 8930000, conv: 3320000, orcF: 702, orcA: 356, novos: 158 },
+      { rot: 'jun', part: 8610000, conv: 3410000, orcF: 688, orcA: 349, novos: 149 },
+      { rot: 'jul', part: 9480000, conv: 3560000, orcF: 731, orcA: 371, novos: 171 },
+      { rot: 'ago', part: 9120000, conv: 3490000, orcF: 709, orcA: 362, novos: 163 },
+      { rot: 'set', part: 9870000, conv: 3700000, orcF: 744, orcA: 380, novos: 166 },
+      { rot: 'out', part: 10054000, conv: 3645000, orcF: 751, orcA: 394, novos: 172, parcial: true },
+    ],
+    procedimentos: [['Manutenção ortodôntica', 118], ['Limpeza', 104], ['Avaliação', 97], ['Restauração em resina', 86], ['Raspagem', 61], ['Tratamento de canal', 34]],
+    origens: [['WhatsApp', 412], ['Campanha de retorno', 196], ['Indicação', 88], ['Instagram', 64], ['Aniversariante', 31], ['Outros', 70]],
+    aniversariantesMes: { bv: 5, todas: 214, mes: 'novembro' }, // os 5 de Boa Viagem são a lista do WhatsApp
+  },
+  /* comissão (ADR-022): o feito em Boa Viagem de 01 a 28/10, por dentista (inventado); o de hoje vem do plano */
+  comissaoAntes: {
+    'p-mar': { itens: 96, producao: 2184000, lab: 210000 },
+    'p-hel': { itens: 41, producao: 1236000, lab: 0 },
+    'p-raf': { itens: 63, producao: 1134000, lab: 96000 },
+  },
   /* WhatsApp (blueprint/12, ADR-028): listas automáticas, nomes inventados. No protótipo nada é enviado. */
   whatsapp: {
     amanha: [
@@ -247,6 +276,13 @@ const DADOS = {
       { id: 'w15', nome: 'Helena Brito', ultima: '11/05', prof: 'Dr. Rafael', proc: 'Avaliação' },
       { id: 'w16', nome: 'Ivan Moraes', ultima: '15/05', prof: 'Dra. Marcelly', proc: 'Limpeza' },
       { id: 'w17', nome: 'Júlio Nery', ultima: '20/05', prof: 'Dra. Helena', proc: 'Revisão' },
+    ],
+    aniversario: [
+      { id: 'w18', nome: 'Cláudia Ramos', dia: '02/11', prof: 'Dra. Marcelly', ultima: '15/03' },
+      { id: 'w19', nome: 'Otávio Lins', dia: '05/11', prof: 'Dr. Rafael', ultima: '22/08' },
+      { id: 'w20', nome: 'Patrícia Melo', dia: '09/11', prof: 'Dra. Helena', ultima: '04/01' },
+      { id: 'w21', nome: 'Roberto Dias', dia: '14/11', prof: 'Dra. Marcelly', ultima: '30/06' },
+      { id: 'w22', nome: 'Sandra Leal', dia: '21/11', prof: 'Dr. Rafael', ultima: '11/09' },
     ],
     naoQuerem: 1, // pediram para não receber mensagens: ficam fora das listas
     enviados: [],

@@ -10,7 +10,7 @@ E.ui = {
   cel: { usuario: null, tela: 'splash', pacId: null, pinUsu: null, pinBuf: '', pinErro: '', evo: null, foto: null,
          busca: '', fila: [], diaDono: 'hoje', ultimaEvo: null,
          dente: null, denteFaces: [], denteProc: null, denteCond: null, arcada: 'sup', denticao: null, anamForm: null, dados: null, novoAlerta: null },
-  celForaWifi: false, clinicaSemInternet: false,
+  celForaWifi: false, clinicaSemInternet: false, foraHorario: false,
   ultimaOrigem: 'Demanda espontânea (WhatsApp)',
   testes: { aberto: false, atual: null, inicio: 0, resultados: {} },
 };
@@ -348,6 +348,7 @@ A.simCel = (ds, el) => {
   render();
 };
 A.simNet = (ds, el) => { E.ui.clinicaSemInternet = el.checked; render(); };
+A.simHorario = (ds, el) => { E.ui.foraHorario = el.checked; render(); };
 function renderTestes() {
   const el = document.getElementById('testes'); const T = E.ui.testes;
   if (!T.aberto) { el.innerHTML = ''; return; }
@@ -358,6 +359,7 @@ function renderTestes() {
     <b>Simular</b>
     <label><input type="checkbox" data-ao="simCel" ${E.ui.celForaWifi ? 'checked' : ''}> Celular fora do Wi-Fi da clínica</label>
     <label><input type="checkbox" data-ao="simNet" ${E.ui.clinicaSemInternet ? 'checked' : ''}> Clínica sem internet</label>
+    <label><input type="checkbox" data-ao="simHorario" ${E.ui.foraHorario ? 'checked' : ''}> Dentista em casa, fora do horário (20:30)</label>
   </div>
   ${TAREFAS.map(t => {
     const r = T.resultados[t.id], rod = T.atual === t.id;

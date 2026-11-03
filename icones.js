@@ -2,6 +2,7 @@
    No sistema real: um único conjunto (ex.: Lucide, licença ISC) — ver blueprint/02 §5. */
 const ICONES = {
   /* ADR-028: traço uniforme no estilo Lucide (licença ISC) */
+  presente: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C9.5 3 11 5 12 8c1-3 2.5-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   recolher: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18M16 15l-3-3 3-3"/>',
   expandir: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18M14 9l3 3-3 3"/>',

@@ -169,9 +169,10 @@ function odontogramaHTML(pid) {
   const pc = E.ui.pc, den = pc.denticao || denticaoPadrao(pid);
   const linhas = den === 'perm' ? [ARCADAS.supPerm, ARCADAS.infPerm] : den === 'dec' ? [ARCADAS.supDec, ARCADAS.infDec] : [ARCADAS.supPerm, ARCADAS.supDec, ARCADAS.infDec, ARCADAS.infPerm];
   const bot = (v, t) => `<button class="${den === v ? 'ativo' : ''}" data-a="denticao" data-v="${v}">${t}</button>`;
-  const reg = k => `<button class="proc-btn ${pc.dente === k ? 'on' : ''}" data-a="dente" data-n="${k}">${REGIOES[k]}</button>`;
-  return `<div class="odonto-topo"><span class="seg">${bot('perm', 'Permanente')}${bot('mista', 'Mista')}${bot('dec', 'Decídua')}</span>
-      ${reg('ASAI')}${reg('AS')}${reg('AI')}</div>
+  // ADR-028: os dois grupos com o mesmo estilo (pílula); à direita, o que vale para a boca ou a arcada inteira
+  const reg = k => `<button class="btn btn-peq ${pc.dente === k ? 'btn-sec' : ''}" data-a="dente" data-n="${k}" aria-pressed="${pc.dente === k}">${REGIOES[k]}</button>`;
+  return `<div class="odonto-topo"><span class="seg" aria-label="Dentição">${bot('perm', 'Permanente')}${bot('mista', 'Mista')}${bot('dec', 'Decídua')}</span>
+      <span class="odonto-reg"><span class="mini muted">Tratamento para</span><span class="odonto-reg-bt" aria-label="Região">${reg('ASAI')}${reg('AS')}${reg('AI')}</span></span></div>
     <div class="odonto-arcadas">
       <div class="lado-paciente"><span>← direito do paciente</span><span>esquerdo do paciente →</span></div>
       ${linhas.map((arr, i) => (i === linhas.length / 2 ? '<div class="plano-oclusal"></div>' : '') + linhaArcada(pid, arr)).join('')}
@@ -206,7 +207,7 @@ function painelDente(pid, n, podeInd) {
   const tipos = regiao ? ['arcada', 'geral'] : ['dente', 'faces', 'canal'];
   const pr = pc.denteProc && proc(pc.denteProc), nf = pc.denteFaces.length;
   const its = plano(pid).filter(i => i.dente === String(n));
-  const procBtns = `<div class="procs">${E.d.procedimentos.filter(x => tipos.includes(x.tipo)).map(x => `<button class="proc-btn ${pc.denteProc === x.id ? 'on' : ''}" data-a="denteProc" data-p="${x.id}">${x.nome}</button>`).join('')}</div>`;
+  const procBtns = `<div class="procs">${E.d.procedimentos.filter(x => tipos.includes(x.tipo) && !x.pendente && !x.recusado).map(x => `<button class="proc-btn ${pc.denteProc === x.id ? 'on' : ''}" data-a="denteProc" data-p="${x.id}">${x.nome}</button>`).join('')}</div>`;
   const sv = rotuloSalvarDente(pid, n);
   const salvar = `<div class="acoes-dente"><button class="btn btn-pri" data-a="salvarDente" ${sv.ok ? '' : 'disabled'}>${sv.txt}</button>${sv.dica ? `<span class="mini muted">${sv.dica}</span>` : ''}</div>`;
   const lista = its.length ? `<div class="grupo-tit">${regiao ? 'Nesta região' : 'Tratamentos neste dente'}</div>${its.map(itemPlano).join('')}` : '';
@@ -250,7 +251,7 @@ A.salvarDente = () => { const pc = E.ui.pc, pid = pc.fichaId, sv = rotuloSalvarD
 function abaOdonto(p) {
   const pc = E.ui.pc, pl = plano(p.id), podeInd = pode('indicar');
   const grupo = (est, tit) => { const g = pl.filter(i => i.estado === est); return g.length ? `<div class="grupo-tit">${tit} (${g.length})</div>${g.map(i => itemPlano(i, 'semPil')).join('')}` : ''; };
-  const geral = E.d.procedimentos.filter(x => x.tipo === 'geral');
+  const geral = E.d.procedimentos.filter(x => x.tipo === 'geral' && !x.pendente && !x.recusado);
   return `<div class="odonto">${odontogramaHTML(p.id)}
     ${pc.dente ? painelDente(p.id, pc.dente, podeInd) : `<div class="mini muted" style="text-align:center;margin-top:10px">Toque num dente ou numa face.</div>`}</div>
   <div class="cartao" style="margin-top:12px"><div style="display:flex;align-items:center;gap:10px"><h3 style="margin:0">Plano de tratamento</h3>

@@ -1,7 +1,7 @@
 /* Telas do celular — blueprint/07-pantallas-app.md */
 function celHTML() {
   const c = E.ui.cel;
-  const status = `<div class="cel-status ${['splash', 'login'].includes(c.tela) ? 'claro' : ''}"><span class="num">10:40</span><span>${E.ui.celForaWifi ? '4G' : 'Wi-Fi da clínica'} · 82%</span></div>`;
+  const status = `<div class="cel-status ${['splash', 'login'].includes(c.tela) ? 'claro' : ''}"><span class="num">${E.ui.foraHorario ? '20:30' : '10:40'}</span><span>${E.ui.celForaWifi || E.ui.foraHorario ? '4G' : 'Wi-Fi da clínica'} · 82%</span></div>`;
   if (c.tela === 'splash') {
     if (!c.timer) c.timer = setTimeout(() => { if (E.ui.cel.tela === 'splash') { E.ui.cel.tela = 'login'; render(); } }, 1400);
     return `<div class="cel">${status}${splashHTML('OdontoVip')}</div>`;
@@ -11,6 +11,9 @@ function celHTML() {
   if (['dono', 'admin'].includes(u.papel)) return `<div class="cel">${status}${telaDono()}</div>`;
   const comAbas = ['hoje', 'agenda', 'pacientes', 'eu'].includes(c.tela);
   const faixa = E.ui.celForaWifi ? `<div class="cel-faixa off">${ic('alerta', 15)} Fora do Wi-Fi da clínica · dados das 10:40${c.fila.length ? ` · ${c.fila.length} para enviar` : ''}</div>` : '';
+  // regra do lugar (dono, 03/11): de casa, a dentista só vê agenda e pacientes em horário de atendimento
+  if (E.ui.foraHorario && ['hoje', 'agenda', 'pacientes', 'paciente'].includes(c.tela)) return `<div class="cel">${status}${celFechado(u)}
+    ${celAbas([['hoje', 'inicio', 'Hoje'], ['agenda', 'agenda', 'Agenda'], ['pacientes', 'pacientes', 'Pacientes'], ['eu', 'usuario', 'Eu']], ['agenda', 'pacientes'].includes(c.tela) ? c.tela : 'hoje', 'celTela')}</div>`;
   const corpo = ({ hoje: celHoje, agenda: celAgenda, paciente: celPaciente, evolucao: celEvo, evoOk: celEvoOk, comprovante: celComprovante, foto: celFoto, pacientes: celPacientes, eu: celEu,
     odonto: celOdonto, dente: celDenteTela, anam: celAnam, arquivo: celArquivo, anamForm: celAnamForm, assinar: celAssinar, dados: celDados, arquivos: celArquivos, evos: celEvos, retorno: celRetornoTela })[c.tela]();
   return `<div class="cel">${status}${faixa}${corpo}
@@ -72,6 +75,12 @@ function celAgenda() {
     <div class="grupo-tit">Próximos</div>${resto.map(cardAg).join('') || '<div class="vazio">Nenhum outro paciente hoje.</div>'}
     ${feitos.length ? `<details class="cel-feitos"><summary class="grupo-tit">Já atendidos hoje (${feitos.length})</summary>${feitos.map(cardAg).join('')}</details>` : ''}
   </div>`;
+}
+/* fora do horário, de casa: a agenda fica fechada (blueprint/09, regra do lugar) */
+function celFechado(u) {
+  return `${celTopo('quinta, 29 de outubro · 20:30', `Boa noite, ${esc(u.nome)}`, '', '', 'c-topo-baixo')}
+  <div class="cel-corpo c-corpo c-plano"><section class="cel-card c-fechado">${ic('cadeado', 32)}<b>A agenda abre às 08:00</b>
+    <span>De casa, a agenda e as fichas só abrem no horário de atendimento.</span></section></div>`;
 }
 /* Hoje da dentista (maqueta ADR-028): o próximo paciente em destaque, depois os que vêm */
 const avCel = (p, cls = '') => `<span class="av av${p.numero % 4} ${cls}" aria-hidden="true">${esc(iniciais(p.nome))}</span>`;
@@ -247,7 +256,7 @@ function celDenteTela() {
   const tipos = regiao ? ['arcada', 'geral'] : ['dente', 'faces', 'canal'];
   const its = plano(pid).filter(i => i.dente === String(n));
   const sv = rotuloSalvarDente(pid, n, c), nf = c.denteFaces.length;
-  const procs = E.d.procedimentos.filter(x => tipos.includes(x.tipo)).map(x => `<button class="${c.denteProc === x.id ? 'on' : ''}" data-a="celProc" data-p="${x.id}">${x.nome}</button>`).join('');
+  const procs = E.d.procedimentos.filter(x => tipos.includes(x.tipo) && !x.pendente && !x.recusado).map(x => `<button class="${c.denteProc === x.id ? 'on' : ''}" data-a="celProc" data-p="${x.id}">${x.nome}</button>`).join('');
   const cab = cabSub(regiao ? REGIOES[n] : 'Dente ' + n, { t: 'odonto', txt: 'Odontograma' }, regiao ? '' : `<div class="sub">${nomeDente(n)}</div>`);
   const lista = its.length ? `<div class="grupo-tit">${regiao ? 'Nesta região' : 'Tratamentos neste dente'}</div>${its.map(celItemPlano).join('')}` : '';
   const rodape = `<div class="cel-rodape cel-rodape-col">${sv.dica ? `<div class="aviso-box aviso" style="margin:0 0 8px">${sv.dica}</div>` : ''}<button class="btn btn-pri" data-a="celSalvarDente" ${sv.ok ? '' : 'disabled'}>${sv.txt}</button></div>`;
@@ -719,8 +728,8 @@ function telaDono() {
   const sec = c.donoAba || 'resumo';
   let tela = `${celTopo(quando, `${saudacao()}, ${esc(usu(E.ui.cel.usuario).nome)}`, seg)}
   <div class="cel-corpo c-corpo" data-scroll="cel-dono">${avisoNet}${corpo}</div>`;
-  if (sec !== 'resumo') tela = `${celTopo(quando, { retornos: 'Retornos', orcamentos: 'Orçamentos', eu: esc(usu(E.ui.cel.usuario).nome) }[sec], '', '', sec === 'eu' ? 'c-topo-baixo' : '')}<div class="cel-corpo c-corpo ${sec === 'eu' ? 'c-plano' : ''}">${donoSecao(sec)}</div>`;
-  return tela + celAbas([['resumo', 'graficos', 'Resumo'], ['retornos', 'msg', 'Retornos'], ['orcamentos', 'recibo', 'Orçamentos'], ['eu', 'usuario', 'Eu']], sec, 'donoAba');
+  if (sec !== 'resumo') tela = `${celTopo(quando, { retornos: 'Retornos', orcamentos: 'Orçamentos', painel: 'Painel · 6 meses', eu: esc(usu(E.ui.cel.usuario).nome) }[sec], '', '', sec === 'eu' ? 'c-topo-baixo' : '')}<div class="cel-corpo c-corpo ${sec === 'eu' ? 'c-plano' : ''}">${donoSecao(sec)}</div>`;
+  return tela + celAbas([['resumo', 'graficos', 'Resumo'], ['retornos', 'msg', 'Retornos'], ['painel', 'sobe', 'Painel'], ['eu', 'usuario', 'Eu']], sec, 'donoAba');
 }
 /* abas do dono: retornos (campanha no WhatsApp e pedidos das dentistas), orçamentos e "Eu" — os mesmos números do Resumo · Mês */
 function donoSecao(sec) {
@@ -731,6 +740,15 @@ function donoSecao(sec) {
       <div class="dono-funil"><div><b class="num">${milBR(cr.enviadas)}</b><span>mensagens</span></div>${ic('dir', 18)}<div><b class="num">${cr.marcadas}</b><span>marcaram</span></div>${ic('dir', 18)}<div><b class="num">${cr.vieram}</b><span>vieram</span></div></div>
       <div class="dono-sub">${pct(cr.marcadas, cr.enviadas)}% marcaram · custo ${brl(cr.custo)} = ${brl(Math.round(cr.custo / Math.max(1, cr.vieram)))} por paciente que veio</div></div>
       ${pedidos ? `<div class="cel-card"><div class="dono-linha"><span>Retornos pedidos pelas dentistas (Boa Viagem)</span><b class="num">${feitos} de ${pedidos} marcados</b></div></div>` : ''}`; }
+  if (sec === 'painel') { const P = E.d.painel, ms = P.meses, ult = ms[ms.length - 1], ant = ms[ms.length - 2], max = Math.max(...ms.map(m => m.part + m.conv));
+    const mil = c => `R$ ${(c / 100000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil`, conv = pct(ult.orcA, ult.orcF), convAnt = pct(ant.orcA, ant.orcF);
+    return `<div class="cel-card c-total"><div class="dono-rot">Faturamento por mês · 3 unidades</div>
+      ${ms.map(m => `<div class="cp-linha"><span class="cp-mes">${m.rot}${m.parcial ? ' (até 29)' : ''}</span><span class="cp-trilho"><i class="b-part" style="width:${Math.round(m.part / max * 100)}%"></i><i class="b-conv" style="width:${Math.round(m.conv / max * 100)}%"></i></span><b class="num">${mil(m.part + m.conv)}</b></div>`).join('')}
+      <div class="dono-leg" style="margin-top:10px"><div><span><i class="sw b-part"></i>Particular</span><b class="num">${mil(ult.part)}</b><small>outubro até 29</small></div><div class="dir"><span><i class="sw b-conv"></i>Convênio</span><b class="num">${mil(ult.conv)}</b><small>produzido</small></div></div></div>
+      <div class="cel-card"><div class="dono-rot">Orçamentos aprovados em outubro</div><div class="dono-total num">${conv}%</div>
+        <div class="dono-sub">${ult.orcA} de ${ult.orcF} · ${conv === convAnt ? 'igual a setembro' : conv > convAnt ? `subiu de ${convAnt}% para ${conv}%` : `caiu de ${convAnt}% para ${conv}%`}</div></div>
+      <div class="cel-card"><div class="dono-linha"><span>Pacientes novos em outubro</span><b class="num">${ult.novos}</b></div><div class="dono-linha"><span>Aniversariantes em ${P.aniversariantesMes.mes}</span><b class="num">${P.aniversariantesMes.bv} em ${esc(E.d.unidade)} · ${P.aniversariantesMes.todas} nas 3</b></div><div class="dono-sub">A recepção programa os parabéns pelo WhatsApp.</div></div>
+      <p class="dono-sub" style="padding:0 4px">Números de exemplo · só totais.</p>`; }
   if (sec === 'orcamentos') return `<div class="cel-card c-total"><div class="dono-rot">Orçamentos no mês · 3 unidades</div><div class="dono-total num">${pct(soma('orcAprov'), soma('orcFeitos'))}%</div><div class="dono-sub">foram aprovados</div></div>
     <div class="cel-card"><div class="dono-linha"><span>Feitos</span><b class="num">${soma('orcFeitos')}</b></div><div class="dono-linha"><span>Aprovados</span><b class="num">${soma('orcAprov')}</b></div></div>`;
   return `<div class="cel-card">${esc(usu(E.ui.cel.usuario).nome)}<br><span class="mini muted">Vê os números das três unidades. Nomes e fichas de pacientes nunca saem da clínica.</span></div>
