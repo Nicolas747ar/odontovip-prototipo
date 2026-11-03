@@ -258,7 +258,8 @@ function telaAgenda() {
   const contar = c => daCol(c).filter(a => a.pac && !['desmarcou', 'remarcado'].includes(a.estado)).length;
   // o resumo conta só as colunas que estão na tela
   const naTela = cols.flatMap(c => daCol(c.id));
-  const resumo = Object.keys(ESTADOS).map(e => [e, naTela.filter(a => a.pac && a.estado === e).length]).filter(([, n]) => n);
+  // ADR-027: o resumo mostra só o que pede ação; o resto está na grade
+  const resumo = ['a_confirmar', 'chegou', 'em_atendimento'].map(e => [e, naTela.filter(a => a.pac && a.estado === e).length]).filter(([, n]) => n);
   const PLURAL = { a_confirmar: ['a confirmar', 'a confirmar'], confirmado: ['confirmado', 'confirmados'], chegou: ['presente na unidade', 'presentes na unidade'], em_atendimento: ['em atendimento', 'em atendimento'],
     atendido: ['atendido', 'atendidos'], faltou: ['faltou', 'faltaram'], desmarcou: ['desmarcou', 'desmarcaram'], remarcado: ['remarcado', 'remarcados'] };
   const linhas = `repeating-linear-gradient(to bottom,var(--rule) 0,var(--rule) 1px,transparent 1px,transparent ${30 * K}px),
@@ -268,14 +269,13 @@ function telaAgenda() {
     <span class="ag-dia"><button class="btn btn-peq btn-icone" data-a="outroDia" aria-label="Dia anterior">${ic('esq', 18)}</button><b>quinta, 29 de outubro</b><button class="btn btn-peq btn-icone" data-a="outroDia" aria-label="Próximo dia">${ic('dir', 18)}</button><button class="btn btn-peq" data-a="agendaHoje">Agora</button></span>
     <span style="margin-left:auto;display:flex;gap:10px;align-items:center"><span class="seg"><button class="${ver === 'prof' ? 'ativo' : ''}" data-a="verAgenda" data-v="prof">Por profissional</button><button class="${ver === 'cad' ? 'ativo' : ''}" data-a="verAgenda" data-v="cad">Por cadeira</button></span>
     <button class="btn btn-pri" data-a="novoAg">${ic('mais', 16)} Novo agendamento</button></span></div>
-  <div class="ag-filtro" role="group" aria-label="Mostrar na agenda"><span class="h-filtro-rot">${ic('busca', 15)} Mostrar</span>
+  <div class="ag-filtro" role="group" aria-label="Mostrar na agenda"><span class="h-filtro-rot">Mostrar</span>
     <button class="${vis.length ? '' : 'on'}" data-a="agendaSo" data-id="" aria-pressed="${!vis.length}">${ic('agenda', 15)} Mapa geral</button>
-    ${todas.map(c => `<button class="${vis.includes(c.id) ? 'on' : ''}" data-a="agendaSo" data-id="${c.id}" aria-pressed="${vis.includes(c.id)}"><span class="ag-av mini-av">${esc(c.ini)}</span> ${esc(c.nome)} <span class="mini">${contar(c.id)}</span></button>`).join('')}
-    <span class="mini muted">Toque em mais de um para comparar</span></div>
-  <div class="ag-resumo">${resumo.map(([e, n]) => `<span class="ag-res est-${e}">${ic(ESTADOS[e][0], 13)} <b>${n}</b> ${PLURAL[e][n === 1 ? 0 : 1]}</span>`).join('')}
-    <span class="mini muted" style="margin-left:auto">Clique num horário livre para agendar · num agendamento para ver e mudar</span></div>
+    ${todas.map(c => `<button class="${vis.includes(c.id) ? 'on' : ''}" title="Toque em mais de um para comparar" data-a="agendaSo" data-id="${c.id}" aria-pressed="${vis.includes(c.id)}"><span class="ag-av mini-av">${esc(c.ini)}</span> ${esc(c.nome)} <span class="mini">${contar(c.id)}</span></button>`).join('')}
+  </div>
+  <div class="ag-resumo-txt">${resumo.map(([e, n]) => `<b>${n}</b> ${PLURAL[e][n === 1 ? 0 : 1]}`).join(' · ')}</div>
   <div class="agenda" data-scroll="agenda" style="grid-template-columns:64px repeat(${cols.length},minmax(180px,1fr))">
-    <div class="ag-cab ag-cab-vazia"></div>${cols.map(c => `<div class="ag-cab"><span class="ag-av">${esc(c.ini)}</span><span class="ag-cab-txt"><b>${esc(c.nome)}</b><small>${esc(c.sub)}</small></span><span class="ag-cont">${contar(c.id)}</span></div>`).join('')}
+    <div class="ag-cab ag-cab-vazia"></div>${cols.map(c => `<div class="ag-cab"><span class="ag-av">${esc(c.ini)}</span><span class="ag-cab-txt"><b>${esc(c.nome)}</b><small>${esc(c.sub)}</small></span></div>`).join('')}
     <div class="ag-horas" style="height:${altura}px">${horas.map(h => `<div class="ag-hora num" style="top:${(h - 8) * 60 * K}px">${String(h).padStart(2, '0')}:00</div>`).join('')}
       <div class="ag-agora-rot num" style="top:${agora}px">${hhmm(E.d.agoraMin)}</div></div>
     ${cols.map(c => `<div class="ag-col" style="height:${altura}px;background-image:${linhas}" data-a="novoNaAgenda" data-col="${c.id}">
@@ -560,24 +560,23 @@ function telaNovoPac() {
     <div class="cartao" style="max-width:560px"><div class="aviso-box ok">${ic('check', 16)} <b>${numNome(p)}</b> foi cadastrado.</div>
     <button class="btn btn-pri" data-a="novoAg" data-pac="${p.id}">Agendar agora</button> <button class="btn" data-a="abrirFicha" data-id="${p.id}">Abrir ficha</button></div>`; }
   const menor = ehMenor(n.nasc);
-  return `<div class="titulo-tela"><h1>Novo paciente</h1><span class="sub">Os campos com * são obrigatórios</span></div>
+  return `<div class="titulo-tela"><h1>Novo paciente</h1></div>
   <div class="cartao" style="max-width:640px">
-    <button class="np-foto" data-a="fotoNovoPac">${avatarPac(n.foto, n.nome, '', 72)}<span class="muted">${n.foto ? 'Trocar a foto' : 'Foto'} <span class="mini">(opcional)</span></span></button>
+    <button class="np-foto" data-a="fotoNovoPac">${avatarPac(n.foto, n.nome, '', 72)}<span class="muted">${n.foto ? 'Trocar a foto' : 'Tirar foto'}</span></button>
     <div class="campo"><label>Nome completo <span class="obrig">*</span></label><input id="np-nome" class="${campoErro(n) === 'nome' ? 'com-erro' : ''}" value="${esc(n.nome)}" data-campo="pc.novoPac.nome">${campoErro(n) === 'nome' ? `<em class="cel-erro">${n.erro}</em>` : ''}</div>
     <div class="duas"><div class="campo"><label>Celular <span class="obrig">*</span></label><input id="np-cel" class="${campoErro(n) === 'cel' ? 'com-erro' : ''}" placeholder="(81) 9____-____" value="${esc(n.cel)}" data-ao="mCel" data-campo="pc.novoPac.cel">${campoErro(n) === 'cel' ? `<em class="cel-erro">${n.erro}</em>` : ''}</div>
       <div class="campo"><label>Data de nascimento <span class="obrig">*</span> <span id="np-idade" class="muted">${idadeTxt(n.nasc)}</span></label><input id="np-nasc" class="${campoErro(n) === 'nasc' ? 'com-erro' : ''}" placeholder="dd/mm/aaaa" value="${esc(n.nasc)}" data-ao="mDataNP" data-idade="np-idade" data-campo="pc.novoPac.nasc">${campoErro(n) === 'nasc' ? `<em class="cel-erro">${n.erro}</em>` : ''}</div></div>
-    <div class="duas"><div class="campo"><label>CPF <span class="muted">(recomendado)</span></label><input placeholder="___.___.___-__" value="${esc(n.cpf)}" data-ao="mCpf" data-campo="pc.novoPac.cpf"></div>
+    <div class="duas"><div class="campo"><label>CPF</label><input placeholder="___.___.___-__" value="${esc(n.cpf)}" data-ao="mCpf" data-campo="pc.novoPac.cpf"></div>
       <div class="campo"><label>Convênio</label><select data-campo="pc.novoPac.conv" data-ao="reNP">${E.d.convenios.map(c => `<option value="${c.id}" ${c.id === n.conv ? 'selected' : ''}>${c.nome}</option>`).join('')}</select></div></div>
-    <div class="campo"><label for="np-email">E-mail <span class="muted">(opcional)</span></label><input id="np-email" class="${campoErro(n) === 'email' ? 'com-erro' : ''}" type="email" inputmode="email" autocomplete="off" placeholder="nome@gmail.com" value="${esc(n.email || '')}" data-campo="pc.novoPac.email">${campoErro(n) === 'email' ? `<em class="cel-erro">${n.erro}</em>` : ''}</div>
     ${n.conv !== 'part' ? `<div class="duas"><div class="campo"><label>Nº da carteirinha</label><input value="${esc(n.cart)}" data-campo="pc.novoPac.cart"></div><div class="campo"><label>Validade</label><input placeholder="dd/mm/aaaa" value="${esc(n.valid)}" data-ao="mData" data-campo="pc.novoPac.valid"></div></div>` : ''}
     ${menor ? `<div class="campo"><label>Responsável <span class="obrig">*</span> <span class="muted">(menor de 18)</span></label><input value="${esc(n.resp)}" data-campo="pc.novoPac.resp"></div>` : ''}
     <div class="campo"><label>Como chegou? <span class="obrig">*</span></label><select data-campo="pc.novoPac.origem">${E.d.origens.map(x => `<option ${x === n.origem ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
-    <button class="btn-link" data-a="maisDados">${ic(n.mais ? 'baixo' : 'dir', 15)} Mais dados (endereço, RG, CNS, nº no Dental Office, observações)</button>
-    ${n.mais ? `<div class="campo" style="margin-top:8px"><label>Nº no Dental Office <span class="muted">(se veio de Prazeres ou Norte)</span></label><input value="${esc(n.numDO || '')}" data-campo="pc.novoPac.numDO" inputmode="numeric"></div><div class="duas"><div class="campo"><label>CEP</label><input value="${esc(n.cep || '')}" data-campo="pc.novoPac.cep" ></div><div class="campo"><label>Endereço</label><input value="${esc(n.end || '')}" data-campo="pc.novoPac.end" ></div><div class="campo"><label>RG</label><input value="${esc(n.rg || '')}" data-campo="pc.novoPac.rg" ></div><div class="campo"><label>Nº do CNS</label><input value="${esc(n.cns || '')}" data-campo="pc.novoPac.cns" ></div></div><div class="campo"><label>Observações</label><textarea rows="2" data-campo="pc.novoPac.obs">${esc(n.obs || '')}</textarea></div>` : ''}
+    <button class="btn-link" data-a="maisDados">${ic(n.mais || campoErro(n) === 'email' ? 'baixo' : 'dir', 15)} Mais dados</button>
+    ${n.mais || campoErro(n) === 'email' ? `<div class="campo"><label for="np-email">E-mail</label><input id="np-email" class="${campoErro(n) === 'email' ? 'com-erro' : ''}" type="email" inputmode="email" autocomplete="off" placeholder="nome@gmail.com" value="${esc(n.email || '')}" data-campo="pc.novoPac.email">${campoErro(n) === 'email' ? `<em class="cel-erro">${n.erro}</em>` : ''}</div>` : ''}${n.mais ? `<div class="campo" style="margin-top:8px"><label>Nº no Dental Office <span class="muted">(se veio de Prazeres ou Norte)</span></label><input value="${esc(n.numDO || '')}" data-campo="pc.novoPac.numDO" inputmode="numeric"></div><div class="duas"><div class="campo"><label>CEP</label><input value="${esc(n.cep || '')}" data-campo="pc.novoPac.cep" ></div><div class="campo"><label>Endereço</label><input value="${esc(n.end || '')}" data-campo="pc.novoPac.end" ></div><div class="campo"><label>RG</label><input value="${esc(n.rg || '')}" data-campo="pc.novoPac.rg" ></div><div class="campo"><label>Nº do CNS</label><input value="${esc(n.cns || '')}" data-campo="pc.novoPac.cns" ></div></div><div class="campo"><label>Observações</label><textarea rows="2" data-campo="pc.novoPac.obs">${esc(n.obs || '')}</textarea></div>` : ''}
     ${n.dup ? `<div class="aviso-box aviso">Já existe <b>${numNome(pac(n.dup))}</b>${situacaoPac(pac(n.dup))}, ${idade(pac(n.dup).nasc)} anos, ${ult4(pac(n.dup).cel)}. É a mesma pessoa?<br>
       <button class="btn btn-peq btn-pri" data-a="${pac(n.dup).excluido || pac(n.dup).inativo ? 'restaurarEAbrir' : 'abrirFicha'}" data-id="${n.dup}" style="margin-top:6px">${pac(n.dup).excluido ? 'Sim, restaurar e abrir' : pac(n.dup).inativo ? 'Sim, reativar e abrir' : 'Sim, abrir'} nº ${pac(n.dup).numero}</button> <button class="btn btn-peq" data-a="salvarNP" data-forcar="1" style="margin-top:6px">Não, cadastrar outra pessoa</button></div>` : ''}
     ${n.erro && !['nome', 'cel', 'nasc', 'email'].includes(campoErro(n)) ? `<div class="aviso-box erro">${n.erro}</div>` : ''}
-    <div style="margin-top:12px"><button class="btn btn-pri" data-a="salvarNP">Cadastrar paciente</button></div>
+    <div class="rodape-dir" style="margin-top:12px"><button class="btn btn-pri" data-a="salvarNP">Cadastrar paciente</button></div>
   </div>`;
 }
 A.mDataNP = (ds, el) => mDataComMenor(ds, el, 'np-nasc');
@@ -718,13 +717,14 @@ function contaOrc(m) {
 function modalOrc() {
   const m = E.ui.pc.modal, c = contaOrc(m), p = pac(E.ui.pc.fichaId);
   return `<div class="modal"><div class="painel-cab"><h2>Orçamento · ${numNome(p)}</h2><button class="fechar" data-a="fecharModal" aria-label="Fechar">${ic('x', 20)}</button></div><div class="painel-corpo">
-    <div class="mini muted" style="margin-bottom:6px">Desmarque o que o paciente não quer agora. Fica guardado como indicado, para outro dia.</div>
-    ${c.pl.map(i => `<label class="item-plano" style="cursor:pointer"><input type="checkbox" ${m.sel[i.id] ? 'checked' : ''} data-a="orcSel" data-id="${i.id}" style="width:20px;height:20px"><span><b>${esc(nomeItem(i))}</b><br><span class="quem">indicado por ${prof(i.indicadoPor).curto}</span></span><span class="valor num">${brl(i.valor)}</span></label>`).join('')}
+    <div class="mini muted" style="margin-bottom:6px">Desmarque o que o paciente não quer agora.</div>
+    ${(ps => ps.length === 1 ? `<div class="mini muted" style="margin-bottom:4px">Indicado por ${esc(prof(ps[0]).curto)}</div>` : '')([...new Set(c.pl.map(i => i.indicadoPor))])}
+    ${c.pl.map(i => `<label class="item-plano" style="cursor:pointer"><input type="checkbox" ${m.sel[i.id] ? 'checked' : ''} data-a="orcSel" data-id="${i.id}" style="width:20px;height:20px"><span><b>${esc(nomeItem(i))}</b>${new Set(c.pl.map(x => x.indicadoPor)).size > 1 ? `<br><span class="quem">indicado por ${prof(i.indicadoPor).curto}</span>` : ''}</span><span class="valor num">${brl(i.valor)}</span></label>`).join('')}
     <div class="campo" style="margin-top:12px"><label>Forma</label><span class="seg"><button class="${m.forma === 'vista' ? 'ativo' : ''}" data-a="orcForma" data-v="vista">À vista</button><button class="${m.forma === 'parc' ? 'ativo' : ''}" data-a="orcForma" data-v="parc">Parcelado</button></span>
       ${m.forma === 'parc' ? ` em <select data-campo="pc.modal.n" data-ao="orcRe" style="width:auto;display:inline-block;padding:6px 8px">${PARCELAS_OPCOES.map(n => `<option ${n == m.n ? 'selected' : ''}>${n}</option>`).join('')}</select> vezes` : ''}</div>
     <div class="duas"><div class="campo"><label>Desconto (R$)</label><input id="orc-desc" data-selecionar inputmode="decimal" value="${esc(m.desc)}" placeholder="0,00" data-campo="pc.modal.desc" data-ao="orcRecalc"></div>
       ${m.forma === 'parc' ? `<div class="campo"><label>1ª parcela vence</label><select data-campo="pc.modal.primeiro" data-ao="orcRe"><option value="hoje" ${m.primeiro === 'hoje' ? 'selected' : ''}>Hoje (29/10)</option><option value="30" ${m.primeiro === '30' ? 'selected' : ''}>Em 30 dias (29/11)</option></select></div>` : '<div></div>'}</div>
-    <div id="orc-tot" class="aviso-box info">${orcResumo(c)}</div>
+    <div id="orc-tot" class="orc-tot">${orcResumo(c)}</div>
   </div><div class="painel-rodape rodape-dir"><button class="btn" data-a="imprimirOrc" ${orcOk(c) ? '' : 'disabled'}>Imprimir para o paciente</button><button id="btn-orc" class="btn btn-pri" style="min-height:46px" data-a="aprovarOrc" ${orcOk(c) ? '' : 'disabled'}>Aprovar orçamento de ${brl(c.total)}</button></div></div>`;
 }
 const orcResumo = c => { const ult = c.total - c.parcela * (c.n - 1);
@@ -773,6 +773,7 @@ function modalDoc() {
   const cab = `<div class="painel-cab"><h2>${md ? md.nome : 'Documento'} · ${numNome(p)}</h2><button class="fechar" data-a="fecharModal" aria-label="Fechar">${ic('x', 20)}</button></div>`;
   if (!md) return `<div class="modal">${cab}<div class="painel-corpo"><div class="doc-tipos">${E.d.modelosDoc.map(x => `<button class="btn doc-tipo" data-a="docModelo" data-id="${x.id}">${ic('arquivo', 20)} ${x.nome}</button>`).join('')}</div></div></div>`;
   return `<div class="modal">${cab}<div class="painel-corpo">
+    ${alertas(p.id).length ? `<div class="doc-alerta">${ic('alerta', 16)} ${alertas(p.id).map(a => esc(a.texto)).join(' · ')}</div>` : ''}
     <div class="campo"><label for="doc-prof">Assinado por</label><select id="doc-prof" data-campo="pc.modal.prof">${E.d.profissionais.map(x => `<option value="${x.id}" ${x.id === m.prof ? 'selected' : ''}>${x.nome}</option>`).join('')}</select></div>
     <div class="campo"><label for="doc-texto">Texto</label><textarea id="doc-texto" rows="9" data-campo="pc.modal.texto" data-ao="docDigitado">${esc(m.texto)}</textarea></div>
   </div><div class="painel-rodape rodape-dir"><button class="btn" data-a="abrirDoc">Voltar</button><button class="btn btn-pri" data-a="imprimirDocModal">${ic('arquivo', 16)} Imprimir</button></div></div>`;
@@ -952,9 +953,13 @@ A.recForma = ds => { const m = E.ui.pc.modal; m.forma = ds.v; m.motivo = null; r
 A.recMotivo = ds => { E.ui.pc.modal.motivo = ds.v; if (ds.v === 'Outro') E.ui.foco = 'rec-motivo-txt'; render(); verMotivo(); };
 A.recMotivoTxt = () => { const m = E.ui.pc.modal, b = document.getElementById('btn-rec'), r = rotuloRec(m, recPrevia(m)); if (b) { b.textContent = r.txt; b.disabled = r.off; } };
 const totalAberto = pid => parcelasAbertas(pid).reduce((s, x) => s + saldoParcela(x), 0);
+/* ADR-027: 4 formas à vista; as outras em "Mais formas" */
+const FORMAS_BASE = ['Dinheiro', 'Pix', 'Cartão débito', 'Cartão crédito'], FORMAS_MAIS = ['Crédito parcelado', 'Carteira', 'Link de pagamento', 'Convênio'];
+const formasVisiveis = m => m.maisFormas || FORMAS_MAIS.includes(m.forma) ? FORMAS_BASE.concat(FORMAS_MAIS) : FORMAS_BASE;
+A.recMaisFormas = () => { E.ui.pc.modal.maisFormas = true; render(); };
 function recPrevia(m) {
   const v = lerReais(m.valorTxt), { res, sobra } = distribuir(m.pac, v), aberto = totalAberto(m.pac);
-  return { v, aberto, excesso: aberto > 0 && v > aberto, html: res.map(r => `<div class="mini">Parcela ${r.p.n}/${r.p.de} (vence ${dataBR(r.p.venc)}): <b>${brl(r.usa)}</b> ${r.quita ? '→ <span class="res-ok">quitada</span>' : `→ fica faltando ${brl(saldoParcela(r.p) - r.usa)}`}</div>`).join('')
+  return { v, aberto, excesso: aberto > 0 && v > aberto, html: res.filter(r => !r.quita).map(r => `<div class="mini">Parcela ${r.p.n}/${r.p.de} (vence ${dataBR(r.p.venc)}): <b>${brl(r.usa)}</b> ${r.quita ? '→ <span class="res-ok">quitada</span>' : `→ fica faltando ${brl(saldoParcela(r.p) - r.usa)}`}</div>`).join('')
     + (sobra > 0 && res.length ? `<div class="aviso-box aviso">Atenção: isso é <b>mais</b> do que deve (${brl(aberto)}). Sobram ${brl(sobra)}, que ficam como crédito.</div>` : '') };
 }
 function rotuloRec(m, pv) {
@@ -979,12 +984,11 @@ function modalRec() {
     <div id="rec-prev">${pv.html}</div>
     ${m.okExcesso ? `<div class="aviso-box erro">Confirme: ${esc(p.nome.split(' ')[0])} deve ${brl(pv.aberto)} e você está recebendo ${brl(pv.v)}. Toque de novo para confirmar.</div>` : ''}
     ${m.prevista ? `<div class="aviso-box info" style="margin:12px 0 0">${ic('assinar', 15)} A dentista anotou no comprovante: <b>${esc(m.prevista)}</b>.</div>` : ''}
-    <div class="campo" style="margin-top:12px"><label>Forma de pagamento <span class="obrig">*</span></label><div class="chips chips-forma">${['Dinheiro', 'Pix', 'Cartão débito', 'Cartão crédito', 'Crédito parcelado', 'Carteira', 'Link de pagamento', 'Convênio'].map(f => `<button class="${m.forma === f ? 'on' : ''}" data-a="recForma" data-v="${f}" aria-pressed="${m.forma === f}">${m.forma === f ? ic('check', 16) : ic((FORMAS[f] || ['caixa'])[0], 16)} ${f}</button>`).join('')}</div></div>
+    <div class="campo" style="margin-top:12px"><label>Forma de pagamento <span class="obrig">*</span></label><div class="chips chips-forma">${formasVisiveis(m).map(f => `<button class="${m.forma === f ? 'on' : ''}" data-a="recForma" data-v="${f}" aria-pressed="${m.forma === f}">${m.forma === f ? ic('check', 16) : ic((FORMAS[f] || ['caixa'])[0], 16)} ${f}</button>`).join('')}${m.maisFormas || FORMAS_MAIS.includes(m.forma) ? '' : `<button class="chip-mais" data-a="recMaisFormas">Mais formas ⋯</button>`}</div></div>
     ${m.prevista && m.forma && m.forma !== m.prevista ? `<div class="campo rec-motivo"><label>Mudou de ${esc(m.prevista)} para ${esc(m.forma)}. Por quê? <span class="obrig">*</span></label>
       <div class="chips">${['O paciente pediu', 'Cartão sem limite', 'Dividiu em duas formas', 'Outro'].map(x => `<button class="${m.motivo === x ? 'on' : ''}" data-a="recMotivo" data-v="${x}">${x}</button>`).join('')}</div>
       ${m.motivo === 'Outro' ? `<input id="rec-motivo-txt" placeholder="Escreva o motivo" value="${esc(m.motivoTxt || '')}" data-campo="pc.modal.motivoTxt" data-ao="recMotivoTxt">` : ''}</div>` : ''}
-    ${E.d.caixa.fechado ? '<div class="aviso-box aviso">O caixa de hoje já foi fechado. Este recebimento fica marcado como “depois do fechamento”.</div>' : ''}
-  </div><div class="painel-rodape"><button id="btn-rec" class="btn btn-pri" style="width:100%;min-height:48px" data-a="confirmarRec" ${r.off ? 'disabled' : ''}>${esc(r.txt)}</button></div></div>`;
+  </div><div class="painel-rodape painel-rodape-col">${E.d.caixa.fechado ? '<div class="aviso-box aviso">O caixa de hoje já foi fechado. Este recebimento fica marcado como “depois do fechamento”.</div>' : ''}<button id="btn-rec" class="btn btn-pri" style="width:100%;min-height:48px" data-a="confirmarRec" ${r.off ? 'disabled' : ''}>${esc(r.txt)}</button></div></div>`;
 }
 A.confirmarRec = () => { const m = E.ui.pc.modal, pv = recPrevia(m), p = pac(m.pac); if (!pv.v || !m.forma) return;
   if (pv.excesso && !m.okExcesso) { m.okExcesso = true; render(); return; }
@@ -1001,13 +1005,14 @@ function cartaoSaldo(t, cx) {
   const din = t.porForma['Dinheiro'] || 0, cartao = (t.porForma['Cartão crédito'] || 0) + (t.porForma['Cartão débito'] || 0) + (t.porForma['Crédito parcelado'] || 0);
   const outros = t.total - din - cartao;
   const linha = (rot, v, sub, cls = '') => `<div class="saldo-linha ${cls}"><span>${rot}${sub ? `<span class="mini muted">${sub}</span>` : ''}</span><b class="num">${v}</b></div>`;
-  const conf = !cx.fechado ? linha('Saldo da conferência', '—', 'aparece quando fechar o caixa e contar a gaveta', 'saldo-neutro')
-    : cx.dif === 0 ? linha('Saldo da conferência', brl(0), 'a gaveta bateu', 'saldo-ok')
+  // ADR-027: sem frases de ajuda; a conferência só aparece depois de fechar
+  const conf = !cx.fechado ? ''
+    : cx.dif === 0 ? linha('Saldo da conferência', brl(0), '', 'saldo-ok')
     : linha(cx.dif > 0 ? 'Saldo positivo' : 'Saldo negativo', `${cx.dif > 0 ? '+' : '−'} ${brl(Math.abs(cx.dif))}`, cx.dif > 0 ? 'sobrou na gaveta' : 'é quanto falta na gaveta', cx.dif > 0 ? 'saldo-aviso' : 'saldo-erro');
   return `<div class="cartao cx-saldo"><h3>${ic('dinheiro', 15)} Saldo de caixa</h3>
-    ${linha('Saldo em espécie', brl(din), 'dinheiro na gaveta')}
-    ${linha('Saldo em cartão', brl(cartao), 'crédito + débito')}
-    ${outros ? linha('Pix e outros', brl(outros), 'cai direto na conta') : ''}
+    ${linha('Em espécie', brl(din), '')}
+    ${linha('Em cartão', brl(cartao), '')}
+    ${outros ? linha('Pix e outros', brl(outros), '') : ''}
     ${conf}</div>`;
 }
 function telaCaixa() {
@@ -1018,15 +1023,12 @@ function telaCaixa() {
   const status = cx.fechado ? `<span class="cx-status fechado">${ic('cadeado', 14)} Fechado</span>` : `<span class="cx-status aberto"><span class="ponto"></span>Aberto</span>`;
   return `<div class="titulo-tela"><h1>Caixa</h1><span class="sub">${E.d.unidade} · quinta, 29/10</span>${status}
     <span style="margin-left:auto;display:flex;gap:8px">${cx.fechado ? `<span class="cx-ja-fechado">${ic('cadeado', 16)} Fechado às ${hhmm(cx.hora)} por ${esc(usu(cx.por).nome)}</span>` : `<button class="btn" data-a="abrirFechar">${ic('cadeado', 16)} Fechar caixa</button>`}<button class="btn btn-pri" data-a="abrirReceber">${ic('mais', 16)} Receber pagamento</button></span></div>
-  ${cx.fechado ? `<div class="aviso-box ${cx.dif === 0 ? 'ok' : 'erro'}">Gaveta conferida: ${cx.dif === 0 ? 'bateu certinho.' : `${cx.dif > 0 ? 'sobrou' : 'faltou'} <b>${brl(Math.abs(cx.dif))}</b> em dinheiro.`}</div>` : ''}
   ${(v => v ? `<div class="aviso-box aviso">Depois do fechamento entrou mais <b>${brl(v)}</b> em dinheiro: a gaveta deve ter ${brl(cx.gaveta + v)}, não ${brl(cx.gaveta)}.</div>` : '')(cx.fechado ? recs.filter(r => r.depoisFechamento && r.forma === 'Dinheiro').reduce((s, r) => s + r.valor, 0) : 0)}
   <div class="cx-topo">
     <div class="cartao cx-total">
       <span class="cx-rot">Recebido hoje</span>
       <b class="cx-valor num">${brl(t.total)}</b>
       <span class="mini muted">${recs.length} pagamento${recs.length === 1 ? '' : 's'} até ${hhmm(E.d.agoraMin)} · ontem, o dia todo: ${brl(E.d.ontem.total)}</span>
-      <div class="cx-barra">${formas.map(([f, v]) => `<i style="width:${t.total ? v / t.total * 100 : 0}%;background:${(FORMAS[f] || [, '#7C8CA3'])[1]}" title="${esc(f)} ${brl(v)}"></i>`).join('')}</div>
-      <div class="cx-formas">${formas.map(([f, v]) => `<div class="cx-forma-linha">${formaHTML(f)}<b class="num">${brl(v)}</b><span class="mini muted">${Math.round(v / t.total * 100)}%</span></div>`).join('') || '<span class="muted">Nada recebido ainda.</span>'}</div>
     </div>
     <div class="cx-lado">
       ${cartaoSaldo(t, cx)}
