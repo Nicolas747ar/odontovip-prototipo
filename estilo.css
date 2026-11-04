@@ -1663,3 +1663,11 @@ td.sem-passou .sem-cel{background:var(--bg)}
 /* o brilho do anel no próprio <svg>: dentro do SVG o filtro era recortado num quadrado */
 .sp-anel circle{filter:none}
 .sp-anel{filter:drop-shadow(0 0 6px rgba(246,227,161,.9))}
+/* S-mac-12b (Nicolas, no iPhone): em tela baixa (celular com a barra do navegador) o conteúdo passa da altura
+   e o flex encolhia o selo até virar um oval de 8 px. Nada encolhe: a portada rola. */
+.sobre>*,.splash>*{flex-shrink:0}
+/* celular baixo (barra do navegador): no PIN o teclado vem primeiro; a foto fica atrás, apagada */
+@container (max-width: 899px) and (max-height: 720px){
+  .sobre.pin>.card-usu{margin-top:4cqh}
+  .sobre.pin>.sobre-foto{opacity:.3}
+}
