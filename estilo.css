@@ -1561,3 +1561,47 @@ td.sem-passou .sem-cel{background:var(--bg)}
 .pn-resumo-l b{color:var(--ink)}
 .cel .cp-linha,.cel .cp-linha b{font-size:16px}
 .cel .c-total .dono-rot,.cel .cel-card .dono-rot{font-size:16px!important}
+/* S-mac-11 (Nicolas, 04/11): portada com a foto da Dra. Marcelly ao fundo, no mesmo degradê azul → celeste da barra do app (--grad-topo).
+   As frases do folheto saíram; a foto entra pela direita e se dissolve no azul. */
+.sobre{background:radial-gradient(circle at 93% -20%,rgba(255,255,255,.18),transparent 38%),var(--grad-topo);overflow:hidden auto;justify-content:safe center;container-type:size}
+.sobre-foto{position:absolute;right:0;bottom:0;height:100%;aspect-ratio:563/1030;background:url(fundo-portada.jpg) right bottom/cover no-repeat;pointer-events:none;
+  -webkit-mask-image:linear-gradient(to right,transparent 0,#000 38%),linear-gradient(to top,transparent 0,#000 14%);-webkit-mask-composite:source-in;
+  mask-image:linear-gradient(to right,transparent 0,#000 38%),linear-gradient(to top,transparent 0,#000 14%);mask-composite:intersect}
+.sobre::after{content:'';position:absolute;inset:0;background:radial-gradient(70% 60% at 30% 50%,rgba(10,42,94,.55),transparent 75%);pointer-events:none}
+.sobre>*:not(.sobre-foto){position:relative;z-index:1}
+.sobre h2,.sobre .pin-tit,.sobre>.card-usu b{color:#fff}
+.sobre .pin-tit .muted{color:rgba(255,255,255,.95)}
+.sobre>.btn-link{color:#fff;min-height:44px}
+.sobre .pin-erro{color:#fff;background:rgba(194,40,40,.9);border-radius:999px;padding:0 12px}
+.sobre .pin-erro:empty{background:none}
+.sobre>.card-usu .ini{background:#fff}
+.sobre-selo{box-shadow:0 0 0 3px rgba(255,255,255,.35),0 14px 30px -14px rgba(0,0,0,.5)}
+/* largo: o conteúdo vai para a esquerda e a foto fica inteira à direita */
+@container (min-width: 900px){
+  .sobre>*:not(.sobre-foto){margin-right:52cqh}
+  .sobre .cards-usu{max-width:calc(100cqw - 52cqh - 48px)}
+}
+/* estreito (celular, PC pequeno): a foto vira o alto da tela e o rosto fica livre; o resto vem embaixo */
+@container (max-width: 899px){
+  .sobre-foto{top:0;bottom:auto;height:34cqh;width:78cqw;aspect-ratio:auto;background-position:60% 4%;-webkit-mask-image:linear-gradient(to top,transparent 0,#000 50%),linear-gradient(to right,transparent 0,#000 45%);mask-image:linear-gradient(to top,transparent 0,#000 50%),linear-gradient(to right,transparent 0,#000 45%)}
+  .sobre{gap:10px}
+  .sobre>.sobre-selo{margin-top:17cqh;width:96px;height:96px}
+  .sobre.pin>.card-usu{margin-top:22cqh}
+}
+.sobre .pin-pontos i{border-color:#fff;background:transparent}
+.sobre .pin-pontos i.on{background:#fff}
+.sobre.pin>.sobre-selo{display:none}
+/* S-mac-11 (Nicolas): o selo maior e com uma entrada suave — cresce, brilha uma vez e respira o anel */
+.sobre>.sobre-selo{position:relative;width:132px;height:132px;padding:4px;overflow:hidden}
+.sobre-selo .selo-brilho{position:absolute;inset:0;border-radius:50%;overflow:hidden;pointer-events:none}
+.sobre-selo .selo-brilho::before{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.85),transparent);opacity:0}
+.sobre-selo.anim{animation:seloEntra .7s cubic-bezier(.2,.9,.3,1.2) both,seloAnel 1.6s .7s ease-out 2}
+.sobre-selo.anim .selo-brilho::before{animation:brilhar .6s .75s ease-in-out forwards}
+@keyframes seloEntra{from{opacity:0;transform:scale(.55) rotate(-8deg)}to{opacity:1;transform:none}}
+@keyframes seloAnel{0%{box-shadow:0 0 0 3px rgba(255,255,255,.35),0 0 0 0 rgba(255,255,255,.45),0 14px 30px -14px rgba(0,0,0,.5)}100%{box-shadow:0 0 0 3px rgba(255,255,255,.35),0 0 0 22px rgba(255,255,255,0),0 14px 30px -14px rgba(0,0,0,.5)}}
+@media (prefers-reduced-motion:reduce){.sobre-selo.anim,.sobre-selo.anim .selo-brilho::before{animation:none}}
+@container (max-width: 899px){ .sobre>.sobre-selo{width:96px;height:96px} }
+/* celular: o degradê clareia à direita; um véu marinho atrás do texto mantém o branco legível (AA) */
+.cel .sobre::after{background:radial-gradient(95% 60% at 50% 62%,rgba(10,42,94,.62),rgba(10,42,94,.25) 70%,transparent 100%)}
+/* a foto tem fundo cinza-azulado: um véu celeste em soft-light a aproxima do degradê, sem tingir o rosto */
+.sobre-foto::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,#2B8BE0,#3FB0EE);mix-blend-mode:soft-light;opacity:.55}

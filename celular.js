@@ -6,6 +6,7 @@ function celHTML() {
     if (!c.timer) c.timer = setTimeout(() => { if (E.ui.cel.tela === 'splash') { E.ui.cel.tela = 'login'; render(); } }, 1400);
     return `<div class="cel">${status}${splashHTML('OdontoVip')}</div>`;
   }
+  if (c.tela !== 'login' && E.ui.seloVisto) E.ui.seloVisto.cel = false;
   if (c.tela === 'login') return `<div class="cel">${status}${sobreHTML('cel')}</div>`;
   const u = usu(c.usuario);
   if (['dono', 'admin'].includes(u.papel)) return `<div class="cel">${status}${telaDono()}</div>`;

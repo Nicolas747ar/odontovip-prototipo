@@ -25,7 +25,7 @@ function pcHTML() {
   const item = ([id, ico, nome, badge]) => `<button class="menu-item ${ativo === id ? 'ativo' : ''}" data-a="tela" data-t="${id}" ${fechado ? `data-dica="${nome}" aria-label="${nome}"` : ''}><span class="ico">${ic(ico, 21)}</span><span class="menu-nome">${nome}</span>${badge ? `<b class="menu-badge" aria-label="${badge} pendentes">${badge}</b>` : ''}</button>`;
   const nPend = pendenciasHoje().n;
   return `<div class="pc ${fechado ? 'menu-fechado' : ''}">
-  <header class="pc-topo">
+  <header class="pc-topo" ${pc.sobre ? 'inert' : ''}>
     <button class="hamb" data-a="menuPC" aria-label="${fechado ? 'Mostrar menu' : 'Esconder menu'}" aria-expanded="${!fechado}">${ic('menu', 22)}</button>
     <div class="marca"><span class="selo"><img src="selo.png" alt=""></span><span class="marca-txt"><b>OdontoVip</b><span>Gestão da clínica</span></span></div>
     <button class="unid" data-a="trocarUnidade">${ic('local', 16)} ${esc(E.d.unidade)} ${ic('baixo', 16)}</button>
@@ -38,17 +38,17 @@ function pcHTML() {
       <button class="usu" data-a="trocarUsuario" aria-label="Trocar usuário"><span class="av">${iniciais(u.nome)}</span><span class="usu-txt"><b>${esc(u.nome)}</b><span>${esc(u.rotulo.split(' · ')[0])}</span></span>${ic('baixo', 16)}</button>
     </div>
   </header>
-  <nav class="pc-menu">
+  <nav class="pc-menu" ${pc.sobre ? 'inert' : ''}>
     ${menu.map(item).join('')}
     ${gestao.length ? `<div class="menu-grupo">Gestão</div>${gestao.map(item).join('')}` : ''}
     <div class="menu-sep"></div>
     ${pode('config') ? item(['config', 'config', 'Configurações']) : ''}
     <button class="menu-item" data-a="menuPC" ${fechado ? 'data-dica="Mostrar menu" aria-label="Mostrar menu"' : ''}><span class="ico">${ic(fechado ? 'expandir' : 'recolher', 21)}</span><span class="menu-nome">Esconder menu</span></button>
   </nav>
-  <main class="pc-conteudo" data-scroll="pc-main">${telaPC()}</main>
+  <main class="pc-conteudo" data-scroll="pc-main" ${pc.sobre ? 'inert' : ''}>${telaPC()}</main>
   ${pc.painel ? '<div class="cortina" data-a="fecharPainel"></div>' + painelHTML() : ''}
   ${pc.modal ? '<div class="cortina"></div>' + modalHTML() : ''}
-  ${pc.sobre ? sobreHTML('pc') : ''}
+  ${pc.sobre ? sobreHTML('pc') : ((E.ui.seloVisto || {}).pc = false, '')}
   </div>`;
 }
 A.verPendencias = () => { const pc = E.ui.pc; pc.tela = 'hoje'; pc.abaHoje = 'agenda'; pc.painel = null; pc.modal = null; render();
@@ -1418,11 +1418,14 @@ function sobreHTML(alvo) {
   const s = alvo === 'pc' ? E.ui.pc : E.ui.cel;
   if (s.sobre === 'splash' || s.tela === 'splash') return splashHTML(alvo === 'pc' ? `Bom dia, ${E.d.unidade}.` : 'OdontoVip');
   const lista = alvo === 'pc' ? E.d.usuarios : E.d.usuarios.filter(u => u.papel !== 'recepcao');
-  const selo = '<span class="sobre-selo"><img src="selo.png" alt="OdontoVip"></span>';
-  if (!s.pinUsu) return `<div class="sobre">${selo}<h2>Quem é você?</h2><div class="cards-usu">${lista.map(u => `<button class="card-usu ${alvo === 'pc' && u.id === E.ui.pc.usuario ? 'atual' : ''}" data-a="escolherUsu" data-alvo="${alvo}" data-id="${u.id}"><div class="ini">${iniciais(u.nome)}</div><b>${esc(u.nome)}</b><small>${u.rotulo}${alvo === 'pc' && u.id === E.ui.pc.usuario ? ' · agora' : ''}</small></button>`).join('')}</div>
+  // o selo entra com animação só na primeira vez que a portada aparece (render() redesenha a cada toque)
+  const visto = (E.ui.seloVisto = E.ui.seloVisto || {});
+  const anim = !visto[alvo] ? ' anim' : ''; visto[alvo] = true;
+  const selo = `<i class="sobre-foto" aria-hidden="true"></i><span class="sobre-selo${anim}"><img src="selo.png" alt="OdontoVip"><i class="selo-brilho" aria-hidden="true"></i></span>`;
+  if (!s.pinUsu) return `<div class="sobre" data-scroll="sobre-${alvo}">${selo}<h2>Quem é você?</h2><div class="cards-usu">${lista.map(u => `<button class="card-usu ${alvo === 'pc' && u.id === E.ui.pc.usuario ? 'atual' : ''}" data-a="escolherUsu" data-alvo="${alvo}" data-id="${u.id}"><div class="ini">${iniciais(u.nome)}</div><b>${esc(u.nome)}</b><small>${u.rotulo}${alvo === 'pc' && u.id === E.ui.pc.usuario ? ' · agora' : ''}</small></button>`).join('')}</div>
     ${alvo === 'pc' ? '<button class="btn-link" data-a="cancelarTroca">Cancelar</button>' : ''}</div>`;
   const u = usu(s.pinUsu);
-  return `<div class="sobre">${selo}<div class="card-usu" style="border:0;background:none;box-shadow:none"><div class="ini">${iniciais(u.nome)}</div><b>${esc(u.nome)}</b></div>
+  return `<div class="sobre pin" data-scroll="sobre-${alvo}-pin">${selo}<div class="card-usu" style="border:0;background:none;box-shadow:none"><div class="ini">${iniciais(u.nome)}</div><b>${esc(u.nome)}</b></div>
     <div class="pin-tit">Digite seu PIN <span class="mini muted">(no protótipo: 1234)</span></div>
     <div class="pin-pontos">${[0, 1, 2, 3].map(i => `<i class="${s.pinBuf.length > i ? 'on' : ''}"></i>`).join('')}</div>
     <div class="pin-erro">${s.pinErro || ''}</div>
