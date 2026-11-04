@@ -1,0 +1,72 @@
+/* Carril B — MacBook (T-018): agenda (repetir, lista de espera, retornos) e WhatsApp 2 */
+
+/* novo agendamento: repetir */
+.rep-ag{padding:4px 0}
+.rep-tog{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--ink);cursor:pointer;min-height:32px;margin:0}
+.rep-tog input{width:18px;height:18px;accent-color:var(--azul-600, #1673CC)}
+.rep-linha{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;font-size:14px;color:var(--ink-soft)}
+.rep-linha select{min-height:36px;padding:0 8px;border:1px solid var(--rule);border-radius:8px;background:#fff;font:inherit;color:var(--ink)}
+.rep-datas{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.rep-d{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;background:var(--ok-bg);color:var(--ok);font-size:13px;font-weight:600}
+.rep-d.pula{background:var(--erro-bg);color:var(--erro);text-decoration:line-through}
+
+/* tela Espera e retornos */
+.ag-vaga{margin-bottom:14px}
+.ag-vaga.foco{box-shadow:0 0 0 4px rgba(43,139,224,.18)}
+.ag-vaga .cartao-cab h3{display:flex;align-items:center;gap:8px}
+.ag-vaga-pac{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) auto;gap:14px;align-items:center;padding:10px 0;border-top:1px solid var(--rule)}
+.ag-vaga-pac .acoes{display:flex;flex-direction:column;gap:8px}
+.ag-wa{margin:0}
+.ag-wa .wa-balao{font-size:14px}
+@container (max-width: 980px){ .ag-vaga-pac{grid-template-columns:1fr} .ag-vaga-pac .acoes{flex-direction:row;flex-wrap:wrap} }
+.ag-form{margin-bottom:14px}
+.ag-form .chips button{min-height:40px}
+.ag-vence{font-size:13px;font-weight:700;color:var(--ink-soft);white-space:nowrap}
+.ag-vence.perto{color:var(--aviso)}
+.ag-vence.venceu{color:var(--erro)}
+.ag-depois{margin-top:12px}
+.ag-depois summary{cursor:pointer;min-height:40px;display:flex;align-items:center;gap:8px;list-style:none}
+
+/* WhatsApp: aviso grande de desconexão (lição do Big Idea: um mês com 100% de falha sem ninguém ver) */
+.wa-caiu{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:14px 16px;border-radius:14px;background:var(--erro);color:#fff;font-size:15px}
+.wa-caiu .btn{margin-left:auto;background:#fff;color:var(--erro);border-color:#fff}
+.wa-tabs{flex-wrap:wrap}
+.ag-linha{display:grid;grid-template-columns:44px minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:11px 6px;border-bottom:1px solid var(--rule)}
+.ag-linha:last-child{border-bottom:0}
+.rep-ag .rep-linha select{width:auto;flex:none}
+.rep-ag label.rep-tog{font-size:15px;text-transform:none;letter-spacing:0}
+
+/* após a revisão (S-mac-13-LV/QA) */
+.painel label.rep-tog{display:flex;align-items:center;gap:10px}
+.painel .rep-tog input{min-height:0;height:20px;width:20px;margin:0;flex:none}
+.rep-ate{min-height:36px;padding:0 8px;border:1px solid var(--rule);border-radius:8px;font:inherit}
+.rep-resumo{display:flex;align-items:flex-start;gap:6px;margin-top:10px;font-size:14px;color:var(--ink)}
+.rep-resumo .ic{flex:none;margin-top:2px;color:var(--azul-600)}
+.rep-pula{margin-top:8px;font-size:14px;line-height:1.7;color:var(--ink-soft)}
+.ag-cfg-sub{margin:18px 0 4px;font-size:15px;font-weight:700;color:var(--ink)}
+.ag-fer{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 18px;font-size:14px;padding:4px 0}
+.ag-fer b{display:inline-block;min-width:92px;color:var(--ink-soft);font-weight:600}
+.ag-depois>summary::-webkit-details-marker{display:none}
+.ag-depois>summary::after{content:'';margin-left:auto;width:9px;height:9px;border-right:2px solid var(--ink-soft);border-bottom:2px solid var(--ink-soft);transform:rotate(45deg)}
+.ag-depois[open]>summary::after{transform:rotate(-135deg)}
+.wa-mais{position:relative}
+.wa-mais>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:999px;font-weight:600;color:var(--ink-soft)}
+.wa-mais>summary::-webkit-details-marker{display:none}
+.wa-mais>summary::after{content:'';width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px)}
+.wa-mais-menu{position:absolute;z-index:20;top:calc(100% + 6px);left:0;display:flex;flex-direction:column;gap:4px;min-width:240px;padding:8px;background:#fff;border:1px solid var(--rule);border-radius:12px;box-shadow:0 12px 30px -12px rgba(6,35,71,.35)}
+.wa-mais-menu button{justify-content:flex-start}
+/* WhatsApp caído: a barra de cima e o menu também avisam (classe no <body>, ver agenda-wa.js) */
+.wa-caiu-on .pc-topo .conexao.ok{background:var(--erro);color:#fff;font-size:0}
+.wa-caiu-on .pc-topo .conexao.ok .ponto{background:#fff}
+.wa-caiu-on .pc-topo .conexao.ok::after{content:'WhatsApp desconectado';font-size:13px;font-weight:700}
+.wa-caiu-on .pc-menu [data-t="whatsapp"] .ico{position:relative}
+.wa-caiu-on .pc-menu [data-t="whatsapp"] .ico::after{content:'';position:absolute;top:-2px;right:-3px;width:10px;height:10px;border-radius:50%;background:var(--erro);box-shadow:0 0 0 2px #fff}
+.wa-caiu-on .pc-topo .conexao.ok{display:inline-flex!important}
+.rep-linha>span{white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.rep-resumo{display:block}
+.rep-resumo .ic{vertical-align:-2px;margin-right:4px}
+.wa-mais>summary.on{background:var(--info-bg);color:var(--brand-deep)}
+@container (max-width: 1180px){ .wa-caiu-on .pc-topo .conexao.ok::after{content:"WhatsApp caiu"} }
+/* integração: aviso de WhatsApp desconectado direto na barra (pcHTML) */
+.pc-topo .conexao.wa-caiu{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:6px 12px;background:var(--erro);color:#fff;font-size:13px;font-weight:700;cursor:pointer}
+.pc-topo .conexao.wa-caiu .ponto{background:#fff}

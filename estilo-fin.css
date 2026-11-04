@@ -1,0 +1,29 @@
+/* Carril A — hackintosh (T-019): Financeiro, recibo, dados da dentista */
+.fin-barra{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.fin-barra .titulo-acoes{margin-left:auto}
+.nd-form{margin-top:16px}
+.nd-fixa{display:flex;align-items:center;gap:8px;align-self:end;min-height:44px;font-size:14px;font-weight:600}
+.nd-fixa input{width:18px;height:18px;accent-color:var(--azul-600)}
+.recibo-folha{border:1px solid var(--rule);border-radius:12px;padding:20px 22px;background:#fff;font-size:15px;line-height:1.6}
+.recibo-cab{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--azul-600);padding-bottom:8px;margin-bottom:14px}
+.recibo-cab b{font-size:18px;color:var(--ink)}
+.recibo-cab span{color:var(--ink-soft);font-size:13.5px}
+.recibo-folha h3{margin:0 0 10px;font-size:17px}
+.recibo-folha p{margin:0}
+.recibo-ass{margin-top:28px;padding-top:6px;border-top:1px solid var(--ink-faint);width:60%;text-align:center;color:var(--ink-soft);font-size:14px}
+.cx-tab td:last-child{white-space:nowrap}
+/* ronda 9 */
+.desp-forn{display:block;font-size:13.5px;color:var(--ink-soft);font-weight:400}
+.desp-tab td:last-child{white-space:nowrap}
+.desp-feita td{background:var(--bg)}
+.desp-ok{display:inline-flex;align-items:center;gap:4px;color:var(--ok);font-weight:700;font-size:14px}
+.fin-sai{background:var(--neutro)!important;opacity:1}
+.recibo-marca{display:inline-flex;align-items:center;gap:10px}
+.recibo-marca img{width:48px;height:48px;border-radius:50%}
+.tag{font-size:13.5px}
+.cfg-nav .cfg-item{padding:8px 12px}
+.desp-venc{display:flex;align-items:center;gap:3px;color:var(--erro);font-weight:700;font-size:13px}
+.desp-ok.volta{color:var(--ink-soft)}
+.cfg-item .h-meta{white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis}
+.cartao-cab .mini{font-size:14px}
+.modal .recibo-folha{padding:16px 18px}

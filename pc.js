@@ -21,6 +21,7 @@ function pcHTML() {
   const gestao = [];
   if (pode('relatorios')) gestao.push(['relatorios', 'graficos', 'Relatórios']);
   if (pode('whatsapp')) gestao.push(['whatsapp', 'msg', 'WhatsApp']);
+  MENU_EXTRA.filter(x => !x[4] || x[4]()).forEach(([id, ico, nome, grupo]) => (grupo === 'gestao' ? gestao : menu).push([id, ico, nome]));
   const ativo = pc.tela === 'ficha' || pc.tela === 'novoPac' ? 'pacientes' : pc.tela;
   const item = ([id, ico, nome, badge]) => `<button class="menu-item ${ativo === id ? 'ativo' : ''}" data-a="tela" data-t="${id}" ${fechado ? `data-dica="${nome}" aria-label="${nome}"` : ''}><span class="ico">${ic(ico, 21)}</span><span class="menu-nome">${nome}</span>${badge ? `<b class="menu-badge" aria-label="${badge} pendentes">${badge}</b>` : ''}</button>`;
   const nPend = pendenciasHoje().n;
@@ -33,6 +34,7 @@ function pcHTML() {
     <div class="topo-dir">
       ${E.ui.clinicaSemInternet
         ? '<span class="conexao aviso" title="O sistema funciona normal. Só o WhatsApp e o resumo do dono esperam a internet voltar."><span class="ponto"></span>Sem internet — tudo funciona</span>'
+        : E.ui.waDesconectado && pode('whatsapp') ? '<button class="conexao wa-caiu" data-a="tela" data-t="whatsapp"><span class="ponto"></span>WhatsApp desconectado</button>'
         : '<span class="conexao ok"><span class="ponto"></span>Conectado</span>'}
       <button class="topo-ico" data-a="verPendencias" data-dica="${nPend ? `${nPend} pendências de hoje` : 'Nenhuma pendência hoje'}" aria-label="Pendências de hoje: ${nPend}">${ic('sino', 20)}${nPend ? '<b></b>' : ''}</button>
       <button class="usu" data-a="trocarUsuario" aria-label="Trocar usuário"><span class="av">${iniciais(u.nome)}</span><span class="usu-txt"><b>${esc(u.nome)}</b><span>${esc(u.rotulo.split(' · ')[0])}</span></span>${ic('baixo', 16)}</button>
@@ -55,8 +57,11 @@ A.verPendencias = () => { const pc = E.ui.pc; pc.tela = 'hoje'; pc.abaHoje = 'ag
   const c = document.querySelector('.h-cartao-atencao'), m = document.querySelector('[data-scroll="pc-main"]'); if (c && m) m.scrollTo({ top: Math.max(0, c.offsetTop - 16), behavior: 'smooth' }); };
 A.menuPC = () => { E.ui.pc.menuFechado = !E.ui.pc.menuFechado; render(); };
 A.trocarUnidade = () => toast('Por enquanto só Boa Viagem. Prazeres e Norte entram no mesmo sistema depois (ADR-026).');
+/* ganchos dos carris paralelos (04/11): financeiro.js (hackintosh) e agenda-wa.js (MacBook) registram
+   telas em TELAS_EXTRA e itens de menu em MENU_EXTRA = [id, ícone, nome, grupo ('' ou 'gestao'), quem pode (função)] */
+const TELAS_EXTRA = {}, MENU_EXTRA = [];
 function telaPC() {
-  return ({ hoje: telaHoje, agenda: telaAgenda, pacientes: telaPacientes, novoPac: telaNovoPac, ficha: telaFicha, caixa: telaCaixa, config: telaConfig, relatorios: telaRelatorios, whatsapp: telaWhatsApp })[E.ui.pc.tela]();
+  return ({ ...TELAS_EXTRA, hoje: telaHoje, agenda: telaAgenda, pacientes: telaPacientes, novoPac: telaNovoPac, ficha: telaFicha, caixa: telaCaixa, config: telaConfig, relatorios: telaRelatorios, whatsapp: telaWhatsApp })[E.ui.pc.tela]();
 }
 A.tela = ds => { const pc = E.ui.pc; pc.tela = ds.t; pc.painel = null; pc.modal = null; pc.anamForm = null; pc.evoForm = null; render(); };
 A.fecharPainel = () => { E.ui.pc.painel = null; render(); };
@@ -184,7 +189,9 @@ function pendenciasHoje() {
     .filter(pid => !pagoParaComecar(pid) || semOrcamentoAprovado(pid)).map(pid => ({ pid, ag: doDia.filter(a => a.pac === pid && ['chegou', 'em_atendimento'].includes(estadoPos(a)))[0], devido: aCobrarHoje(pid), semOrc: pagoParaComecar(pid) })) : [];
   const nome = p => esc(p.nome);
   const novos = aprovaProc() ? E.d.procedimentos.filter(x => x.pendente) : [];
+  const agWa = pendenciasAgWa(); // T-018: WhatsApp desconectado e vaga liberada
   const html = [
+    ...agWa.urg,
     ...novos.map(x => itemAtencao('prancheta', 'info', esc(x.nome), `${x.dur} min · criado por ${esc((usu(x.criadoPor) || {}).nome || '—')}`,
       `<input class="preco-in pp-in" id="pp-${x.id}" inputmode="decimal" placeholder="Preço R$" aria-label="Preço particular de ${esc(x.nome)}"><button class="btn btn-peq btn-pri" data-a="aprovarProc" data-id="${x.id}">Aprovar</button><button class="btn btn-peq" data-a="recusarProc" data-id="${x.id}">Recusar</button>`, '', '', 'Procedimento novo para aprovar')),
     ...antes.map(s => { const p = pac(s.pid), naCadeira = s.ag.estado === 'em_atendimento';
@@ -198,6 +205,7 @@ function pendenciasHoje() {
       return itemAtencao(cobra ? 'recibo' : 'remarcar', 'info', nome(p), linhas,
         (cobra ? `<button class="btn btn-peq" data-a="abrirReceber" data-pac="${s.pid}">Receber ${brl(s.devido).replace(',00', '')}</button>` : '')
         + (s.ret ? `<button class="btn btn-peq" data-a="agendarRetorno" data-id="${s.ret.id}">Agendar retorno</button>` : ''), '', '', cobra ? 'Saída com valor pendente' : 'Saída: agendar o retorno'); }),
+    ...agWa.vagas,
     ...naoVeio.map(a => { const p = pac(a.pac);
       return itemAtencao('relogio', 'erro', nome(p), `era às ${hhmm(a.ini)} · <span class="num">${esc(p.cel)}</span>`,
         `<button class="btn btn-peq" data-a="estadoAg" data-o="hoje" data-id="${a.id}" data-e="chegou">Presente</button><button class="btn btn-peq" data-a="estadoAg" data-o="hoje" data-id="${a.id}" data-e="faltou">Faltou</button>`, '', a.id, 'Não chegou'); }),
@@ -207,7 +215,7 @@ function pendenciasHoje() {
       return itemAtencao('calendarioX', 'neutro', nome(p), `${esc(prof(x.prof).curto)} · ninguém marcou se veio`,
         `<button class="btn btn-peq" data-a="fecharAnterior" data-id="${x.id}" data-e="atendido">Veio</button><button class="btn btn-peq" data-a="fecharAnterior" data-id="${x.id}" data-e="faltou">Faltou</button>`, `${dataBR(x.data)} ${hhmm(x.ini)}`, x.id, 'Ficou aberta de outro dia'); }),
   ];
-  const n = novos.length + antes.length + saidas.length + naoVeio.filter(a => !fixo(a.id)).length + retornos.length + anteriores.filter(x => !fixo(x.id)).length;
+  const n = agWa.n + novos.length + antes.length + saidas.length + naoVeio.filter(a => !fixo(a.id)).length + retornos.length + anteriores.filter(x => !fixo(x.id)).length;
   const todas = E.ui.pc.pendTodas, MAX = 4;
   return { n, html: (todas ? html : html.slice(0, MAX)).join('') + (html.length > MAX ? `<button class="btn-link pend-mais" data-a="pendTodas">${todas ? 'Mostrar menos' : `Ver todas (${html.length})`}</button>` : '') };
 }
@@ -383,32 +391,44 @@ function abrirNovoAg(o = {}) {
   const pr = prof(o.prof || 'p-mar');
   let ini = o.ini ?? Math.ceil(E.d.agoraMin / 10) * 10; if (ini >= 720 && ini < 780) ini = 780; if (ini >= 1080) ini = 1070;
   E.ui.pc.painel = { tipo: 'novoAg', f: { pac: o.pac || null, proc: o.proc || '', prof: pr.id, cad: o.cad || pr.cadeira, ini, horaTxt: hhmm(ini),
-    dur: o.dur || 30, tipo: o.tipo || 'Consulta', origem: o.origem || E.ui.ultimaOrigem, obs: o.obs || '', busca: '', cadNovo: null, remarcaDe: o.remarcaDe || null, retorno: o.retorno || null } };
+    dur: o.dur || pr.durPadrao || 30, tipo: o.tipo || 'Consulta', origem: o.origem || E.ui.ultimaOrigem, obs: o.obs || '', busca: '', cadNovo: null, remarcaDe: o.remarcaDe || null, retorno: o.retorno || null } };
   if (!o.pac) E.ui.foco = 'busca-ag';
   render();
 }
 A.novoAg = ds => abrirNovoAg(ds.pac ? { pac: ds.pac } : {});
 function fAg() { return E.ui.pc.painel.f; }
 function estadoBotaoAg(f) {
-  const ini = paraMin(f.horaTxt), fim = ini + Number(f.dur);
-  const c = f.pac ? conflitos({ ...f, ini, dur: Number(f.dur) }, f.remarcaDe) : [];
+  const ini = paraMin(f.horaTxt), fim = ini + Number(f.dur), hojeAg = ehHojeAg(f.data); // T-018: outro dia, feriado, férias e horário
+  const c = f.pac && hojeAg ? conflitos({ ...f, ini, dur: Number(f.dur) }, f.remarcaDe) : [];
+  const fut = f.pac && !hojeAg ? conflitoFut(f, f.data, ini, fim) : null, bloq = bloqueioAg(f.prof, f.data || E.d.hoje, ini, fim);
   let falta = '';
   if (f.cadNovo) falta = 'Termine o cadastro do paciente acima.';
   else if (f.proc === '__novo') falta = 'Toque em “Usar este procedimento” ou escolha outro.';
   else if (!f.pac) falta = 'Escolha ou cadastre o paciente.';
   else if (!f.origem) falta = 'Escolha como o paciente chegou.';
   else if (c.length) falta = 'Esse horário está ocupado.';
+  else if (fut) falta = `Esse horário está ocupado em ${dataBR(f.data)}: ${fut.pac ? esc(pac(fut.pac).nome) : esc(fut.tipo)} às ${hhmm(fut.ini)}.`;
+  else if (bloq) falta = bloq;
   // mesmas regras do "Próximo horário livre" (proximoLivre): almoço 12:00–13:00 e fim às 18:00
   else if (ini < 780 && fim > 720) falta = `Termina às ${hhmm(fim)}: entra no almoço (12:00–13:00).`;
   else if (fim > 1080) falta = `Termina às ${hhmm(fim)}: passa das 18:00.`;
   const p = f.pac && pac(f.pac);
-  const label = p ? `Agendar ${esc(p.nome.split(' ').slice(0, 2).join(' '))} · ${DIA} · ${f.horaTxt}` : 'Agendar';
+  const nRep = repeticoesAg(f).filter(x => !x.motivo).length;
+  const label = p ? `Agendar ${esc(p.nome.split(' ').slice(0, 2).join(' '))} · ${hojeAg ? DIA : dataCurta(f.data)} · ${f.horaTxt}${nRep ? ` + ${nRep} ${nRep === 1 ? 'vez' : 'vezes'}` : ''}` : 'Agendar';
   return { c, falta, label };
 }
+/* próximo horário livre que a agenda deixa marcar de verdade (revisão de código do carril B) */
+function livreAg(f) { const dur = Number(f.dur), iso = f.data || E.d.hoje;
+  for (let m = paraMin(f.horaTxt); m <= 18 * 60 - dur; m += 10) {
+    if (m < 13 * 60 && m + dur > 12 * 60) continue;
+    if (bloqueioAg(f.prof, iso, m, m + dur)) continue;
+    if (ehHojeAg(iso) ? conflitos({ ...f, ini: m, dur }, f.remarcaDe).length : conflitoFut(f, iso, m, m + dur)) continue;
+    return m; }
+  return null; }
 function conflitoHTML(f) {
   const { c } = estadoBotaoAg(f); if (!c.length) return '';
   const a = c[0], quem = a.pac ? `nº ${pac(a.pac).numero} ${esc(pac(a.pac).nome)}` : esc(a.tipo);
-  const livre = proximoLivre({ ...f, ini: paraMin(f.horaTxt), dur: Number(f.dur) }, f.remarcaDe);
+  const livre = livreAg(f);
   return `<div class="aviso-box erro">Esse horário já está ocupado: ${esc(prof(a.prof).curto)}${a.cad ? ' · ' + cad(a.cad).nome : ''} tem ${quem} das ${hhmm(a.ini)} às ${hhmm(a.ini + a.dur)}.
     ${livre != null ? `<br>Próximo horário livre: <b>${hhmm(livre)}</b> <button class="btn btn-peq" data-a="usarHora" data-m="${livre}">Usar ${hhmm(livre)}</button>` : ''}</div>`;
 }
@@ -433,7 +453,7 @@ A.aprovarProc = ds => { const pr = proc(ds.id); if (!pr || !aprovaProc()) return
   comDesfazer(`“${esc(pr.nome)}” aprovado por ${brl(v)}.`, () => { delete pr.pendente; pr.aprovadoPor = E.ui.pc.usuario; pr.preco = v;
     E.d.precos[pr.id] = { ...Object.fromEntries(E.d.convenios.map(c => [c.id, null])), part: v }; }); };
 A.recusarProc = ds => { const pr = proc(ds.id); if (!pr || !aprovaProc()) return; comDesfazer(`“${esc(pr.nome)}” recusado.`, () => { pr.recusado = true; delete pr.pendente; }); };
-A.profAg = () => { const f = fAg(); f.cad = prof(f.prof).cadeira; render(); };
+A.profAg = () => { const f = fAg(), pr = prof(f.prof); f.cad = pr.cadeira; if (!f.proc && pr.durPadrao) f.dur = pr.durPadrao; render(); }; // sem procedimento, vale a consulta padrão da dentista
 A.buscaAg = (ds, el) => {
   const t = el.value, r = buscarPacientes(t), box = document.getElementById('res-ag');
   // sem resultado: botão grande "Paciente novo" em vez de um link no fim da lista (Danielle, R15)
@@ -512,10 +532,13 @@ A.salvarAg = () => {
   const f = fAg(), s = estadoBotaoAg(f); if (s.falta) return;
   const ini = paraMin(f.horaTxt), p = pac(f.pac);
   const voltou = p.inativo || p.excluido;
-  comDesfazer(`Agendado: ${esc(p.nome)} · ${f.horaTxt} com ${esc(prof(f.prof).curto)}.${voltou ? ' O cadastro voltou a ficar ativo.' : ''}`, () => {
+  const reps = repeticoesAg(f), nRep = reps.filter(x => !x.motivo).length, fora = reps.length - nRep;
+  comDesfazer(`Agendado: ${esc(p.nome)} · ${ehHojeAg(f.data) ? '' : dataBR(f.data) + ' '}${f.horaTxt} com ${esc(prof(f.prof).curto)}.${nRep ? ` E mais ${nRep} ${nRep === 1 ? 'vez' : 'vezes'}${fora ? ` (${fora} ${fora === 1 ? 'data ficou' : 'datas ficaram'} de fora)` : ''}.` : ''}${voltou ? ' O cadastro voltou a ficar ativo.' : ''}`, () => {
     delete p.inativo; delete p.excluido;
     const novo = { id: uid(), pac: f.pac, prof: f.prof, cad: f.cad, ini, dur: Number(f.dur), proc: f.proc || null, tipo: f.tipo, origem: f.origem, estado: 'a_confirmar', obs: f.obs };
-    E.d.agendamentos.push(novo);
+    if (ehHojeAg(f.data)) E.d.agendamentos.push(novo); else E.d.agFuturos.push({ ...novo, data: f.data });
+    repeticoesAg(f).filter(x => !x.motivo).forEach(x => E.d.agFuturos.push({ ...novo, id: uid(), data: x.data, serie: novo.id }));
+    aposAgendarAgWa(f);
     if (f.remarcaDe) { const v = E.d.agendamentos.find(a => a.id === f.remarcaDe); v.estado = 'remarcado'; v.novo = novo.id; }
     if (f.retorno) { const r = E.d.pedidosRetorno.find(x => x.id === f.retorno); if (r) r.feito = true; }
     E.ui.ultimaOrigem = f.origem; E.ui.pc.painel = null;
@@ -527,7 +550,8 @@ function painelHTML() {
   return pn.tipo === 'novoAg' ? painelNovoAg() : painelDetalhe();
 }
 function painelNovoAg() {
-  const f = fAg(), s = estadoBotaoAg(f), p = f.pac && pac(f.pac);
+  const f = fAg(); f.data = f.data || E.d.hoje;
+  const s = estadoBotaoAg(f), p = f.pac && pac(f.pac);
   let pacHTML;
   if (f.cadNovo) {
     const n = f.cadNovo;
@@ -552,18 +576,19 @@ function painelNovoAg() {
       <div class="ajuda">Se não existir, aparece o botão “Paciente novo” — sem sair daqui.</div>`;
   }
   return `<aside class="painel"><div class="painel-cab"><h2>${f.remarcaDe ? 'Remarcar' : 'Novo agendamento'}</h2><button class="fechar" data-a="fecharPainel" aria-label="Fechar">${ic('x', 20)}</button></div>
-  <div class="painel-corpo">
+  <div class="painel-corpo" data-scroll="painel-ag">
     <div class="campo"><label>Paciente <span class="obrig">*</span></label>${pacHTML}</div>
     <div class="campo"><label>Procedimento <span class="muted">(define a duração)</span></label><select data-campo="pc.painel.f.proc" data-ao="procAg"><option value="">— nenhum —</option>${E.d.procedimentos.filter(x => !x.recusado).map(x => `<option value="${x.id}" ${x.id === f.proc ? 'selected' : ''}>${x.nome} · ${x.dur} min${x.pendente ? ' · aguarda aprovação' : ''}</option>`).join('')}<option value="__novo" ${f.proc === '__novo' ? 'selected' : ''}>+ Outro procedimento (novo)…</option></select></div>
     ${f.proc === '__novo' ? `<div class="novo-proc"><div class="duas"><div class="campo"><label>Nome do procedimento <span class="obrig">*</span></label><input id="np-proc" value="${esc((f.novoProc || {}).nome || '')}" data-campo="pc.painel.f.novoProc.nome" placeholder="Ex.: Placa de bruxismo"></div>
       <div class="campo"><label>Duração do procedimento</label><select data-campo="pc.painel.f.novoProc.dur">${[10, 20, 30, 40, 60, 90, 120].map(d => `<option value="${d}" ${d == (f.novoProc || {}).dur ? 'selected' : ''}>${d} min</option>`).join('')}</select></div></div>
       <button class="btn btn-peq" data-a="criarProc">Usar este procedimento</button></div>` : ''}
-    <div class="tres"><div class="campo"><label>Data</label><input value="qui 29/10" disabled></div>
-      <div class="campo"><label>Hora</label><select data-campo="pc.painel.f.horaTxt" data-ao="avaliarAg">${horariosDoDia(f.horaTxt).map(h => `<option ${h === f.horaTxt ? 'selected' : ''}>${h}</option>`).join('')}</select></div>
-      <div class="campo" ${f.proc === '__novo' ? 'hidden' : ''}><label>Duração</label><select data-campo="pc.painel.f.dur" data-ao="avaliarAg">${[10, 20, 30, 40, 60, 90, 120].map(m => `<option value="${m}" ${m == f.dur ? 'selected' : ''}>${m} min</option>`).join('')}</select></div></div>
+    <div class="tres"><div class="campo"><label>Data</label><select data-campo="pc.painel.f.data" data-ao="dataAg">${opcoesDataAg(f.data, f.prof)}</select></div>
+      <div class="campo"><label>Hora</label><select data-campo="pc.painel.f.horaTxt" data-ao="dataAg">${opcoesHoraAg(f, horariosDoDia(f.horaTxt))}</select></div>
+      <div class="campo" ${f.proc === '__novo' ? 'hidden' : ''}><label>Duração</label><select data-campo="pc.painel.f.dur" data-ao="dataAg">${[10, 20, 30, 40, 60, 90, 120].map(m => `<option value="${m}" ${m == f.dur ? 'selected' : ''}>${m} min</option>`).join('')}</select></div></div>
     <div class="duas"><div class="campo"><label>Profissional</label><select data-campo="pc.painel.f.prof" data-ao="profAg">${E.d.profissionais.map(x => `<option value="${x.id}" ${x.id === f.prof ? 'selected' : ''}>${x.curto}</option>`).join('')}</select></div>
-      <div class="campo"><label>Cadeira</label><select data-campo="pc.painel.f.cad" data-ao="avaliarAg">${E.d.cadeiras.map(x => `<option value="${x.id}" ${x.id === f.cad ? 'selected' : ''}>${x.nome}</option>`).join('')}</select></div></div>
+      <div class="campo"><label>Cadeira</label><select data-campo="pc.painel.f.cad" data-ao="dataAg">${E.d.cadeiras.map(x => `<option value="${x.id}" ${x.id === f.cad ? 'selected' : ''}>${x.nome}</option>`).join('')}</select></div></div>
     ${f.retorno ? (r => r && r.quando ? `<div class="aviso-box info">A dentista pediu o retorno <b>${QUANDO_RETORNO[r.quando]}</b>. No protótipo só existe o dia de hoje: no sistema real a data já vem marcada.</div>` : '')(E.d.pedidosRetorno.find(x => x.id === f.retorno)) : ''}
+    ${repetirHTML(f)}
     <div id="conflito-ag">${conflitoHTML(f)}</div>
     ${f.origemDoCadastro ? `<div class="campo"><label>Como chegou?</label><div class="muted">${esc(f.origem)} <span class="mini">(do cadastro)</span></div></div>` : `<div class="campo"><label>Como chegou? <span class="obrig">*</span></label><select data-campo="pc.painel.f.origem" data-ao="avaliarAg">${E.d.origens.map(x => `<option ${x === f.origem ? 'selected' : ''}>${x}</option>`).join('')}</select></div>`}
     <div class="campo"><label>Tipo</label><select data-campo="pc.painel.f.tipo">${['Consulta', 'Retorno', 'Periódico', 'Outro'].map(x => `<option ${x === f.tipo ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
@@ -633,7 +658,7 @@ function linhasPacs(t) {
 function telaPacientes() {
   const n = k => E.d.pacientes.filter(p => k === 'excluidos' ? p.excluido : !p.excluido && (k === 'inativos' ? p.inativo : !p.inativo)).length, aba = E.ui.pc.abaPacs || 'ativos';
   const bot = (k, t) => `<button class="${aba === k ? 'ativo' : ''}" data-a="abaPacs" data-v="${k}">${t} <span class="mini">${n(k)}</span></button>`;
-  return `<div class="titulo-tela"><h1>Pacientes</h1><span class="seg">${bot('ativos', 'Ativos')}${bot('inativos', 'Inativos')}${bot('excluidos', 'Excluídos')}</span><button class="btn btn-pri" style="margin-left:auto" data-a="novoPaciente">${ic('mais', 16)} Novo paciente</button></div>
+  return `<div class="titulo-tela"><h1>Pacientes</h1><span class="seg">${bot('ativos', 'Ativos')}${bot('inativos', 'Inativos')}${bot('excluidos', 'Excluídos')}</span><span class="titulo-acoes">${pode('cadastro') ? botaoExcel('exportPacientes') : ''}<button class="btn btn-pri" data-a="novoPaciente">${ic('mais', 16)} Novo paciente</button></span></div>
   <label class="campo-busca">${ic('busca', 18)}<input id="busca-pacs" placeholder="Buscar por nome, CPF, telefone ou nº" value="${esc(E.ui.pc.buscaPac)}" data-campo="pc.buscaPac" data-ao="filtraPacs"></label>
   <table class="tab"><thead><tr><th>Paciente</th><th>Idade</th><th>Celular</th><th>Convênio</th><th>Próxima consulta</th></tr></thead><tbody id="tab-pacs">${linhasPacs(E.ui.pc.buscaPac)}</tbody></table>`;
 }
@@ -745,7 +770,7 @@ function abaAnamnese(p) {
         ${(q.tipo === 't' || r.sim) ? `<input style="display:block;width:100%;margin-top:6px;padding:8px;border:1px solid var(--rule);border-radius:8px" placeholder="${q.tipo === 't' ? '' : 'Qual?'}" value="${esc(r.texto || '')}" data-ao="garanteResp" data-q="${q.id}">` : ''}
         ${q.alerta && r.sim ? `<div class="aviso-box erro" style="margin-top:6px">Isso vai criar um alerta na ficha: <b>${esc(textoAlertaAnam(q, r))}</b></div>` : ''}
       </div>`; }).join('')}
-      <div style="margin-top:12px"><button class="btn btn-pri" data-a="salvarAnam">Salvar ficha</button> <button class="btn-link" data-a="aba" data-id="anamnese">Cancelar</button></div></div>`;
+      <div class="rodape-dir" style="margin-top:12px"><button class="btn" data-a="aba" data-id="anamnese">Cancelar</button><button class="btn btn-pri" data-a="salvarAnam">Salvar ficha</button></div></div>`;
   }
   const lista = (E.d.anamneses[p.id] || []).slice().reverse();
   return `${pode('anamnese') ? '' : `<p class="nota-leve">${ic('cadeado', 14)} Só as dentistas preenchem a anamnese.</p>`}${pode('anamnese') ? '<button class="btn btn-pri" data-a="anamNova" style="margin-bottom:12px">+ Preencher ficha</button>' : ''}
@@ -979,7 +1004,7 @@ function abaFinanceiro(p) {
   <table class="tab tab-fin"><thead><tr><th>Parcela</th><th>Vence</th><th class="dir">Valor</th><th class="dir">Pago</th><th class="dir">Falta</th><th>Situação</th></tr></thead><tbody>
   ${ps.map(x => { const s = saldoParcela(x), st = !s ? 'paga' : x.venc < E.d.hoje ? 'vencida' : x.pago ? 'parcial' : 'aberta';
     return `<tr><td>${x.n} de ${x.de}</td><td class="num">${dataBR(x.venc)}</td><td class="num dir">${brl(x.valor)}</td><td class="num dir">${brl(x.pago)}</td><td class="num dir"><b>${brl(s)}</b></td><td><span class="tag ${st}">${{ paga: 'Paga', vencida: 'Vencida', parcial: 'Paga em parte', aberta: 'Em aberto' }[st]}</span></td></tr>`; }).join('') || '<tr><td colspan="6" class="vazio">Sem parcelas.</td></tr>'}</tbody></table>
-  ${recs.length ? `<div class="grupo-tit">Recebimentos</div>${recs.map(r => `<div class="linha"><span class="hora num">hoje ${hhmm(r.hora)}</span>${formaHTML(r.forma)}<span class="acoes num"><b>${brl(r.valor)}</b></span></div>`).join('')}` : ''}`;
+  ${recs.length ? `<div class="grupo-tit">Recebimentos</div>${recs.map(r => `<div class="linha"><span class="hora num">hoje ${hhmm(r.hora)}</span>${formaHTML(r.forma)}<span class="acoes num"><b>${brl(r.valor)}</b><button class="btn btn-peq" data-a="abrirRecibo" data-id="${r.id}">${ic('recibo', 15)} Recibo</button></span></div>`).join('')}` : ''}`;
 }
 /* todos os campos do cadastro, editáveis; "Salvar alterações" só acende se algo mudou */
 const CAMPOS_DADOS = [['nome', 'Nome completo'], ['cel', 'Celular'], ['nascBR', 'Data de nascimento'], ['cpf', 'CPF'], ['rg', 'RG'], ['cns', 'Nº do CNS'],
@@ -1163,7 +1188,7 @@ function telaCaixa() {
   const vencHoje = Object.entries(E.d.parcelas).flatMap(([pid, ps]) => ps.filter(p => p.venc === E.d.hoje && saldoParcela(p) > 0).map(p => ({ pid, p })));
   const status = cx.fechado ? `<span class="cx-status fechado">${ic('cadeado', 14)} Fechado</span>` : `<span class="cx-status aberto"><span class="ponto"></span>Aberto</span>`;
   return `<div class="titulo-tela"><h1>Caixa</h1><span class="sub">${E.d.unidade} · quinta, 29/10</span>${status}
-    <span style="margin-left:auto;display:flex;gap:8px">${cx.fechado ? `<span class="cx-ja-fechado">${ic('cadeado', 16)} Fechado às ${hhmm(cx.hora)} por ${esc(usu(cx.por).nome)}</span>` : `<button class="btn" data-a="abrirFechar">${ic('cadeado', 16)} Fechar caixa</button>`}<button class="btn btn-pri" data-a="abrirReceber">${ic('mais', 16)} Receber pagamento</button></span></div>
+    <span style="margin-left:auto;display:flex;gap:8px">${cx.fechado ? `<span class="cx-ja-fechado">${ic('cadeado', 16)} Fechado às ${hhmm(cx.hora)} por ${esc(usu(cx.por).nome)}</span>` : `<button class="btn" data-a="abrirFechar">${ic('cadeado', 16)} Fechar caixa</button>`}${botaoExcel('exportCaixa')}<button class="btn btn-pri" data-a="abrirReceber">${ic('mais', 16)} Receber pagamento</button></span></div>
   ${(v => v ? `<div class="aviso-box aviso">Depois do fechamento entrou mais <b>${brl(v)}</b> em dinheiro: a gaveta deve ter ${brl(cx.gaveta + v)}, não ${brl(cx.gaveta)}.</div>` : '')(cx.fechado ? recs.filter(r => r.depoisFechamento && r.forma === 'Dinheiro').reduce((s, r) => s + r.valor, 0) : 0)}
   <div class="cx-topo">
     <div class="cx-esq"><div class="cartao cx-total">
@@ -1179,10 +1204,10 @@ function telaCaixa() {
         ${vencHoje.map(({ pid, p }) => { const pa = pac(pid); return `<div class="h-atencao"><span class="h-ico aviso">${ic('caixa', 18)}</span><span class="h-pac"><b>${numNome(pa)}</b><span class="h-meta">parcela ${p.n} de ${p.de} · falta ${brl(saldoParcela(p))}</span></span><span class="acoes"><button class="btn btn-peq" data-a="abrirReceber" data-pac="${pid}">Receber</button></span></div>`; }).join('') || '<div class="vazio">Nada vencendo hoje.</div>'}</div>
     </div>
   </div>
-  <div class="cartao" style="margin-top:16px;padding:0"><h3 style="padding:14px 16px 0">Pagamentos de hoje <span class="h-cont">${recs.length}</span></h3>
-  <table class="tab cx-tab"><thead><tr><th>Hora</th><th>Paciente</th><th>Profissional</th><th>Forma</th><th class="dir">Valor</th><th>Recebido por</th></tr></thead><tbody>
-    ${recs.map(r => { const p = pac(r.pac); return `<tr class="clic" data-a="abrirFicha" data-id="${p.id}"><td class="num"><b>${hhmm(r.hora)}</b></td><td>nº ${p.numero} · ${esc(p.nome)}${r.depoisFechamento ? ' <span class="tag vencida">depois do fechamento</span>' : ''}</td><td class="muted">${r.prof ? esc(prof(r.prof).curto) : '—'}</td><td>${formaHTML(r.forma)}${r.previstaEra ? `<br><span class="cx-mudou">mudou · previsto ${esc(r.previstaEra)} · ${esc(r.motivoTroca || '')}</span>` : ''}</td><td class="num dir"><b>${brl(r.valor)}</b></td><td class="muted">${esc(usu(r.por).nome)}</td></tr>`; }).join('') || '<tr><td colspan="6"><div class="vazio">Nenhum pagamento ainda hoje.</div></td></tr>'}</tbody>
-    ${recs.length ? `<tfoot><tr><td colspan="4"><b>Total</b></td><td class="num dir"><b>${brl(t.total)}</b></td><td></td></tr></tfoot>` : ''}</table></div>`;
+  <div class="cartao" style="margin-top:16px;padding:0"><div class="cartao-cab"><h3>Pagamentos de hoje</h3><span class="cont">${recs.length}</span></div>
+  <table class="tab cx-tab"><thead><tr><th>Hora</th><th>Paciente</th><th>Profissional</th><th>Forma</th><th class="dir">Valor</th><th>Recebido por</th><th></th></tr></thead><tbody>
+    ${recs.map(r => { const p = pac(r.pac); return `<tr class="clic" data-a="abrirFicha" data-id="${p.id}"><td class="num"><b>${hhmm(r.hora)}</b></td><td>nº ${p.numero} · ${esc(p.nome)}${r.depoisFechamento ? ' <span class="tag vencida">depois do fechamento</span>' : ''}</td><td class="muted">${r.prof ? esc(prof(r.prof).curto) : '—'}</td><td>${formaHTML(r.forma)}${r.previstaEra ? `<br><span class="cx-mudou">mudou · previsto ${esc(r.previstaEra)} · ${esc(r.motivoTroca || '')}</span>` : ''}</td><td class="num dir"><b>${brl(r.valor)}</b></td><td class="muted">${esc(usu(r.por).nome)}</td><td class="dir"><button class="btn btn-peq" data-a="abrirRecibo" data-id="${r.id}" aria-label="Recibo de ${brl(r.valor)}">${ic('recibo', 16)} Recibo</button></td></tr>`; }).join('') || '<tr><td colspan="7"><div class="vazio">Nenhum pagamento ainda hoje.</div></td></tr>'}</tbody>
+    ${recs.length ? `<tfoot><tr><td colspan="4"><b>Total</b></td><td class="num dir"><b>${brl(t.total)}</b></td><td></td><td></td></tr></tfoot>` : ''}</table></div>`;
 }
 A.abrirFechar = () => { E.ui.pc.modal = { tipo: 'fechar', gaveta: '', confirmar: false, erro: '' }; E.ui.foco = 'gaveta'; render(); };
 function difGaveta(m) { const din = totaisDia().porForma['Dinheiro'] || 0; return { din, dif: lerReais(m.gaveta) - din }; }
@@ -1222,6 +1247,7 @@ const CFG = [
   ['aparelhos', 'camera', 'Aparelhos', 'Celulares e computadores autorizados'],
   ['backup', 'cadeado', 'Backup', 'Cópia de segurança todas as noites'],
 ];
+CFG.splice(3, 0, ['auditoria', 'prancheta', 'Auditoria', 'Quem fez o quê, e quando']);
 /* os convênios do Dental Office (MAPA-DENTAL-OFFICE.md; "odonto p", "U" e "SUL" não são convênios — 02/11) */
 const CONVENIOS_DO = ['AESP Odonto', 'Amil Dental', 'Camed', 'Dental Center', 'Golden Cross', 'Interodonto', 'MetLife', 'Odonto Group', 'Odonto Maxi', 'Odonto Seg', 'Odontoprev', 'Orale', 'Ortoclin', 'Prevident', 'Santander', 'Sempre Odonto', 'SulAmérica', 'Unimed Odonto', 'W Dental'];
 const linhaCfg = (ico, tit, sub, dir = '') => `<div class="cfg-linha"><span class="uni-ic">${ic(ico, 18)}</span><span class="h-pac-txt"><b>${tit}</b>${sub ? `<span class="h-meta">${sub}</span>` : ''}</span>${dir ? `<span class="cfg-dir">${dir}</span>` : ''}</div>`;
@@ -1235,9 +1261,12 @@ function cfgConteudo(k) {
     unidade: () => `${tit('Unidade')}${linhaCfg('local', esc(E.d.unidade), 'Recife · PE · 2 cadeiras de atendimento + 1 de avaliação')}
       ${linhaCfg('relogio', 'Horário de atendimento', 'segunda a sexta 08:00–18:00 · sábado 08:00–12:00 · almoço 12:00–13:00')}
       ${linhaCfg('cadeado', 'Agenda fora da clínica', 'as dentistas veem a agenda de casa <b>só no horário de atendimento</b>')}
-      ${linhaCfg('graficos', 'Outras unidades', 'Prazeres e Norte entram no mesmo sistema depois')}`,
+      ${linhaCfg('graficos', 'Outras unidades', 'Prazeres e Norte entram no mesmo sistema depois')}
+      ${cfgUnidadeAg()}`,
     cadeiras: () => `${tit('Cadeiras e salas')}${E.d.cadeiras.map(c => { const pf = E.d.profissionais.find(x => x.cadeira === c.id); return linhaCfg('atendendo', esc(c.nome), pf ? `${esc(pf.curto)} · ${esc(pf.esp)}` : 'livre para avaliação e encaixe'); }).join('')}`,
-    pessoas: () => `${tit('Pessoas e acessos', 'cada um com o seu PIN')}${E.d.usuarios.map(u => linhaCfg('usuario', esc(u.nome), `${esc(u.rotulo)}${u.fin ? ' · também vê o financeiro' : ''}`, '<span class="tag aberta">PIN</span>')).join('')}
+    pessoas: () => `${tit('Pessoas e acessos', 'cada um entra com o seu PIN')}${E.d.usuarios.map(u => { const p = u.prof && prof(u.prof);
+      return linhaCfg(p ? 'dente' : 'usuario', esc(u.nome), `${esc(u.rotulo)}${u.fin ? ' · vê o financeiro' : ''}${p ? ` · ${p.cro ? `CRO-PE ${esc(p.cro)}` : '<b class="txt-erro">CRO a informar</b>'} · consulta ${p.durPadrao || 40} min · comissão ${p.comissao}%` : ''}`,
+        p ? `<button class="btn btn-peq" data-a="editarDentista" data-id="${p.id}">${ic('editar', 15)} Editar</button>` : ''); }).join('')}
       <div class="cfg-sub">Quem pode</div>
       ${linhaCfg('caixa', 'Receber e fechar o caixa', 'Recepção, Administração e o dono')}
       ${linhaCfg('prancheta', 'Aprovar procedimento novo', 'Dra. Marcelly e o dono')}
@@ -1252,6 +1281,8 @@ function cfgConteudo(k) {
     whatsapp: () => `${tit('WhatsApp')}${linhaCfg('fone', 'Número da clínica', 'o WhatsApp da clínica · a conta oficial ainda vai ser criada')}
       ${Object.values(WA_LISTAS).map(L => linhaCfg(L.ico, L.rot, 'mensagem automática', `<label class="cfg-tog"><input type="checkbox" ${L.cat === 'Utilidade' ? 'checked' : ''} data-a="cfgTog"> automático</label>`)).join('')}
       ${linhaCfg('usuario', 'Quem aprova os textos', '<b>a definir</b>')}`,
+    auditoria: () => `${tit('Auditoria', 'hoje · só para Administração e o dono')}${(E.audit || []).slice(0, 40).map(x => linhaCfg('relogio', esc(x.txt), `${x.hora} · ${esc(x.quem)}`)).join('') || '<div class="vazio">Nada registrado hoje.</div>'}
+      <p class="nota-leve cfg-nota">${ic('cadeado', 15)} Fica guardado mesmo quando alguém usa o Desfazer: o Desfazer também é registrado.</p>`,
     backup: () => `${tit('Backup')}${linhaCfg('checks', 'Última cópia: hoje às 02:14', 'tudo certo · cifrada, no Google Drive da clínica', '<span class="tag paga">OK</span>')}
       ${linhaCfg('relogio', 'Todas as noites às 02:00', 'guarda 30 cópias diárias e 12 mensais')}
       ${linhaCfg('cadeado', 'Teste de restauração', 'uma vez por mês uma cópia é aberta em outra máquina para ver se funciona · último: 01/10')}`,
@@ -1510,7 +1541,7 @@ A.waAniversario = () => { const pc = E.ui.pc; pc.tela = 'whatsapp'; pc.waLista =
 function telaComissoes() {
   const feitosHoje = Object.values(E.d.planos).flat().filter(i => i.estado === 'realizado' && i.feitoPor && (i.dataFeito || '').slice(0, 7) === E.d.hoje.slice(0, 7));
   const linhas = E.d.profissionais.map(pf => { const a = E.d.comissaoAntes[pf.id] || { itens: 0, producao: 0, lab: 0 }, h = feitosHoje.filter(i => i.feitoPor === pf.id);
-    const producao = a.producao + h.reduce((t, i) => t + i.valor, 0), lab = a.lab + h.reduce((t, i) => t + (proc(i.proc).lab || 0), 0), base = producao - lab;
+    const producao = a.producao + h.reduce((t, i) => t + i.valor, 0), lab = pf.descontaLab === false ? 0 : a.lab + h.reduce((t, i) => t + (proc(i.proc).lab || 0), 0), base = producao - lab;
     return { pf, itens: a.itens + h.length, producao, lab, base, valor: Math.round(base * pf.comissao / 100), hoje: h }; });
   const tot = k => linhas.reduce((t, l) => t + l[k], 0);
   return `<div class="grade-rel"><div class="cartao rel-uni"><div class="cartao-cab"><h3>Comissões · Boa Viagem · 01 a 29/10</h3></div>
@@ -1532,7 +1563,7 @@ function telaRelatorios() {
   const part = soma('part'), conv = soma('conv'), at = soma('atendidos'), fa = soma('faltas'), fal = pct(fa, at + fa);
   const kpi = (n, txt, ico, cls) => `<div class="kpi kpi-h ${cls}"><span class="kpi-ic">${ic(ico, 22)}</span><span><b class="num">${n}</b><span>${txt}</span></span></div>`;
   if (per === 'painel') return `<div class="titulo-tela"><h1>Relatórios</h1><span class="sub">evolução dos últimos 6 meses · 3 unidades</span>
-    <span class="titulo-acoes"><span class="tabs" role="tablist">${relTabs(per)}</span></span></div>${telaPainel()}`;
+    <span class="titulo-acoes">${botaoExcel('exportRelatorio')}<span class="tabs" role="tablist">${relTabs(per)}</span></span></div>${telaPainel()}`;
   if (per === 'comissoes') return `<div class="titulo-tela"><h1>Relatórios</h1><span class="sub">comissões do mês</span>
     <span class="titulo-acoes"><span class="tabs" role="tablist">${relTabs(per)}</span></span></div>${telaComissoes()}`;
   const tag = u => u.aoVivo ? '<span class="tag-vivo">ao vivo</span>' : '<span class="tag-ex">exemplo</span>';
@@ -1573,17 +1604,25 @@ const WA_LISTAS = {
     msg: c => `Feliz aniversário, ${c.nome.split(' ')[0]}! A equipe da Odonto Vip deseja um ano cheio de sorrisos. Que tal aproveitar e marcar sua revisão? Responda QUERO e a gente agenda.`,
     meta: c => `aniversário ${c.dia} · a mensagem sai nesse dia · última consulta ${c.ultima}` },
   retornoMes: { rot: 'Retorno de 6 meses', cat: 'Marketing', preco: 32.17, ico: 'remarcar',
-    msg: c => `Olá, ${c.nome.split(' ')[0]}! Já faz 6 meses da sua última consulta na Odonto Vip. Está na hora da revisão. Responda QUERO e a gente agenda para você.`,
+    msg: c => `Olá, ${c.nome.split(' ')[0]}! Já faz ${c.meses === 12 ? '1 ano' : `${c.meses || 6} meses`} da sua última consulta na Odonto Vip. Está na hora da revisão. Responda QUERO e a gente agenda para você.`,
     meta: c => `última consulta ${c.ultima} · ${c.prof}` },
 };
 function telaWhatsApp() {
+  waSincRetornos(); waSincCobranca(); // T-018: retornos que vencem em 30 dias; parcelas atrasadas de agora
   const pc = E.ui.pc, k = pc.waLista || 'amanha', L = WA_LISTAS[k], w = E.d.whatsapp, lista = w[k];
   pc.waSel = pc.waSel || {};
   const sel = lista.filter(c => pc.waSel[c.id] !== false), envio = w.enviados.find(x => x.lista === k);
   const custo = Math.round(sel.length * L.preco), ex = sel[0] || lista[0];
+  if (!lista.length) return `<div class="titulo-tela"><h1>WhatsApp</h1><span class="sub">mensagens para os pacientes</span></div>
+  <div class="tabs wa-tabs" role="tablist">${Object.entries(WA_LISTAS).filter(([id]) => (w[id] || []).length || id === k).slice(0, 6).map(([id, x]) => `<button role="tab" aria-selected="${k === id}" class="${k === id ? 'on' : ''}" data-a="waLista" data-v="${id}">${ic(x.ico, 16)} ${x.rot} <span class="cont">${(w[id] || []).length}</span></button>`).join('')}</div>
+  <div class="cartao"><div class="vazio">${ic('checks', 22)}<br>Ninguém em “${esc(L.rot)}” agora.<br><button class="btn btn-sec" style="margin-top:12px" data-a="waLista" data-v="amanha">Ver “Confirmar amanhã”</button></div></div>`;
   return `<div class="titulo-tela"><h1>WhatsApp</h1><span class="sub">mensagens para os pacientes</span>
     <span class="titulo-acoes"><span class="tag-ex">${ic('alerta', 14)} protótipo: nada é enviado de verdade</span></span></div>
-  <div class="tabs wa-tabs" role="tablist">${Object.entries(WA_LISTAS).map(([id, x]) => `<button role="tab" aria-selected="${k === id}" class="${k === id ? 'on' : ''}" data-a="waLista" data-v="${id}">${ic(x.ico, 16)} ${x.rot} <span class="cont">${w[id].length}</span></button>`).join('')}</div>
+  ${E.ui.waDesconectado ? `<div class="wa-caiu" role="alert">${ic('alerta', 22)}<span><b>O WhatsApp da clínica desconectou.</b> Nenhuma mensagem está saindo: elas ficam na fila até reconectar.</span><button class="btn" data-a="waReconectar">Reconectar</button></div>` : ''}
+  ${(() => { // T-018: as 4 listas de todo dia à vista; as outras em "Mais listas"
+    const aba = ([id, x]) => `<button role="tab" aria-selected="${k === id}" class="${k === id ? 'on' : ''}" data-a="waLista" data-v="${id}">${ic(x.ico, 16)} ${x.rot} <span class="cont">${w[id].length}</span></button>`;
+    const todas = Object.entries(WA_LISTAS), fixas = todas.slice(0, 4), mais = todas.slice(4), atual = mais.find(([id]) => id === k);
+    return `<div class="tabs wa-tabs" role="tablist">${fixas.map(aba).join('')}${mais.length ? `<details class="wa-mais"><summary class="${atual ? 'on' : ''}">${atual ? `${ic(atual[1].ico, 16)} ${atual[1].rot} <span class="cont">${w[k].length}</span>` : `Mais listas <span class="cont">${mais.length}</span>`}</summary><div class="wa-mais-menu">${mais.filter(([id]) => id !== k).map(aba).join('')}</div></details>` : ''}</div>`; })()}
   <div class="grade-wa">
     <div class="cartao h-lista"><div class="cartao-cab"><h3>${L.rot}</h3><span class="cont">${sel.length} de ${lista.length}</span>
       <button class="btn-link" style="margin-left:auto" data-a="waTodos">${sel.length === lista.length ? 'Desmarcar todos' : 'Marcar todos'}</button></div>
@@ -1595,7 +1634,7 @@ function telaWhatsApp() {
       <div class="cartao"><h3>Mensagem</h3><div class="wa-fone"><div class="wa-balao">${esc(L.msg(ex))}<span class="wa-hora num">10:40</span></div></div></div>
       ${E.ui.clinicaSemInternet ? `<div class="aviso-box aviso">${ic('semrede', 16)} <b>Sem internet:</b> as mensagens ficam na fila e saem quando a internet voltar.</div>` : ''}
       ${envio ? `<div class="cartao wa-ok">${ic('checks', 22)}<div><b>${L.programa ? `Programado: cada um recebe no dia do aniversário ·` : waSaiu(envio) ? `Enviado às ${envio.hora} para` : `Na fila de envio às ${envio.hora} ·`} ${envio.ids.length} pacientes</b><span class="muted">custo estimado ${brl(envio.custo)} · ${L.programa || k !== 'amanha' ? 'quem responder QUERO ou REMARCAR aparece para a recepção agendar' : 'as respostas “SIM” confirmam a consulta sozinhas'}</span></div></div>`
-        : `<button class="btn btn-pri wa-enviar" data-a="waEnviar" ${sel.length ? '' : 'disabled'}>${ic('enviar', 18)} ${sel.length ? `${L.programa ? 'Programar para' : 'Enviar a'} ${sel.length} ${sel.length === 1 ? 'paciente' : 'pacientes'} · ${brl(custo)} estimado` : 'Marque ao menos um paciente'}</button>`}
+        : `<button class="btn ${E.ui.waDesconectado ? 'btn-sec' : 'btn-pri'} wa-enviar" data-a="waEnviar" ${sel.length ? '' : 'disabled'}>${ic('enviar', 18)} ${sel.length ? `${E.ui.waDesconectado ? 'Pôr na fila:' : L.programa ? 'Programar para' : 'Enviar a'} ${sel.length} ${sel.length === 1 ? 'paciente' : 'pacientes'} · ${brl(custo)} estimado` : 'Marque ao menos um paciente'}</button>`}
     </div>
   </div>`;
 }

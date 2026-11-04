@@ -368,6 +368,7 @@ function renderTestes() {
     <label><input type="checkbox" data-ao="simCel" ${E.ui.celForaWifi ? 'checked' : ''}> Celular fora do Wi-Fi da clínica</label>
     <label><input type="checkbox" data-ao="simNet" ${E.ui.clinicaSemInternet ? 'checked' : ''}> Clínica sem internet</label>
     <label><input type="checkbox" data-ao="simHorario" ${E.ui.foraHorario ? 'checked' : ''}> Dentista em casa, fora do horário (20:30)</label>
+    <label><input type="checkbox" data-ao="simWa" ${E.ui.waDesconectado ? 'checked' : ''}> WhatsApp da clínica desconectado</label>
   </div>
   ${TAREFAS.map(t => {
     const r = T.resultados[t.id], rod = T.atual === t.id;
