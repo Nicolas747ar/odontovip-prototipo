@@ -3,8 +3,8 @@ function celHTML() {
   const c = E.ui.cel;
   const status = `<div class="cel-status ${['splash', 'login'].includes(c.tela) ? 'claro' : ''}"><span class="num">${E.ui.foraHorario ? '20:30' : '10:40'}</span><span>${E.ui.celForaWifi || E.ui.foraHorario ? '4G' : 'Wi-Fi da clínica'} · 82%</span></div>`;
   if (c.tela === 'splash') {
-    if (!c.timer) c.timer = setTimeout(() => { if (E.ui.cel.tela === 'splash') { E.ui.cel.tela = 'login'; render(); } }, 1400);
-    return `<div class="cel">${status}${splashHTML('OdontoVip')}</div>`;
+    if (!c.timer) c.timer = setTimeout(() => fimSplash('cel'), SPLASH_MS + (REDUZ_MOV ? 0 : 600));
+    return `<div class="cel">${status}${splashHTML('')}</div>`;
   }
   if (c.tela !== 'login' && E.ui.seloVisto) E.ui.seloVisto.cel = false;
   if (c.tela === 'login') return `<div class="cel">${status}${sobreHTML('cel')}</div>`;

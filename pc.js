@@ -1411,8 +1411,21 @@ A.escolherFoto = () => { const i = document.getElementById('cam-arquivo'); if (i
 A.fecharFoto = () => { pararCamera(); E.ui.pc.modal = null; render(); };
 
 /* ---------- splash, troca de usuário, PIN (compartilhado com o celular) ---------- */
+/* abertura (S-mac-12, a partir do vídeo do Nicolas): fitas douradas que se desenham, o anel que se fecha,
+   o selo que surge com brilho, faíscas, e a barra de carga — sobre o mesmo fundo da portada */
+const FAISCAS = Array.from({ length: 18 }, (_, i) => [(i * 37 + 11) % 100, (i * 53 + 23) % 70 + 15, (i * 0.17) % 1.6, 2 + (i % 3)]);
 function splashHTML(saud) {
-  return `<div class="splash"><button class="pular" data-a="pularSplash">Pular</button><div class="anel"><img src="selo.png" alt="OdontoVip"><div class="brilho"></div></div><div class="saud">${saud}</div></div>`;
+  const fitas = `<svg class="sp-fitas" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs><linearGradient id="sp-ouro" x1="0" x2="1"><stop offset="0" stop-color="#F6E3A1" stop-opacity="0"/><stop offset=".35" stop-color="#F6E3A1"/><stop offset=".7" stop-color="#D4A84B"/><stop offset="1" stop-color="#FFF4CF" stop-opacity="0"/></linearGradient></defs>
+    <path pathLength="1" d="M-20,470 C180,380 300,520 470,330 S760,90 1020,170"/>
+    <path pathLength="1" d="M-20,520 C220,450 360,560 520,380 S800,180 1020,240"/>
+    <path pathLength="1" d="M-20,120 C200,60 330,210 500,250 S820,330 1020,300"/></svg>`;
+  const faiscas = FAISCAS.map(([x, y, d, t]) => `<i style="left:${x}%;top:${y}%;animation-delay:${(0.5 + d).toFixed(2)}s;width:${t}px;height:${t}px"></i>`).join('');
+  return `<div class="splash" style="--sp-dur:${SPLASH_MS}ms"><i class="sobre-foto sp-foto" aria-hidden="true"></i>${fitas}<div class="sp-faiscas" aria-hidden="true">${faiscas}</div>
+    <button class="pular" data-a="pularSplash">Pular</button>
+    <div class="anel"><svg class="sp-anel" viewBox="0 0 200 200" aria-hidden="true"><circle cx="100" cy="100" r="96" pathLength="1"/></svg><img src="selo.png" alt="OdontoVip"><i class="sp-brilho" aria-hidden="true"></i></div>
+    ${saud ? `<div class="saud">${saud}</div>` : ''}
+    <div class="sp-barra" role="progressbar" aria-label="Carregando"><i></i></div></div>`;
 }
 function sobreHTML(alvo) {
   const s = alvo === 'pc' ? E.ui.pc : E.ui.cel;

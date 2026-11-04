@@ -1603,5 +1603,63 @@ td.sem-passou .sem-cel{background:var(--bg)}
 @container (max-width: 899px){ .sobre>.sobre-selo{width:96px;height:96px} }
 /* celular: o degradê clareia à direita; um véu marinho atrás do texto mantém o branco legível (AA) */
 .cel .sobre::after{background:radial-gradient(95% 60% at 50% 62%,rgba(10,42,94,.62),rgba(10,42,94,.25) 70%,transparent 100%)}
-/* a foto tem fundo cinza-azulado: um véu celeste em soft-light a aproxima do degradê, sem tingir o rosto */
-.sobre-foto::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,#2B8BE0,#3FB0EE);mix-blend-mode:soft-light;opacity:.55}
+/* a foto tem fundo cinza-azulado: um filtro a aproxima do degradê (um véu em soft-light vazava a máscara e marcava uma linha) */
+.sobre-foto{filter:brightness(1.08) saturate(1.15)}
+/* S-mac-12 (Nicolas, 04/11): abertura com o fundo da portada e o efeito do vídeo (fitas e anel dourados,
+   faíscas, selo que surge) + barra de carga. Dura SPLASH_MS (3 s); "Pular" continua. */
+.splash{background:radial-gradient(circle at 93% -20%,rgba(255,255,255,.18),transparent 38%),var(--grad-topo);overflow:hidden;container-type:size;gap:18px}
+.splash::after{content:'';position:absolute;inset:0;background:radial-gradient(60% 55% at 50% 50%,rgba(10,42,94,.5),transparent 75%);pointer-events:none}
+.splash>*:not(.sobre-foto){position:relative;z-index:1}
+.splash>.sp-fitas,.splash>.sp-faiscas{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+.sp-foto{opacity:0;animation:spFoto 1s .2s ease-out forwards}
+@container (max-width: 899px){ .sp-foto{top:0;bottom:auto;height:34cqh;width:78cqw;aspect-ratio:auto;background-position:60% 4%} }
+.sp-fitas path{fill:none;stroke:url(#sp-ouro);stroke-width:2.2;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;vector-effect:non-scaling-stroke;animation:spFita 1.3s ease-out forwards,spSome .9s 1.9s ease-in forwards}
+.sp-fitas path:nth-child(3){animation-delay:.15s,1.9s;stroke-width:1.6}
+.sp-fitas path:nth-child(4){animation-delay:.3s,2s;opacity:.7}
+.sp-faiscas i{position:absolute;border-radius:50%;background:#FFF4CF;box-shadow:0 0 8px 2px rgba(246,227,161,.8);opacity:0;animation:spFaisca 1.2s ease-in-out 2}
+.splash .anel{width:170px;height:170px}
+.splash .anel::before{display:none}
+.sp-anel{position:absolute;inset:-14px;width:calc(100% + 28px);height:calc(100% + 28px);transform:rotate(-90deg)}
+.sp-anel circle{fill:none;stroke:#E9C76B;stroke-width:3;stroke-dasharray:1;stroke-dashoffset:1;filter:drop-shadow(0 0 6px rgba(246,227,161,.9));animation:spFita .9s .25s ease-in-out forwards}
+.splash img{width:170px;height:170px;border-radius:50%;box-shadow:0 18px 40px -16px rgba(0,0,0,.55);animation:spSelo .7s .75s cubic-bezier(.2,.9,.3,1.25) forwards}
+.sp-brilho{position:absolute;inset:0;border-radius:50%;overflow:hidden;pointer-events:none}
+.sp-brilho::before{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.9),transparent);opacity:0;animation:brilhar .6s 1.4s ease-in-out forwards}
+.splash .saud{font-family:var(--ui);font-weight:800;font-size:28px;letter-spacing:-.02em;color:#fff;animation:surgir .5s 1.3s forwards;transform:translateY(8px)}
+.sp-barra{width:min(260px,60cqw);height:6px;border-radius:999px;background:rgba(255,255,255,.22);overflow:hidden;margin-top:6px}
+.sp-barra i{display:block;height:100%;width:100%;border-radius:inherit;transform-origin:left;transform:scaleX(0);background:linear-gradient(90deg,#F6E3A1,#fff,#E9C76B);background-size:200% 100%;box-shadow:0 0 10px rgba(246,227,161,.8);animation:spCarga var(--sp-dur) cubic-bezier(.35,.1,.25,1) forwards,spReflexo 1.1s linear infinite}
+.splash .pular{color:#fff;border-color:rgba(255,255,255,.55);min-height:44px;padding:0 16px;z-index:2}
+@keyframes spFita{to{stroke-dashoffset:0}}
+@keyframes spSome{to{opacity:0}}
+@keyframes spFoto{to{opacity:1}}
+@keyframes spFaisca{0%,100%{opacity:0;transform:scale(.4)}50%{opacity:1;transform:scale(1)}}
+@keyframes spSelo{from{opacity:0;transform:scale(.6) rotate(-10deg)}to{opacity:1;transform:none}}
+@keyframes spCarga{to{transform:scaleX(1)}}
+@keyframes spReflexo{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.splash *,.splash path,.splash circle{animation:none!important;opacity:1!important;stroke-dashoffset:0!important;transform:none!important}.sp-faiscas,.sp-fitas{display:none}.sp-barra i{transform:scaleX(1)!important}}
+.splash>.pular{position:absolute;right:16px;top:14px}
+@container (min-width: 900px){ .splash>.anel,.splash>.saud,.splash>.sp-barra{margin-right:52cqh} }
+/* S-mac-12, após a revisão: fitas atrás da foto (não cruzam o rosto), fundido de saída, "Pular" legível e 48 px no celular */
+.splash>.sp-fitas,.splash>.sp-faiscas{z-index:0}
+.splash>.sp-foto{z-index:1}
+.splash>.anel,.splash>.saud,.splash>.sp-barra,.splash>.pular{z-index:2}
+@container (max-width: 899px){ .sp-foto{-webkit-mask-image:linear-gradient(to top,transparent 0,#000 50%),linear-gradient(to right,transparent 0,#000 45%);mask-image:linear-gradient(to top,transparent 0,#000 50%),linear-gradient(to right,transparent 0,#000 45%)} }
+.splash{animation:spSai .35s calc(var(--sp-dur) - 350ms) ease-in forwards}
+@keyframes spSai{to{opacity:0}}
+.sp-barra i{background:linear-gradient(90deg,#E9C76B,#F6E3A1 50%,#E9C76B);background-size:200% 100%}
+.splash .pular{background:rgba(10,42,94,.55);border-color:rgba(255,255,255,.6)}
+.cel .splash .pular{min-height:48px;min-width:48px}
+@media (prefers-reduced-motion:reduce){.splash{animation:none}}
+/* re-verificação: as fitas se apagam antes da foto (em vez de serem cortadas por ela) */
+.splash>.sp-fitas,.splash>.sp-faiscas{-webkit-mask-image:linear-gradient(to right,#000 40%,transparent 66%);mask-image:linear-gradient(to right,#000 40%,transparent 66%)}
+@container (max-width: 899px){ .splash>.sp-fitas,.splash>.sp-faiscas{-webkit-mask-image:linear-gradient(to bottom,transparent 22%,#000 40%);mask-image:linear-gradient(to bottom,transparent 22%,#000 40%)} }
+/* celular: a portada tem o mesmo fundo, então só o conteúdo some (sem piscar o fundo claro do aparelho) */
+.cel .splash{animation:none}
+.cel .splash>*:not(.sp-foto){animation-name:spSai;animation-duration:.35s;animation-delay:calc(var(--sp-dur) - 350ms);animation-fill-mode:forwards}
+@media (prefers-reduced-motion:reduce){.cel .splash>*{animation:none}}
+@container (max-width: 899px){
+  .splash>.sp-fitas,.splash>.sp-faiscas{-webkit-mask-image:linear-gradient(to bottom,transparent 32%,#000 50%);mask-image:linear-gradient(to bottom,transparent 32%,#000 50%)}
+  .sp-foto{-webkit-mask-image:linear-gradient(to top,transparent 0,#000 70%),linear-gradient(to right,transparent 0,#000 45%);mask-image:linear-gradient(to top,transparent 0,#000 70%),linear-gradient(to right,transparent 0,#000 45%)}
+}
+/* o brilho do anel no próprio <svg>: dentro do SVG o filtro era recortado num quadrado */
+.sp-anel circle{filter:none}
+.sp-anel{filter:drop-shadow(0 0 6px rgba(246,227,161,.9))}

@@ -1,6 +1,14 @@
 /* Núcleo do protótipo: estado, regras, eventos, desfazer, tarefas de teste. */
 const E = { d: JSON.parse(JSON.stringify(DADOS)), ui: null, undo: null };
 const A = {}; // ações (data-a)
+const REDUZ_MOV = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const SPLASH_MS = REDUZ_MOV ? 800 : 3000; // abertura: o mesmo tempo da barra de carga (S-mac-12)
+// a troca de tela segue o fim da barra (animationend); o timer é só reserva se a animação não rodar
+function fimSplash(alvo) {
+  if (alvo === 'pc' && E.ui.pc.sobre === 'splash') { E.ui.pc.sobre = null; render(); }
+  if (alvo === 'cel' && E.ui.cel.tela === 'splash') { E.ui.cel.tela = 'login'; (E.ui.seloVisto = E.ui.seloVisto || {}).cel = true; render(); }
+}
+document.addEventListener('animationend', e => { if (e.animationName === 'spCarga') fimSplash(e.target.closest('.cel') ? 'cel' : 'pc'); });
 
 E.ui = {
   vista: 'pc',
@@ -377,5 +385,5 @@ function renderTestes() {
 
 function iniciar() {
   render();
-  setTimeout(() => { if (E.ui.pc.sobre === 'splash') { E.ui.pc.sobre = null; render(); } }, 1400);
+  setTimeout(() => fimSplash('pc'), SPLASH_MS + (REDUZ_MOV ? 0 : 600));
 }
