@@ -65,10 +65,22 @@ function repeticoesAg(f) {
     if (r.fim === 'vezes' && out.filter(x => !x.motivo).length >= Math.max(1, Number(r.vezes) || 1) - 1) break;
     if (r.fim !== 'vezes' && d > r.ate) break;
     if (d > REP_MAX()) { out.cortada = true; break; }
-    const c = conflitoFut(f, d, ini, fim);
-    out.push({ data: d, motivo: bloqueioAg(f.prof, d, ini, fim) || (c ? `ocupado: ${c.pac ? pac(c.pac).nome : c.tipo} às ${hhmm(c.ini)}` : '') });
+    if (out.some(o => o.data === d)) continue; // um feriado anterior já foi trocado para este dia
+    const c = conflitoFut(f, d, ini, fim), motivo = bloqueioAg(f.prof, d, ini, fim) || (c ? `ocupado: ${c.pac ? pac(c.pac).nome : c.tipo} às ${hhmm(c.ini)}` : '');
+    // T-020: caiu num feriado → o dia útil mais perto (Natal 25/12 → 24/12); a série segue no ritmo de sempre
+    const lim = r.fim !== 'vezes' && r.ate < REP_MAX() ? r.ate : REP_MAX();
+    const fe = feriadoEm(d), alt = fe && diaUtilPerto(f, d, ini, fim, out, isoMais(d, passo), lim);
+    out.push(alt ? { data: alt, motivo: '', noLugar: d, feriado: fe.nome } : { data: d, motivo });
   }
   return out;
+}
+/* até 3 dias antes ou depois (no empate, antes): entre a consulta anterior e a próxima da série, sem passar do fim (revisão de código) */
+function diaUtilPerto(f, d, ini, fim, out, prox, lim) {
+  const ant = out.length ? out[out.length - 1].data : (f.data || E.d.hoje);
+  for (const n of [-1, 1, -2, 2, -3, 3]) { const x = isoMais(d, n);
+    if (x <= ant || x <= E.d.hoje || x >= prox || x > lim || out.some(o => o.data === x)) continue;
+    if (!bloqueioAg(f.prof, x, ini, fim) && !conflitoFut(f, x, ini, fim)) return x; }
+  return null;
 }
 function repetirHTML(f) {
   const r = repAg(f), reps = repeticoesAg(f), puladas = reps.filter(x => x.motivo);
@@ -79,9 +91,8 @@ function repetirHTML(f) {
       <span>termina ${sel('fim', [['vezes', 'após'], ['data', 'em']], r.fim)}
       ${r.fim === 'vezes' ? `${sel('vezes', [2, 3, 4, 5, 6, 8, 10, 12].map(n => [n, n]), r.vezes)} vezes</span>` : `<input type="date" class="rep-ate" min="${isoMais(f.data || E.d.hoje, 1)}" max="${REP_MAX()}" value="${r.ate}" data-campo="pc.painel.f.rep.ate" data-ao="repAteAg" onblur="A.repAteFim()" aria-label="Última data"></span>`}</div>
       ${reps.cortada ? `<div class="rep-pula"><span>${ic('alerta', 13)} A série para em ${dataBR(REP_MAX())}: depois disso os feriados ainda não estão cadastrados.</span></div>` : ''}
-      ${b0 ? `<div class="rep-pula"><span>${ic('alerta', 13)} A primeira data não dá: ${esc(b0.replace(/\.\s*Escolha.*$/, ''))}. Escolha outra data acima.</span></div>` : ''}
-      ${(ds => `<div class="rep-resumo">${ic('agenda', 15)} <b>${ds.length} ${ds.length === 1 ? 'consulta' : 'consultas'}:</b> ${ds.map(dataBR).join(', ') || '—'}</div>`)([...(b0 ? [] : [f.data || E.d.hoje]), ...reps.filter(x => !x.motivo).map(x => x.data)])}
-      ${puladas.length ? `<div class="rep-pula">${puladas.map(x => `<span class="rep-d pula">${ic('x', 13)} ${dataBR(x.data)}</span> <span>${esc(x.motivo.replace(/\.\s*Escolha.*$/, '').replace(/\.$/, ''))}</span>`).join('<br>')}<br><span class="muted">${puladas.length === 1 ? 'Essa data fica de fora' : 'Essas datas ficam de fora'} e entra a seguinte.</span></div>` : ''}` : ''}</div>`;
+      ${(ds => `<div class="rep-resumo">${ic('agenda', 15)} <b>${ds.length} ${ds.length === 1 ? 'consulta' : 'consultas'}:</b> ${ds.slice(0, 10).map(x => x.noLugar ? `<b>${dataBR(x.data)}</b> <span class="muted">(no lugar de ${dataBR(x.noLugar)}, ${esc(x.feriado)})</span>` : dataBR(x.data)).join(', ') || '—'}${ds.length > 10 ? ` … até ${dataBR(ds[ds.length - 1].data)}` : ''}</div>`)([...(b0 ? [] : [{ data: f.data || E.d.hoje }]), ...reps.filter(x => !x.motivo)])}
+      ${puladas.length ? `<div class="rep-pula">${puladas.slice(0, 4).map(x => `<span class="rep-d pula">${ic('x', 13)} ${dataBR(x.data)}</span> <span>${esc(x.motivo.replace(/\.\s*Escolha.*$/, '').replace(/\.$/, ''))}</span>`).join('<br>')}${puladas.length > 4 ? `<br><span>e mais ${puladas.length - 4} ${puladas.length - 4 === 1 ? 'data' : 'datas'}</span>` : ''}<br><span class="muted">${puladas.length === 1 ? 'Essa data fica de fora' : 'Essas datas ficam de fora'} e entra a seguinte.</span></div>` : ''}` : ''}</div>`;
 }
 
 /* ---------- lista de espera + "vaga liberada" ---------- */

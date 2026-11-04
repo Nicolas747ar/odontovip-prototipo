@@ -68,7 +68,9 @@ const ATIVOS = ['a_confirmar', 'confirmado', 'chegou', 'em_atendimento'];
 const PLANO_EST = { indicado: ['indicado', 'Indicado'], aprovado: ['aprovado', 'Aprovado'], realizado: ['feito', 'Feito'], recusado: ['recusado', 'Paciente não quis'], observado: ['aprovado', 'Aprovado'] };
 const pilulaPlano = e => `<span class="pl-est pl-${e}">${ic(PLANO_EST[e][0], 13)} ${PLANO_EST[e][1]}</span>`;
 /* modo celular de verdade: tela cheia, sem a barra do protótipo */
-const MODO_CEL = matchMedia('(max-width: 520px)').matches;
+// T-020: só o celular de verdade (lado menor da tela ≤ 520 px E dedo, em pé ou deitado); a janela pequena do PC continua no modo PC.
+// ?cel=1 força o modo celular para testar no computador.
+const MODO_CEL = /[?&]cel=1\b/.test(location.search) || (Math.min(screen.width, screen.height) <= 520 && matchMedia('(pointer: coarse)').matches);
 if (MODO_CEL) { E.ui.vista = 'cel'; document.documentElement.classList.add('modo-cel'); }
 
 /* tabela de preços: um valor por procedimento e por convênio (no sistema real vem do Excel do

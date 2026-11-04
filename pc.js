@@ -401,21 +401,23 @@ function estadoBotaoAg(f) {
   const ini = paraMin(f.horaTxt), fim = ini + Number(f.dur), hojeAg = ehHojeAg(f.data); // T-018: outro dia, feriado, férias e horário
   const c = f.pac && hojeAg ? conflitos({ ...f, ini, dur: Number(f.dur) }, f.remarcaDe) : [];
   const fut = f.pac && !hojeAg ? conflitoFut(f, f.data, ini, fim) : null, bloq = bloqueioAg(f.prof, f.data || E.d.hoje, ini, fim);
-  let falta = '';
+  let falta = '', deHora = false; // deHora: o problema é o dia ou o horário (o botão cinza diz o motivo, T-020)
   if (f.cadNovo) falta = 'Termine o cadastro do paciente acima.';
   else if (f.proc === '__novo') falta = 'Toque em “Usar este procedimento” ou escolha outro.';
   else if (!f.pac) falta = 'Escolha ou cadastre o paciente.';
   else if (!f.origem) falta = 'Escolha como o paciente chegou.';
-  else if (c.length) falta = 'Esse horário está ocupado.';
-  else if (fut) falta = `Esse horário está ocupado em ${dataBR(f.data)}: ${fut.pac ? esc(pac(fut.pac).nome) : esc(fut.tipo)} às ${hhmm(fut.ini)}.`;
-  else if (bloq) falta = bloq;
+  else if (c.length) { falta = 'Esse horário está ocupado.'; deHora = true; }
+  else if (fut) deHora = true, falta = `Esse horário está ocupado em ${dataBR(f.data)}: ${fut.pac ? esc(pac(fut.pac).nome) : esc(fut.tipo)} às ${hhmm(fut.ini)}.`;
+  else if (bloq) { falta = esc(bloq); deHora = true; }
   // mesmas regras do "Próximo horário livre" (proximoLivre): almoço 12:00–13:00 e fim às 18:00
-  else if (ini < 780 && fim > 720) falta = `Termina às ${hhmm(fim)}: entra no almoço (12:00–13:00).`;
-  else if (fim > 1080) falta = `Termina às ${hhmm(fim)}: passa das 18:00.`;
+  else if (ini < 780 && fim > 720) { falta = `Termina às ${hhmm(fim)}: entra no almoço (12:00–13:00).`; deHora = true; }
+  else if (fim > 1080) { falta = `Termina às ${hhmm(fim)}: passa das 18:00.`; deHora = true; }
   const p = f.pac && pac(f.pac);
   const nRep = repeticoesAg(f).filter(x => !x.motivo).length;
-  const label = p ? `Agendar ${esc(p.nome.split(' ').slice(0, 2).join(' '))} · ${hojeAg ? DIA : dataCurta(f.data)} · ${f.horaTxt}${nRep ? ` + ${nRep} ${nRep === 1 ? 'vez' : 'vezes'}` : ''}` : 'Agendar';
-  return { c, falta, label };
+  const label = p && deHora ? `Não dá: ${falta.replace(/\.\s*Escolha.*$/, '').replace(/\.$/, '')}` // T-020
+    : p ? `Agendar ${esc(p.nome.split(' ').slice(0, 2).join(' '))} · ${hojeAg ? DIA : dataCurta(f.data)} · ${f.horaTxt}${nRep ? ` + ${nRep} ${nRep === 1 ? 'vez' : 'vezes'}` : ''}` : 'Agendar';
+  const dica = deHora ? ((falta.match(/Escolha.*$/) || [''])[0] || (c.length || fut ? 'Escolha outro horário.' : '')) : falta; // T-020: o motivo já está no botão
+  return { c, falta, label, dica };
 }
 /* próximo horário livre que a agenda deixa marcar de verdade (revisão de código do carril B) */
 function livreAg(f) { const dur = Number(f.dur), iso = f.data || E.d.hoje;
@@ -435,8 +437,8 @@ function conflitoHTML(f) {
 A.avaliarAg = () => {
   const f = fAg(), s = estadoBotaoAg(f);
   const b = document.getElementById('btn-agendar'); if (!b) return;
-  b.textContent = s.label; b.disabled = !!s.falta;
-  document.getElementById('falta-ag').textContent = s.falta;
+  b.innerHTML = s.label; b.disabled = !!s.falta; // os textos já vêm com esc()
+  document.getElementById('falta-ag').innerHTML = s.dica;
   document.getElementById('conflito-ag').innerHTML = conflitoHTML(f);
 };
 A.usarHora = ds => { const f = fAg(); f.ini = +ds.m; f.horaTxt = hhmm(+ds.m); render(); };
@@ -532,8 +534,9 @@ A.salvarAg = () => {
   const f = fAg(), s = estadoBotaoAg(f); if (s.falta) return;
   const ini = paraMin(f.horaTxt), p = pac(f.pac);
   const voltou = p.inativo || p.excluido;
-  const reps = repeticoesAg(f), nRep = reps.filter(x => !x.motivo).length, fora = reps.length - nRep;
-  comDesfazer(`Agendado: ${esc(p.nome)} · ${ehHojeAg(f.data) ? '' : dataBR(f.data) + ' '}${f.horaTxt} com ${esc(prof(f.prof).curto)}.${nRep ? ` E mais ${nRep} ${nRep === 1 ? 'vez' : 'vezes'}${fora ? ` (${fora} ${fora === 1 ? 'data ficou' : 'datas ficaram'} de fora)` : ''}.` : ''}${voltou ? ' O cadastro voltou a ficar ativo.' : ''}`, () => {
+  const reps = repeticoesAg(f), nRep = reps.filter(x => !x.motivo).length, fora = reps.filter(x => x.motivo).map(x => dataBR(x.data)).join(', '),
+    trocas = reps.filter(x => x.noLugar).map(x => `${dataBR(x.data)} no lugar de ${dataBR(x.noLugar)} (${esc(x.feriado)})`).join(', ');
+  comDesfazer(`Agendado: ${esc(p.nome)} · ${ehHojeAg(f.data) ? '' : dataBR(f.data) + ' '}${f.horaTxt} com ${esc(prof(f.prof).curto)}.${nRep ? ` E mais ${nRep} ${nRep === 1 ? 'vez' : 'vezes'}${trocas ? ` · ${trocas}` : ''}${fora ? ` (${fora.includes(',') ? 'ficaram' : 'ficou'} de fora: ${fora})` : ''}.` : ''}${voltou ? ' O cadastro voltou a ficar ativo.' : ''}`, () => {
     delete p.inativo; delete p.excluido;
     const novo = { id: uid(), pac: f.pac, prof: f.prof, cad: f.cad, ini, dur: Number(f.dur), proc: f.proc || null, tipo: f.tipo, origem: f.origem, estado: 'a_confirmar', obs: f.obs };
     if (ehHojeAg(f.data)) E.d.agendamentos.push(novo); else E.d.agFuturos.push({ ...novo, data: f.data });
@@ -595,7 +598,7 @@ function painelNovoAg() {
     <div class="campo"><label>Observação</label><textarea rows="2" data-campo="pc.painel.f.obs">${esc(f.obs)}</textarea></div>
   </div>
   <div class="painel-rodape"><button id="btn-agendar" class="btn btn-pri" style="width:100%;min-height:46px" data-a="salvarAg" ${s.falta ? 'disabled' : ''}>${s.label}</button>
-    <div id="falta-ag" class="ajuda" style="text-align:center;margin-top:6px">${s.falta}</div></div></aside>`;
+    <div id="falta-ag" class="ajuda" style="text-align:center;margin-top:6px">${s.dica}</div></div></aside>`;
 }
 
 /* ---------- detalhe do agendamento ---------- */
@@ -1634,7 +1637,7 @@ function telaWhatsApp() {
       <div class="cartao"><h3>Mensagem</h3><div class="wa-fone"><div class="wa-balao">${esc(L.msg(ex))}<span class="wa-hora num">10:40</span></div></div></div>
       ${E.ui.clinicaSemInternet ? `<div class="aviso-box aviso">${ic('semrede', 16)} <b>Sem internet:</b> as mensagens ficam na fila e saem quando a internet voltar.</div>` : ''}
       ${envio ? `<div class="cartao wa-ok">${ic('checks', 22)}<div><b>${L.programa ? `Programado: cada um recebe no dia do aniversário ·` : waSaiu(envio) ? `Enviado às ${envio.hora} para` : `Na fila de envio às ${envio.hora} ·`} ${envio.ids.length} pacientes</b><span class="muted">custo estimado ${brl(envio.custo)} · ${L.programa || k !== 'amanha' ? 'quem responder QUERO ou REMARCAR aparece para a recepção agendar' : 'as respostas “SIM” confirmam a consulta sozinhas'}</span></div></div>`
-        : `<button class="btn ${E.ui.waDesconectado ? 'btn-sec' : 'btn-pri'} wa-enviar" data-a="waEnviar" ${sel.length ? '' : 'disabled'}>${ic('enviar', 18)} ${sel.length ? `${E.ui.waDesconectado ? 'Pôr na fila:' : L.programa ? 'Programar para' : 'Enviar a'} ${sel.length} ${sel.length === 1 ? 'paciente' : 'pacientes'} · ${brl(custo)} estimado` : 'Marque ao menos um paciente'}</button>`}
+        : `<button class="btn ${E.ui.waDesconectado ? 'btn-sec' : 'btn-pri'} wa-enviar" data-a="waEnviar" ${sel.length ? '' : 'disabled'}>${ic('enviar', 18)} ${sel.length ? `${E.ui.waDesconectado ? 'Pôr na fila:' : L.programa ? 'Programar para' : 'Enviar a'} ${sel.length} ${sel.length === 1 ? 'paciente' : 'pacientes'}` : 'Marque ao menos um paciente'}</button>${sel.length ? `<div class="wa-custo">custo estimado ${brl(custo)}</div>` : ''}`}
     </div>
   </div>`;
 }

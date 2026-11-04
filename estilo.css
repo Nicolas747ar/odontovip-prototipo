@@ -1555,8 +1555,8 @@ td.sem-passou .sem-cel{background:var(--bg)}
 .cp-linha b{font-size:15px}
 @container (max-width: 1100px){ .kpis-h{grid-template-columns:repeat(2,minmax(0,1fr))} }
 .kpi-h span span{font-size:13.5px!important}
-.pn-v{white-space:nowrap;font-size:12.5px!important}
-.cel .dono-leg small,.cel .dono-sub{font-size:15px}
+.pn-v{white-space:nowrap;font-size:13.5px!important}
+.cel .dono-leg small,.cel .dono-sub,.cel .dono-leg span{font-size:16px} /* ronda 8: mínimo 16 no celular (T-020) */
 .pn-resumo-l{margin:10px 0 0;font-size:14px;color:var(--ink-soft)}
 .pn-resumo-l b{color:var(--ink)}
 .cel .cp-linha,.cel .cp-linha b{font-size:16px}
@@ -1671,3 +1671,11 @@ td.sem-passou .sem-cel{background:var(--bg)}
   .sobre.pin>.card-usu{margin-top:4cqh}
   .sobre.pin>.sobre-foto{opacity:.3}
 }
+/* T-020 (S-mac-14): textos que se cortavam com "…" em 1366 e o WhatsApp em 1024 */
+.h-dia .h-pac-txt .h-meta,.cfg-nav .h-meta,.wa-linha .h-meta{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.35}
+.grade-wa .h-lista>.cartao-cab{flex-wrap:wrap;row-gap:4px}
+.grade-wa .h-lista>.cartao-cab>*{white-space:nowrap}
+@container (min-width: 961px) and (max-width: 1100px){ .grade-wa{grid-template-columns:minmax(0,1fr) 300px} }
+/* T-020: o estilo-fin.css forçava uma linha com !important; o subtítulo do menu de Configurações quebra em duas */
+.cfg-nav .cfg-item .h-meta{white-space:normal!important;overflow:visible!important;text-overflow:clip}
+.wa-custo{text-align:center;font-size:13px;color:var(--ink-soft);margin-top:6px}
