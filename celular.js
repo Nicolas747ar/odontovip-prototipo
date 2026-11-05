@@ -652,11 +652,64 @@ const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
 function donoBoaViagemHoje(corte) {
   const recs = E.d.recebimentos.filter(r => r.hora <= corte), t = totaisDia();
   const porForma = {}, porProf = {};
-  recs.forEach(r => { porForma[r.forma] = (porForma[r.forma] || 0) + r.valor; porProf[r.prof] = (porProf[r.prof] || 0) + r.valor; });
+  const porPlano = {};
+  recs.forEach(r => { porForma[r.forma] = (porForma[r.forma] || 0) + r.valor;
+    if (r.forma === 'Convênio') { const g = porPlano[r.plano] = porPlano[r.plano] || { guias: 0, valor: 0 }; g.guias++; g.valor += r.valor; }
+    else porProf[r.prof] = (porProf[r.prof] || 0) + r.valor; }); // por profissional = o que recebeu: guia não entra (T-021)
   const conv = recs.filter(r => r.forma === 'Convênio').reduce((s, r) => s + r.valor, 0);
-  return { id: 'bv', nome: E.d.unidade, aoVivo: true, part: recs.reduce((s, r) => s + r.valor, 0) - conv, conv, porForma, porProf,
+  return { id: 'bv', nome: E.d.unidade, aoVivo: true, part: recs.reduce((s, r) => s + r.valor, 0) - conv, conv, porForma, porProf, porPlano,
     agendados: t.agendados, atendidos: t.atendidos, faltas: t.faltas, aReceber: t.aReceberHoje };
 }
+/* T-021: "qual é o plano e o valor". Soma as unidades; o plano paga depois, por isso "produzido" */
+function donoPlanos(lista) {
+  const soma = {}; lista.forEach(pp => Object.entries(pp || {}).forEach(([id, g]) => { const s = soma[id] = soma[id] || { guias: 0, valor: 0 }; s.guias += g.guias; s.valor += g.valor; }));
+  const ls = Object.entries(soma).filter(([, g]) => g.valor > 0).sort((a, b) => b[1].valor - a[1].valor);
+  if (!ls.length) return '<div class="dono-sub">Nenhuma guia nesse período.</div>';
+  return `${ls.map(([id, g]) => `<div class="dono-linha"><span>${esc(conv(id).nome)}<small class="dono-guias">${milBR(g.guias)} ${g.guias === 1 ? 'guia' : 'guias'}</small></span><b class="num">${brl(g.valor)}</b></div>`).join('')}`;
+}
+const donoMais = (k, tit, html) => { const c = E.ui.cel; return `<details class="cel-card dono-mais" ${((c.donoAberto = c.donoAberto || { forma: true, plano: true }))[k] ? 'open' : ''} ontoggle="(E.ui.cel.donoAberto = E.ui.cel.donoAberto || {})['${k}'] = this.open"><summary><b>${tit}</b></summary>${html}</details>`; };
+/* período (T-021). O protótipo só tem números de outubro: os dias anteriores a hoje são a média do mês; hoje é o real */
+const DONO_INI = '2026-10-01', DONO_DIAS_ANTES = 28;
+const donoDias = (a, b) => Math.round((new Date(b + 'T12:00') - new Date(a + 'T12:00')) / 864e5);
+function donoPeriodo() {
+  const c = E.ui.cel, de = c.perDe ?? DONO_INI, ate = c.perAte ?? E.d.hoje;
+  if (!de || !ate) return { erro: 'Escolha as duas datas.' };
+  if (de > ate) return { erro: 'A data inicial está depois da data final.' };
+  if (ate < DONO_INI || de > E.d.hoje) return { erro: 'O protótipo só tem números de 01/10 a 29/10.' };
+  const d1 = de < DONO_INI ? DONO_INI : de, d2 = ate > E.d.hoje ? E.d.hoje : ate, temHoje = d2 === E.d.hoje, dias = donoDias(d1, d2) + 1;
+  return { d1, d2, dias, temHoje, antes: dias - (temHoje ? 1 : 0), cortou: d1 !== de || d2 !== ate };
+}
+const donoPerCampos = () => { const c = E.ui.cel, de = c.perDe ?? DONO_INI, ate = c.perAte ?? E.d.hoje;
+  return `<div class="cel-card dono-per"><label class="cel-campo"><span>De</span><input class="cel-input" type="date" max="${E.d.hoje}" value="${esc(de)}" data-campo="cel.perDe" data-ao="donoPer"></label><label class="cel-campo"><span>Até</span><input class="cel-input" type="date" max="${E.d.hoje}" value="${esc(ate)}" data-campo="cel.perAte" data-ao="donoPer"></label></div>`; };
+function donoPerUnidades(p, bv) {
+  const din = v => Math.round(v / 100) * 100, num = Math.round, f = p.antes / DONO_DIAS_ANTES;
+  const junta = (antes, hoje, nome, id, tag) => { const m = { nome, id, aoVivo: tag, porPlano: {} };
+    ['part', 'agendados', 'atendidos', 'faltas'].forEach(k => { const v = (antes[k] || 0) * f + (p.temHoje ? hoje[k] || 0 : 0); m[k] = k === 'part' ? din((antes[k] || 0) * f) + (p.temHoje ? hoje[k] || 0 : 0) : num(v); });
+    new Set([...Object.keys(antes.porPlano || {}), ...Object.keys(hoje.porPlano || {})]).forEach(pl => { const a = (antes.porPlano || {})[pl] || { guias: 0, valor: 0 }, h = (hoje.porPlano || {})[pl] || { guias: 0, valor: 0 };
+      m.porPlano[pl] = { guias: num(a.guias * f + (p.temHoje ? h.guias : 0)), valor: din(a.valor * f) + (p.temHoje ? h.valor : 0) }; });
+    m.conv = Object.values(m.porPlano).reduce((s, g) => s + g.valor, 0); return m; };
+  const menos = (mes, hoje) => { const r = { ...mes, porPlano: {} }; ['part', 'agendados', 'atendidos', 'faltas'].forEach(k => { r[k] = mes[k] - (hoje[k] || 0); });
+    Object.entries(mes.porPlano || {}).forEach(([pl, g]) => { const h = (hoje.porPlano || {})[pl] || { guias: 0, valor: 0 }; r.porPlano[pl] = { guias: g.guias - h.guias, valor: g.valor - h.valor }; }); return r; };
+  return [junta(E.d.bvMesAntes, bv, bv.nome, 'bv', true), ...E.d.outrasUnidades.map(u => junta(menos(u.mes, u.hoje), u.hoje, u.nome, u.id, false))];
+}
+function donoPerCorpo(corte) {
+  const p = donoPeriodo(); if (p.erro) return `<div class="cel-card"><div class="dono-sub">${p.erro}</div></div>`;
+  const us = donoPerUnidades(p, donoBoaViagemHoje(corte)), part = us.reduce((s, u) => s + u.part, 0), conv = us.reduce((s, u) => s + u.conv, 0);
+  const fa = us.reduce((s, u) => s + u.faltas, 0), at = us.reduce((s, u) => s + u.atendidos, 0), cr = donoCampanha(p);
+  return `<div class="cel-card c-total"><div class="dono-rot">Recebido · ${dataBR(p.d1)} a ${dataBR(p.d2)} <span class="tag-ex">exemplo</span></div><div class="dono-total num">${brl(part)}</div>${donoBarra(part, conv)}</div>
+    ${p.cortou ? '<div class="dono-sub" style="padding:0 4px 8px">O protótipo só tem números de 01/10 a 29/10.</div>' : ''}
+    <div class="c-tit"><h3>Por unidade</h3></div><div class="cel-card c-lista">${us.map(u => donoUnidade(u, u)).join('')}</div>
+    ${donoMais('plano', 'Por plano odontológico', donoPlanos(us.map(u => u.porPlano)))}
+    ${donoMais('perPac', 'Pacientes', `<div class="dono-linha"><span>Atendidos</span><b class="num">${at}</b></div><div class="dono-linha"><span>Faltaram</span><b>${faltaTxt(fa, pct(fa, at + fa))}</b></div>`)}
+    ${donoMais('perRetorno', 'Retorno de pacientes (campanha no WhatsApp)', donoFunil(cr))}`;
+}
+/* campanha: o número de outubro, proporcional aos dias escolhidos */
+const donoCampanha = p => { const c = E.d.campanhaRetorno, f = p.dias / (DONO_DIAS_ANTES + 1), r = v => Math.round(v * f); return { enviadas: r(c.enviadas), marcadas: r(c.marcadas), vieram: r(c.vieram), custo: Math.round(c.custo * f / 100) * 100 }; };
+const donoFunil = cr => `<div class="dono-funil"><div><b class="num">${milBR(cr.enviadas)}</b><span>mensagens</span></div>${ic('dir', 18)}<div><b class="num">${cr.marcadas}</b><span>marcaram</span></div>${ic('dir', 18)}<div><b class="num">${cr.vieram}</b><span>vieram</span></div></div>
+  <div class="dono-sub">${pct(cr.marcadas, cr.enviadas)}% marcaram · custo ${brl(cr.custo)}${cr.vieram ? ` = ${brl(Math.round(cr.custo / cr.vieram))} por paciente que veio` : ''}</div>`;
+function donoRetCorpo() { const p = donoPeriodo(); if (p.erro) return `<div class="cel-card"><div class="dono-sub">${p.erro}</div></div>`;
+  return `<div class="cel-card c-total"><div class="dono-rot">Campanha de retorno no WhatsApp · ${dataBR(p.d1)} a ${dataBR(p.d2)} <span class="tag-ex">exemplo</span></div>${donoFunil(donoCampanha(p))}</div>${p.cortou ? '<div class="dono-sub" style="padding:0 4px 8px">O protótipo só tem números de 01/10 a 29/10.</div>' : ''}`; }
+A.donoPer = () => { const c = E.ui.cel, el = document.getElementById('dono-per-corpo'); if (el) el.innerHTML = (c.donoAba || 'resumo') === 'retornos' ? donoRetCorpo() : donoPerCorpo(E.ui.clinicaSemInternet ? 625 : 1e9); };
 function donoBarra(part, conv) {
   const tot = part + conv;
   return `<div class="dono-barra" role="img" aria-label="Particular ${pct(part, tot)}%, convênio ${pct(conv, tot)}%"><i class="b-part" style="width:${pct(part, tot)}%"></i><i class="b-conv" style="width:${pct(conv, tot)}%"></i></div>
@@ -677,10 +730,11 @@ function telaDono() {
   const c = E.ui.cel, semNet = E.ui.clinicaSemInternet, corte = semNet ? 625 : 1e9, cx = E.d.caixa, aba = c.diaDono || 'hoje';
   const bv = donoBoaViagemHoje(corte);
   // ADR-027: só o aviso que muda a leitura (sem internet); "exemplo" fica na etiqueta de cada unidade
-  const mais = (k, tit, html) => `<details class="cel-card dono-mais" ${((c.donoAberto = c.donoAberto || { forma: true }))[k] ? 'open' : ''} ontoggle="(E.ui.cel.donoAberto = E.ui.cel.donoAberto || {})['${k}'] = this.open"><summary><b>${tit}</b></summary>${html}</details>`;
+  const mais = donoMais;
   const avisoNet = semNet && aba !== 'ontem' ? `<div class="dono-banda net">${ic('semrede', 18)}<span><b>Sem atualização desde 10:25.</b> A clínica pode estar sem internet: os números podem estar velhos.</span></div>` : '';
   let corpo = '';
-  if (aba === 'ontem') {
+  if (aba === 'periodo') corpo = `${donoPerCampos()}<div id="dono-per-corpo">${donoPerCorpo(corte)}</div>`;
+  else if (aba === 'ontem') {
     const o = E.d.ontem;
     corpo = `<div class="cel-card c-total"><div class="dono-rot">Recebido ontem · ${esc(E.d.unidade)}</div><div class="dono-total num">${brl(o.total)}</div></div>
       <div class="cel-card"><b>Por forma de pagamento</b>${[['Pix', o.pix], ['Cartão crédito', o.credito], ['Cartão débito', o.debito], ['Dinheiro', o.dinheiro]].filter(([, v]) => v).map(([f, v]) => `<div class="dono-linha"><span>${formaHTML(f)}</span><b class="num">${brl(v)}</b></div>`).join('')}</div>
@@ -697,6 +751,7 @@ function telaDono() {
     corpo = `<div class="cel-card c-total"><div class="dono-rot">Recebido no mês · 01 a 29/10 · 3 unidades</div><div class="dono-total num">${brl(part)}</div>
         <div class="dono-var ${varMes >= 0 ? 'sobe' : 'desce'}">${ic(varMes >= 0 ? 'sobe' : 'desce', 16)} ${varMes >= 0 ? '+' : ''}${varMes}% em relação a 01 a 29/09</div>${donoBarra(part, conv)}</div>
       <div class="c-tit"><h3>Por unidade</h3></div><div class="cel-card c-lista">${us.map(([u, m]) => donoUnidade(u, m)).join('')}</div>
+      ${mais('plano', 'Por plano odontológico', donoPlanos([bv.porPlano, ...E.d.outrasUnidades.map(u => u.mes.porPlano)]))}
       ${mais('mesFaltas', 'Faltas no mês', `<div class="dono-grande ${fal >= FALTA_ALTA ? 'txt-erro' : ''}">${fal}%</div>
         <div class="dono-sub">${soma('faltas')} faltas em ${soma('atendidos') + soma('faltas')} consultas que deviam acontecer</div>
         ${us.map(([u, m]) => { const f = pct(m.faltas, m.atendidos + m.faltas); return `<div class="dono-linha"><span>${esc(u.nome)}</span><span class="dono-mini"><i class="${f >= FALTA_ALTA ? 'alta' : ''}" style="width:${Math.min(100, f * 2)}%"></i></span><b class="num ${f >= FALTA_ALTA ? 'txt-erro' : ''}">${f >= FALTA_ALTA ? ic('alerta', 14) + ' ' : ''}${f}%</b></div>`; }).join('')}
@@ -718,13 +773,15 @@ function telaDono() {
         <div class="dono-linha"><span>Faltaram</span><b>${faltaTxt(fa, pct(fa, at + fa))}</b></div>
 `)}
       ${mais('forma', 'Por forma de pagamento', Object.entries(porForma).sort((a, b) => b[1] - a[1]).map(([f, v]) => `<div class="dono-linha"><span>${formaHTML(f)}</span><b class="num">${brl(v)}</b></div>`).join(''))}
-      ${mais('prof', 'Boa Viagem · por profissional', Object.entries(bv.porProf).map(([id, v]) => `<div class="dono-linha"><span>${id && prof(id) ? prof(id).curto : 'Sem profissional'}</span><b class="num">${brl(v)}</b></div>`).join(''))}
+      ${mais('plano', 'Por plano odontológico', donoPlanos(us.map(u => u.porPlano)))}
+      ${mais('prof', 'Boa Viagem · recebido por profissional', Object.entries(bv.porProf).map(([id, v]) => `<div class="dono-linha"><span>${id && prof(id) ? prof(id).curto : 'Sem profissional'}</span><b class="num">${brl(v)}</b></div>`).join(''))}
       ${mais('caixa', 'Boa Viagem · caixa', `
         <div class="dono-linha"><span>Vence hoje e falta receber</span><b class="num">${brl(bv.aReceber)}</b></div>
+        ${(ct => `<div class="dono-linha"><span>Carteira a receber</span><b class="num">${brl(ct.aReceber)}</b></div>${ct.vencido ? `<div class="dono-linha txt-erro"><span>${ic('alerta', 14)} Carteira vencida</span><b class="num">${brl(ct.vencido)}</b></div>` : ''}`)(cartTotais(Object.entries(E.d.parcelas).flatMap(([pid, ps]) => ps.filter(x => x.carteira).map(x => ({ pid, x, sit: cartSituacao(x), falta: saldoParcela(x) })))))}
         <div class="dono-linha"><span>Caixa</span>${cx.fechado ? `<span class="cx-status fechado">${ic('cadeado', 14)} Fechado às ${hhmm(cx.hora)}</span>` : '<span class="cx-status aberto"><span class="ponto"></span>Aberto</span>'}</div>
         ${cx.fechado && cx.dif ? `<div class="dono-linha txt-erro"><span>Gaveta</span><b>${cx.dif > 0 ? 'sobrou' : 'faltou'} ${brl(Math.abs(cx.dif))}</b></div>` : ''}`)}`;
   }
-  const seg = `<div class="c-seg">${[['hoje', 'Hoje'], ['ontem', 'Ontem'], ['mes', 'Mês']].map(([k, t]) => `<button class="${aba === k ? 'on' : ''}" data-a="donoDia" data-v="${k}" aria-pressed="${aba === k}">${t}</button>`).join('')}</div>`;
+  const seg = `<div class="c-seg">${[['hoje', 'Hoje'], ['ontem', 'Ontem'], ['mes', 'Mês'], ['periodo', 'Período']].map(([k, t]) => `<button class="${aba === k ? 'on' : ''}" data-a="donoDia" data-v="${k}" aria-pressed="${aba === k}">${t}</button>`).join('')}</div>`;
   const quando = avisoNet ? 'sem atualização desde 10:25' : 'atualizado às 10:40';
   const sec = c.donoAba || 'resumo';
   let tela = `${celTopo(quando, `${saudacao()}, ${esc(usu(E.ui.cel.usuario).nome)}`, seg)}
@@ -734,12 +791,10 @@ function telaDono() {
 }
 /* abas do dono: retornos (campanha no WhatsApp e pedidos das dentistas), orçamentos e "Eu" — os mesmos números do Resumo · Mês */
 function donoSecao(sec) {
-  const cr = E.d.campanhaRetorno, a = E.d.bvMesAntes, us = [a, ...E.d.outrasUnidades.map(u => u.mes)];
+  const a = E.d.bvMesAntes, us = [a, ...E.d.outrasUnidades.map(u => u.mes)];
   const soma = k => us.reduce((s, m) => s + (m[k] || 0), 0);
   if (sec === 'retornos') { const pedidos = E.d.pedidosRetorno.length, feitos = E.d.pedidosRetorno.filter(r => r.feito).length;
-    return `<div class="cel-card c-total"><div class="dono-rot">Campanha de retorno no WhatsApp · outubro <span class="tag-ex">exemplo</span></div>
-      <div class="dono-funil"><div><b class="num">${milBR(cr.enviadas)}</b><span>mensagens</span></div>${ic('dir', 18)}<div><b class="num">${cr.marcadas}</b><span>marcaram</span></div>${ic('dir', 18)}<div><b class="num">${cr.vieram}</b><span>vieram</span></div></div>
-      <div class="dono-sub">${pct(cr.marcadas, cr.enviadas)}% marcaram · custo ${brl(cr.custo)} = ${brl(Math.round(cr.custo / Math.max(1, cr.vieram)))} por paciente que veio</div></div>
+    return `${donoPerCampos()}<div id="dono-per-corpo">${donoRetCorpo()}</div>
       ${pedidos ? `<div class="cel-card"><div class="dono-linha"><span>Retornos pedidos pelas dentistas (Boa Viagem)</span><b class="num">${feitos} de ${pedidos} marcados</b></div></div>` : ''}`; }
   if (sec === 'painel') { const P = E.d.painel, ms = P.meses, ult = ms[ms.length - 1], ant = ms[ms.length - 2], max = Math.max(...ms.map(m => m.part + m.conv));
     const mil = c => `R$ ${(c / 100000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil`, conv = pct(ult.orcA, ult.orcF), convAnt = pct(ant.orcA, ant.orcF);

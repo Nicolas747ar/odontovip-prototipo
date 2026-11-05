@@ -135,19 +135,20 @@ function profDoPagamento(pid) {
   const aprov = pl.filter(i => i.estado === 'aprovado').sort((a, b) => (b.dataApr || b.dataInd || '').localeCompare(a.dataApr || a.dataInd || ''))[0];
   return aprov ? aprov.indicadoPor : null;
 }
-function receber(pid, valor, forma) {
-  const { res, sobra } = distribuir(pid, valor);
+function receber(pid, valor, forma, planoGuia) {
+  // guia de convênio (T-021): é produção, o plano paga depois. Não abate parcela do paciente
+  const { res, sobra } = forma === 'Convênio' ? { res: [], sobra: 0 } : distribuir(pid, valor);
   res.forEach(r => { r.p.pago += r.usa; });
   // pagou mais do que devia: a sobra fica como crédito (a tela avisa "ficam como crédito").
   // Sem nada em aberto é um pagamento avulso, não crédito.
   if (sobra > 0 && res.length) { const p = pac(pid); p.credito = (p.credito || 0) + sobra; }
-  E.d.recebimentos.push({ id: uid(), hora: E.d.agoraMin, pac: pid, valor, forma, por: E.ui.pc.usuario, prof: profDoPagamento(pid), depoisFechamento: E.d.caixa.fechado });
+  E.d.recebimentos.push({ id: uid(), hora: E.d.agoraMin, pac: pid, valor, forma, por: E.ui.pc.usuario, prof: profDoPagamento(pid), depoisFechamento: E.d.caixa.fechado, ...(forma === 'Convênio' ? { plano: planoGuia || pac(pid).conv } : {}) });
 }
-function gerarParcelas(pid, total, n, primeiro) {
+function gerarParcelas(pid, total, n, primeiro, carteira) {
   const base = Math.floor(total / n / 100) * 100;
   for (let i = 1; i <= n; i++) {
     const v = i === n ? total - base * (n - 1) : base;
-    parcelas(pid).push({ id: uid(), n: i, de: n, venc: somaMeses(primeiro, i - 1), valor: v, pago: 0 });
+    parcelas(pid).push({ id: uid(), n: i, de: n, venc: somaMeses(primeiro, i - 1), valor: v, pago: 0, ...(carteira ? { carteira: true } : {}) });
   }
 }
 /* saída do paciente (Nicolas, 02/11): quanto cobrar hoje = parcelas que vencem hoje ou já venceram */
@@ -186,23 +187,25 @@ function cpfValido(cpf) {
 const emailValido = e => !e || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(e).trim());
 const semAcento = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 /* número exato primeiro; sem acento; telefone/CPF só com 3+ dígitos */
-function buscarPacientes(t) {
+function buscarPacientes(t, limite = 7) {
   const q = semAcento(t).trim(); if (q.length < 2) return [];
   const num = q.replace(/^n[ºo°.]?\s*/, '').trim(), so = q.replace(/\D/g, '');
   const vivos = E.d.pacientes.filter(p => !p.excluido); // excluído só aparece em Pacientes → Excluídos
   const exato = /^\d+$/.test(num) ? vivos.filter(p => String(p.numero) === num) : [];
   const outros = vivos.filter(p => !exato.includes(p) && (semAcento(p.nome).includes(q) ||
     (so.length >= 3 && (p.cel.replace(/\D/g, '').includes(so) || p.cpf.replace(/\D/g, '').includes(so)))));
-  return [...exato, ...outros].slice(0, 7);
+  return [...exato, ...outros].slice(0, limite);
 }
 function totaisDia() {
   const ag = E.d.agendamentos.filter(a => a.pac);
-  const rec = E.d.recebimentos;
+  // T-021: guia de convênio é "produzido" (ADR-025): fica fora do recebido e da gaveta, com o plano ao lado
+  const rec = E.d.recebimentos.filter(r => r.forma !== 'Convênio'), guias = {};
+  E.d.recebimentos.filter(r => r.forma === 'Convênio').forEach(r => { const g = guias[r.plano] = guias[r.plano] || { guias: 0, valor: 0 }; g.guias++; g.valor += r.valor; });
   const porForma = {}; rec.forEach(r => { porForma[r.forma] = (porForma[r.forma] || 0) + r.valor; });
   const porProf = {}; rec.forEach(r => { const k = r.prof || '—'; porProf[k] = (porProf[k] || 0) + r.valor; });
   const aReceberHoje = Object.values(E.d.parcelas).flat().filter(p => p.venc === E.d.hoje).reduce((s, p) => s + saldoParcela(p), 0);
   return {
-    total: rec.reduce((s, r) => s + r.valor, 0), porForma, porProf, aReceberHoje,
+    total: rec.reduce((s, r) => s + r.valor, 0), porForma, porProf, aReceberHoje, guias, conv: Object.values(guias).reduce((s, g) => s + g.valor, 0),
     agendados: ag.filter(a => !['desmarcou', 'remarcado'].includes(a.estado)).length,
     confirmados: ag.filter(a => ['confirmado', 'chegou', 'em_atendimento', 'atendido'].includes(a.estado)).length,
     aConfirmar: ag.filter(a => a.estado === 'a_confirmar').length,

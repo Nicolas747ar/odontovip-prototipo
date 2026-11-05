@@ -85,15 +85,47 @@ const pctBR = n => `${String(n).replace('.', ',')}%`;
 /* ---------- a tela ---------- */
 function telaFinanceiro() {
   const aba = E.ui.pc.finAba || 'fluxo';
-  const tabs = `<span class="tabs" role="tablist">${[['fluxo', 'Fluxo de caixa'], ['despesas', 'Despesas'], ['cartoes', 'Cartões']].map(([k, t]) => `<button role="tab" aria-selected="${aba === k}" class="${aba === k ? 'on' : ''}" data-a="finAba" data-v="${k}">${t}</button>`).join('')}</span>`;
-  const corpo = { fluxo: finFluxo, despesas: finDespesas, cartoes: finCartoes }[aba]();
-  const exp = { fluxo: 'exportFluxo', despesas: 'exportDespesas', cartoes: 'exportCartoes' }[aba];
-  return `<div class="titulo-tela"><h1>Contas e fluxo</h1><span class="sub">${esc(E.d.unidade)} · outubro</span><span class="titulo-acoes">${botaoExcel(exp)}${tabs}</span></div>${corpo}`;
+  const tabs = `<span class="tabs" role="tablist">${[['fluxo', 'Fluxo de caixa'], ['despesas', 'Despesas'], ['cartoes', 'Cartões'], ['carteira', 'Carteira a receber']].map(([k, t]) => `<button role="tab" aria-selected="${aba === k}" class="${aba === k ? 'on' : ''}" data-a="finAba" data-v="${k}">${t}</button>`).join('')}</span>`;
+  const corpo = { fluxo: finFluxo, despesas: finDespesas, cartoes: finCartoes, carteira: finCarteira }[aba]();
+  const exp = { fluxo: 'exportFluxo', despesas: 'exportDespesas', cartoes: 'exportCartoes', carteira: 'exportCarteira' }[aba];
+  return `<div class="titulo-tela"><h1>Contas e fluxo</h1><span class="sub">${esc(E.d.unidade)}${aba === 'carteira' ? '' : ' · outubro'}</span><span class="titulo-acoes">${botaoExcel(exp)}${tabs}</span></div>${corpo}`;
 }
 A.finAba = ds => { E.ui.pc.finAba = ds.v; render(); };
 
+/* ---------- carteira a receber (T-021): quem deve, quantas parcelas, quanto falta, a data combinada e quem já pagou.
+   Só o que a própria clínica financia; cartão é com a maquininha ---------- */
+const CART_SIT = { vencida: ['alerta', 'Vencida'], hoje: ['relogio', 'Vence hoje'], avencer: ['agenda', 'A vencer'], quitada: ['check', 'Quitada'] };
+function cartSituacao(x) { return saldoParcela(x) <= 0 ? 'quitada' : x.venc < E.d.hoje ? 'vencida' : x.venc === E.d.hoje ? 'hoje' : 'avencer'; }
+function cartParcelas() { const { cartDe: de, cartAte: ate } = E.ui.pc;
+  return Object.entries(E.d.parcelas).flatMap(([pid, ps]) => ps.filter(x => x.carteira && (!de || x.venc >= de) && (!ate || x.venc <= ate)).map(x => ({ pid, x, sit: cartSituacao(x), falta: saldoParcela(x) }))).sort((a, b) => a.x.venc.localeCompare(b.x.venc) || a.pid.localeCompare(b.pid)); }
+const cartDaAba = (l, aba) => l.filter(({ sit }) => aba === 'todas' || (aba === 'aberto' ? sit !== 'quitada' : aba === 'avencer' ? sit === 'avencer' || sit === 'hoje' : sit === aba));
+const cartTotais = l => ({ aReceber: l.reduce((s, r) => s + r.falta, 0), vencido: l.filter(r => r.sit === 'vencida').reduce((s, r) => s + r.falta, 0), recebido: l.reduce((s, r) => s + r.x.pago, 0), pacientes: new Set(l.filter(r => r.falta > 0).map(r => r.pid)).size });
+const cartFaltaPac = pid => parcelas(pid).filter(x => x.carteira).reduce((s, x) => s + saldoParcela(x), 0);
+function cartCorpo() {
+  const pc = E.ui.pc, aba = pc.cartAba || 'aberto';
+  if (pc.cartDe && pc.cartAte && pc.cartDe > pc.cartAte) return '<div class="cartao"><div class="vazio">A data inicial está depois da data final.</div></div>';
+  const todas = cartParcelas(), t = cartTotais(todas), lista = cartDaAba(todas, aba);
+  const kpi = (n, txt, ico, cls) => `<div class="kpi kpi-h ${cls}"><span class="kpi-ic">${ic(ico, 22)}</span><span><b class="num">${n}</b><span>${txt}</span></span></div>`;
+  return `<div class="kpis-h cart-kpis">${kpi(brl(t.aReceber), `a receber · ${t.pacientes} ${t.pacientes === 1 ? 'paciente' : 'pacientes'}`, 'caixa', 'azul')}${kpi(brl(t.vencido), 'vencido', 'alerta', t.vencido ? 'vermelho' : 'verde')}${kpi(brl(t.recebido), 'já recebido', 'sobe', 'verde')}</div>
+  <table class="tab cart-tab"><thead><tr><th>Paciente</th><th>Parcela</th><th>Data combinada</th><th class="dir col-valor">Valor</th><th class="dir">Pago</th><th class="dir">Falta</th><th>Situação</th><th></th></tr></thead><tbody>
+  ${lista.map(({ pid, x, sit, falta }) => { const p = pac(pid), [i, rot] = CART_SIT[sit], dias = sit === 'vencida' ? Math.round((new Date(E.d.hoje + 'T12:00') - new Date(x.venc + 'T12:00')) / 864e5) : 0;
+    return `<tr><td><button class="btn-link cart-pac" data-a="abrirFicha" data-id="${pid}">${esc(p.nome)}</button><small class="cart-sub">nº ${p.numero} · falta ${brl(cartFaltaPac(pid))} no total</small></td><td class="num">${x.n} de ${x.de}</td><td class="num">${dataBRc(x.venc)}</td><td class="num dir col-valor">${brl(x.valor)}</td><td class="num dir">${brl(x.pago)}</td><td class="num dir"><b>${brl(falta)}</b></td>
+      <td><span class="cart-sit ${sit}">${ic(i, 15)} ${rot}${dias ? ` há ${dias} ${dias === 1 ? 'dia' : 'dias'}` : ''}</span></td><td class="dir">${falta > 0 && pode('caixa') ? `<button class="btn btn-peq" data-a="abrirReceber" data-pac="${pid}">Receber</button>` : ''}</td></tr>`; }).join('') || `<tr><td colspan="8" class="vazio">Nenhuma parcela de carteira${pc.cartDe || pc.cartAte ? ' nesse período' : ''}${aba !== 'todas' ? ' nessa situação' : ''}.</td></tr>`}
+  </tbody></table>`;
+}
+function finCarteira() {
+  const pc = E.ui.pc, aba = pc.cartAba || 'aberto';
+  return `<div class="cart-filtros"><span class="seg">${[['aberto', 'Em aberto'], ['vencida', 'Vencidas'], ['avencer', 'A vencer'], ['quitada', 'Quitadas'], ['todas', 'Todas']].map(([k, t]) => `<button class="${aba === k ? 'ativo' : ''}" data-a="cartAba" data-v="${k}" aria-pressed="${aba === k}">${t}</button>`).join('')}</span>
+    <span class="cart-per"><span class="muted">Data combinada</span><label>de <input type="date" value="${esc(pc.cartDe || '')}" data-campo="pc.cartDe" data-ao="cartPer"></label><label>até <input type="date" value="${esc(pc.cartAte || '')}" data-campo="pc.cartAte" data-ao="cartPer"></label></span></div>
+  <div id="cart-corpo">${cartCorpo()}</div>`;
+}
+A.cartAba = ds => { E.ui.pc.cartAba = ds.v; render(); };
+A.cartPer = () => { document.getElementById('cart-corpo').innerHTML = cartCorpo(); }; // só a tabela: o campo de data segue com o foco
+A.exportCarteira = () => E.ui.pc.cartDe && E.ui.pc.cartAte && E.ui.pc.cartDe > E.ui.pc.cartAte ? toast('A data inicial está depois da data final: nada foi exportado.') : baixarCSV('carteira-a-receber', ['Paciente', 'Nº', 'Parcela', 'Data combinada', 'Valor (R$)', 'Pago (R$)', 'Falta (R$)', 'Situação'],
+  cartDaAba(cartParcelas(), E.ui.pc.cartAba || 'aberto').map(({ pid, x, sit, falta }) => [pac(pid).nome, pac(pid).numero, `${x.n} de ${x.de}`, dataBRc(x.venc), reais(x.valor), reais(x.pago), reais(falta), CART_SIT[sit][1]]));
+
 function finFluxo() {
-  const hojeEnt = E.d.recebimentos.reduce((t, r) => t + r.valor, 0);
+  const hojeEnt = totaisDia().total; // guia de convênio não é entrada: o plano paga depois (T-021)
   const semanas = [...E.d.entradasAntes, { sem: '29/10 (hoje)', valor: hojeEnt }];
   const ent = semanas.reduce((t, s) => t + s.valor, 0), pagas = E.d.despesas.filter(d => d.pago && d.venc.slice(0, 7) === '2026-10'), sai = pagas.reduce((t, d) => t + d.valor, 0);
   const aPagar = E.d.despesas.filter(d => !d.pago && d.venc.slice(0, 7) === '2026-10').reduce((t, d) => t + d.valor, 0);
@@ -111,7 +143,7 @@ function finFluxo() {
   <p class="nota-leve">${ic('cadeado', 15)} Só ${esc(E.d.unidade)} · números de exemplo. O recebido de hoje vem do Caixa.</p>`;
 }
 A.exportFluxo = () => baixarCSV('fluxo-de-caixa', ['Período', 'Tipo', 'Descrição', 'Categoria', 'Valor (R$)'],
-  [...E.d.entradasAntes.map(s => [s.sem, 'Entrada', 'Recebimentos', '', reais(s.valor)]), ...E.d.recebimentos.map(r => ['29/10', 'Entrada', `${pac(r.pac).nome} · ${r.forma}`, '', reais(r.valor)]),
+  [...E.d.entradasAntes.map(s => [s.sem, 'Entrada', 'Recebimentos', '', reais(s.valor)]), ...E.d.recebimentos.filter(r => r.forma !== 'Convênio').map(r => ['29/10', 'Entrada', `${pac(r.pac).nome} · ${r.forma}`, '', reais(r.valor)]),
    ...E.d.despesas.filter(d => d.pago).map(d => [dataBR(d.venc), 'Saída', d.desc, d.cat, '-' + reais(d.valor)])]);
 
 function finDespesas() {
@@ -180,8 +212,8 @@ A.exportCartoes = () => baixarCSV('cartoes', ['Data', 'Paciente', 'Tipo', 'Bande
   movCartoes().map(k => [dataBR(k.data) + '/2026', pac(k.pac).nome, k.forma, k.band, k.n, reais(k.valor), reais(k.taxa), reais(k.liquido), dataBR(k.parcelas[0].venc) + '/2026']));
 
 /* ---------- exportar: Caixa, Pacientes e Relatórios ---------- */
-A.exportCaixa = () => baixarCSV('caixa-do-dia', ['Hora', 'Paciente', 'Profissional', 'Forma', 'Valor (R$)', 'Recebido por'],
-  E.d.recebimentos.map(r => [hhmm(r.hora), pac(r.pac).nome, r.prof ? prof(r.prof).curto : '—', r.forma, reais(r.valor), (usu(r.por) || {}).nome || '—']));
+A.exportCaixa = () => baixarCSV('caixa-do-dia', ['Hora', 'Paciente', 'Profissional', 'Forma', 'Plano', 'Valor (R$)', 'Recebido por'],
+  E.d.recebimentos.map(r => [hhmm(r.hora), pac(r.pac).nome, r.prof ? prof(r.prof).curto : '—', r.plano ? 'Guia de convênio (produzido, fora do recebido)' : r.forma, r.plano ? conv(r.plano).nome : '', reais(r.valor), (usu(r.por) || {}).nome || '—']));
 A.exportPacientes = () => baixarCSV('pacientes', ['Nº', 'Nome', 'Idade', 'Celular', 'Convênio', 'Situação'],
   E.d.pacientes.filter(p => !p.excluido).map(p => [p.numero, p.nome, idade(p.nasc), p.cel, conv(p.conv).nome, p.inativo ? 'inativo' : 'ativo']));
 A.exportRelatorio = () => { const P = E.d.painel; baixarCSV('relatorio-mensal', ['Mês', 'Particular (R$)', 'Convênio (R$)', 'Orçamentos feitos', 'Orçamentos aprovados', 'Pacientes novos'],

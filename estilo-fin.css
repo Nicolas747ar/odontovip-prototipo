@@ -27,3 +27,37 @@
 .cfg-item .h-meta{white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis}
 .cartao-cab .mini{font-size:14px}
 .modal .recibo-folha{padding:16px 18px}
+
+/* T-021: pedidos do dono */
+.pacs-barra{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.pacs-barra .campo-busca{margin-bottom:0;flex:1 1 320px}
+.pacs-trat{display:inline-flex;align-items:center;gap:8px;font-size:14px}
+.trat-ok{display:inline-flex;align-items:center;gap:4px;color:var(--ok);font-weight:700;font-size:14px}
+.trat-falta{display:block;color:var(--ink-soft);font-size:14px}
+.cart-filtros{display:flex;align-items:center;justify-content:space-between;gap:12px 20px;flex-wrap:wrap;margin-bottom:16px}
+.cart-per,.wa-periodo{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;font-size:14px}
+.cart-per label,.wa-periodo label{display:inline-flex;align-items:center;gap:6px}
+.cart-per input,.wa-periodo input{width:auto;min-height:40px;padding:4px 8px;font-size:14px}
+.wa-periodo{margin-bottom:14px}
+.wa-per-tit{font-weight:700}
+.kpis-h.cart-kpis{grid-template-columns:repeat(3,1fr)}
+.cart-tab td{vertical-align:middle}
+.cart-pac{padding:0;font-weight:700;text-align:left}
+.cart-sub{display:block;color:var(--ink-soft);font-size:14px}
+.cart-sit{display:inline-flex;align-items:center;gap:4px;font-weight:700;font-size:14px;white-space:nowrap;color:var(--ink-soft)}
+.cart-sit.vencida{color:var(--erro)}
+.cart-sit.quitada{color:var(--ok)}
+.dono-per{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dono-per .cel-campo{margin:0;min-width:0}
+.dono-per input{width:100%;min-width:0;font-size:16px;box-sizing:border-box}
+.dono-guias{display:block;color:var(--ink-soft);font-size:16px}
+.guia-mini{color:var(--ink-soft);font-size:14px}
+.trat-n{white-space:nowrap}
+.pacs-barra .campo-busca{flex:1 1 310px;max-width:420px}
+.pacs-trat .mini{font-size:14px}
+#tab-pacs td.num{white-space:nowrap}
+.cart-per input,.wa-periodo input{border:1px solid var(--rule);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit}
+.cart-kpis .kpi-h span span{font-size:14px!important}
+.modal .grupo-tit{font-size:14px}
+@media (max-width: 1100px){ .cart-tab .col-valor{display:none} .cart-tab th,.cart-tab td{padding-left:6px;padding-right:6px} .cart-tab .btn-peq{padding-left:8px;padding-right:8px} }
+.c-seg button{font-size:16px}

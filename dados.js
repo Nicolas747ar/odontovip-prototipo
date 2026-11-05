@@ -118,6 +118,12 @@ const DADOS = {
     /* ADR-025 (paga antes): Diego chegou e ainda não pagou a manutenção aprovada — aparece em "Cobrar antes de atender" */
     pa116: [{ id: 'pi11', proc: 'manut-orto', dente: null, faces: [], valor: 18000, estado: 'aprovado', indicadoPor: 'p-raf', dataInd: '2026-10-01', dataApr: '2026-10-01' }],
     pa110: [{ id: 'pi7', proc: 'coroa', dente: '11', faces: [], valor: 150000, estado: 'aprovado', indicadoPor: 'p-mar', dataInd: '2026-10-01' }],
+    /* T-021: tratamento longo pela metade, como no exemplo do dono: 10 procedimentos, 2 feitos, faltam 8 (inventado) */
+    pa118: [
+      { id: 'pi20', proc: 'limpeza', dente: null, faces: [], valor: 15000, estado: 'realizado', indicadoPor: 'p-raf', dataInd: '2026-08-20', dataApr: '2026-08-20', feitoPor: 'p-raf', dataFeito: '2026-09-03' },
+      { id: 'pi21', proc: 'restauracao', dente: '16', faces: ['O'], valor: 19000, estado: 'realizado', indicadoPor: 'p-raf', dataInd: '2026-08-20', dataApr: '2026-08-20', feitoPor: 'p-raf', dataFeito: '2026-09-17' },
+      ...[['restauracao', '15'], ['restauracao', '24'], ['restauracao', '25'], ['restauracao', '36'], ['restauracao', '37'], ['restauracao', '46'], ['restauracao', '47'], ['limpeza', null]].map(([proc, dente], i) => ({ id: 'pi' + (22 + i), proc, dente, faces: dente ? ['O'] : [], valor: dente ? 19000 : 15000, estado: 'aprovado', indicadoPor: 'p-raf', dataInd: '2026-08-20', dataApr: '2026-08-20' })),
+    ],
     pa112: [
       { id: 'pi8', proc: 'restauracao', dente: '46', faces: ['O', 'D'], valor: 19000, estado: 'indicado', indicadoPor: 'p-mar', dataInd: '2026-10-22' },
       { id: 'pi9', proc: 'limpeza', dente: null, faces: [], valor: 15000, estado: 'indicado', indicadoPor: 'p-mar', dataInd: '2026-10-22' },
@@ -141,9 +147,9 @@ const DADOS = {
   parcelas: {
     pa103: [{ id: 'pc1', n: 1, de: 1, venc: '2026-10-29', valor: 19000, pago: 12000 }],
     pa116: [{ id: 'pc9', n: 1, de: 1, venc: '2026-10-29', valor: 18000, pago: 0 }],
-    pa106: [{ id: 'pc2', n: 2, de: 3, venc: '2026-10-10', valor: 20000, pago: 0 }, { id: 'pc3', n: 3, de: 3, venc: '2026-11-10', valor: 20000, pago: 0 }],
-    pa109: [{ id: 'pc4', n: 1, de: 2, venc: '2026-10-15', valor: 19000, pago: 19000 }, { id: 'pc5', n: 2, de: 2, venc: '2026-11-15', valor: 19000, pago: 0 }],
-    pa110: [{ id: 'pc6', n: 1, de: 3, venc: '2026-10-01', valor: 50000, pago: 50000 }, { id: 'pc7', n: 2, de: 3, venc: '2026-11-01', valor: 50000, pago: 0 }, { id: 'pc8', n: 3, de: 3, venc: '2026-12-01', valor: 50000, pago: 0 }],
+    pa106: [{ id: 'pc10', n: 1, de: 3, venc: '2026-09-10', valor: 20000, pago: 20000, carteira: true }, { id: 'pc2', n: 2, de: 3, venc: '2026-10-10', valor: 20000, pago: 0, carteira: true }, { id: 'pc3', n: 3, de: 3, venc: '2026-11-10', valor: 20000, pago: 0, carteira: true }],
+    pa109: [{ id: 'pc4', n: 1, de: 2, venc: '2026-10-15', valor: 19000, pago: 19000, carteira: true }, { id: 'pc5', n: 2, de: 2, venc: '2026-11-15', valor: 19000, pago: 0, carteira: true }],
+    pa110: [{ id: 'pc6', n: 1, de: 3, venc: '2026-10-01', valor: 50000, pago: 50000, carteira: true }, { id: 'pc7', n: 2, de: 3, venc: '2026-11-01', valor: 50000, pago: 0, carteira: true }, { id: 'pc8', n: 3, de: 3, venc: '2026-12-01', valor: 50000, pago: 0, carteira: true }],
   },
 
   anamneses: {
@@ -213,10 +219,10 @@ const DADOS = {
      Prazeres e Norte ainda estão no Dental Office: entram no sistema depois (ADR-026); aqui só para o dono ver o desenho.
      conv = produção de convênio (guias): o plano paga em 30–60 dias. */
   outrasUnidades: [
-    { id: 'prazeres', nome: 'Prazeres', hoje: { part: 318000, conv: 142000, porForma: { Pix: 151000, 'Cartão crédito': 97000, 'Cartão débito': 38000, Dinheiro: 32000 }, agendados: 48, atendidos: 24, faltas: 9 },
-      mes: { part: 4870000, conv: 2215000, agendados: 1118, atendidos: 702, faltas: 231, orcFeitos: 372, orcAprov: 189 } },
-    { id: 'norte', nome: 'Norte', hoje: { part: 187000, conv: 96000, porForma: { Pix: 88000, 'Cartão crédito': 61000, Dinheiro: 38000 }, agendados: 34, atendidos: 19, faltas: 6 },
-      mes: { part: 2960000, conv: 1430000, agendados: 806, atendidos: 498, faltas: 164, orcFeitos: 251, orcAprov: 131 } },
+    { id: 'prazeres', nome: 'Prazeres', hoje: { part: 318000, conv: 142000, porForma: { Pix: 151000, 'Cartão crédito': 97000, 'Cartão débito': 38000, Dinheiro: 32000 }, porPlano: { amil: { guias: 4, valor: 62000 }, oprev: { guias: 3, valor: 48000 }, unimed: { guias: 2, valor: 32000 } }, agendados: 48, atendidos: 24, faltas: 9 },
+      mes: { part: 4870000, conv: 2215000, porPlano: { amil: { guias: 96, valor: 980000 }, oprev: { guias: 72, valor: 735000 }, unimed: { guias: 44, valor: 500000 } }, agendados: 1118, atendidos: 702, faltas: 231, orcFeitos: 372, orcAprov: 189 } },
+    { id: 'norte', nome: 'Norte', hoje: { part: 187000, conv: 96000, porForma: { Pix: 88000, 'Cartão crédito': 61000, Dinheiro: 38000 }, porPlano: { amil: { guias: 3, valor: 41000 }, sula: { guias: 3, valor: 55000 } }, agendados: 34, atendidos: 19, faltas: 6 },
+      mes: { part: 2960000, conv: 1430000, porPlano: { amil: { guias: 61, valor: 640000 }, sula: { guias: 70, valor: 790000 } }, agendados: 806, atendidos: 498, faltas: 164, orcFeitos: 251, orcAprov: 131 } },
   ],
   /* Boa Viagem antes de hoje (01–28/10); o de hoje vem ao vivo dos agendamentos e recebimentos */
   bvMesAntes: { part: 2140000, conv: 0, agendados: 512, atendidos: 389, faltas: 71, orcFeitos: 128, orcAprov: 74 },
@@ -276,6 +282,9 @@ const DADOS = {
       { id: 'w15', nome: 'Helena Brito', ultima: '11/05', prof: 'Dr. Rafael', proc: 'Avaliação' },
       { id: 'w16', nome: 'Ivan Moraes', ultima: '15/05', prof: 'Dra. Marcelly', proc: 'Limpeza' },
       { id: 'w17', nome: 'Júlio Nery', ultima: '20/05', prof: 'Dra. Helena', proc: 'Revisão' },
+      /* T-021: mais antigos; só aparecem quando a recepção escolhe o período */
+      { id: 'w28', nome: 'Karina Alves', ultima: '15/01/2026', meses: 9, antigo: true, prof: 'Dra. Marcelly', proc: 'Limpeza' },
+      { id: 'w29', nome: 'Lúcio Prado', ultima: '20/10/2025', meses: 12, antigo: true, prof: 'Dra. Helena', proc: 'Revisão' },
     ],
     aniversario: [
       { id: 'w18', nome: 'Cláudia Ramos', dia: '02/11', prof: 'Dra. Marcelly', ultima: '15/03' },

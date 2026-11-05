@@ -652,20 +652,35 @@ function linhasPacs(t) {
     <td class="dir">${pode('cadastro') ? `<button class="btn btn-peq" data-a="restaurarPac" data-id="${p.id}">Restaurar</button>` : ''}</td></tr>`).join('')
     || '<tr><td colspan="5" class="vazio">Nenhum cadastro excluído. Cadastros excluídos ficam aqui 30 dias e podem ser restaurados.</td></tr>';
   const daAba = p => !p.excluido && (aba === 'inativos' ? !!p.inativo : !p.inativo);
-  const lista = t && t.trim().length >= 2 ? buscarPacientes(t).filter(daAba) : E.d.pacientes.filter(daAba).sort((a, b) => b.numero - a.numero);
+  const trat = aba === 'ativos' ? E.ui.pc.filtroTrat || 'todos' : 'todos', comTrat = trat !== 'todos';
+  let lista = t && t.trim().length >= 2 ? buscarPacientes(t, comTrat ? Infinity : 7).filter(daAba) : E.d.pacientes.filter(daAba).sort((a, b) => b.numero - a.numero);
+  if (comTrat) lista = lista.filter(p => progressoPlano(p.id).est === trat).sort((a, b) => progressoPlano(b.id).faltam - progressoPlano(a.id).faltam);
+  if (comTrat && !lista.length && !(t || '').trim()) return `<tr><td colspan="6" class="vazio">${trat === 'falta' ? 'Nenhum paciente com tratamento por concluir.' : 'Nenhum paciente com tratamento concluído.'}</td></tr>`;
+  if (comTrat && !lista.length) return `<tr><td colspan="6" class="vazio">Ninguém com “${esc(t)}” nesse filtro. <button class="btn-link" data-a="filtroTrat" data-v="todos">Ver todos os pacientes</button></td></tr>`;
   return lista.map(p => { const prox = proximaConsulta(p.id);
     return `<tr class="clic" data-a="abrirFicha" data-id="${p.id}"><td><span class="td-pac">${avPac(p)}<span><b>${esc(p.nome)}</b>${alertas(p.id).length ? ` <span class="alerta-ico">${ic('alerta', 15)}</span>` : ''}<small>nº ${p.numero}</small></span></span>${p.inativo ? ` <span class="tag inativo">inativo · ${esc(p.inativo.motivo.toLowerCase())}</span>` : ''}</td>
-    <td>${idade(p.nasc)}</td><td class="num">${esc(p.cel)}</td><td>${conv(p.conv).nome}</td><td>${prox ? 'hoje ' + hhmm(prox.ini) : '—'}</td></tr>`; }).join('')
-    || `<tr><td colspan="5" class="vazio">Ninguém com “${esc(t)}”. <button class="btn-link" data-a="novoPaciente" data-nome="${esc(t)}">+ Cadastrar</button></td></tr>`;
+    <td>${idade(p.nasc)}</td><td class="num">${esc(p.cel)}</td><td>${conv(p.conv).nome}</td><td>${prox ? 'hoje ' + hhmm(prox.ini) : '—'}</td>${comTrat ? `<td>${tratCelula(p.id)}</td>` : ''}</tr>`; }).join('')
+    || `<tr><td colspan="${comTrat ? 6 : 5}" class="vazio">Ninguém com “${esc(t)}”. <button class="btn-link" data-a="novoPaciente" data-nome="${esc(t)}">+ Cadastrar</button></td></tr>`;
 }
+/* T-021: "os pacientes que faltam concluir tratamento" (o dono). Conta sobre o plano de tratamento; o que o paciente recusou não falta */
+function progressoPlano(pid) {
+  const pl = plano(pid).filter(i => i.estado !== 'recusado'), feitos = pl.filter(i => i.estado === 'realizado').length, faltam = pl.length - feitos;
+  return { total: pl.length, feitos, faltam, est: !pl.length ? 'sem' : faltam ? 'falta' : 'concluido' };
+}
+const tratCelula = pid => { const g = progressoPlano(pid);
+  return g.est === 'concluido' ? `<span class="trat-ok">${ic('check', 15)} Concluído</span>` : `<b class="trat-n">${g.feitos} de ${g.total} ${g.total === 1 ? 'feito' : 'feitos'}</b><small class="trat-falta">${g.faltam === 1 ? 'falta 1' : `faltam ${g.faltam}`}</small>`; };
 function telaPacientes() {
+  const trat = E.ui.pc.filtroTrat || 'todos', ativos = E.d.pacientes.filter(p => !p.excluido && !p.inativo), nT = k => ativos.filter(p => progressoPlano(p.id).est === k).length;
+  const botT = (k, t, c) => `<button class="${trat === k ? 'ativo' : ''}" data-a="filtroTrat" data-v="${k}" aria-pressed="${trat === k}">${t}${c === undefined ? '' : ` <span class="mini">${c}</span>`}</button>`;
   const n = k => E.d.pacientes.filter(p => k === 'excluidos' ? p.excluido : !p.excluido && (k === 'inativos' ? p.inativo : !p.inativo)).length, aba = E.ui.pc.abaPacs || 'ativos';
   const bot = (k, t) => `<button class="${aba === k ? 'ativo' : ''}" data-a="abaPacs" data-v="${k}">${t} <span class="mini">${n(k)}</span></button>`;
   return `<div class="titulo-tela"><h1>Pacientes</h1><span class="seg">${bot('ativos', 'Ativos')}${bot('inativos', 'Inativos')}${bot('excluidos', 'Excluídos')}</span><span class="titulo-acoes">${pode('cadastro') ? botaoExcel('exportPacientes') : ''}<button class="btn btn-pri" data-a="novoPaciente">${ic('mais', 16)} Novo paciente</button></span></div>
-  <label class="campo-busca">${ic('busca', 18)}<input id="busca-pacs" placeholder="Buscar por nome, CPF, telefone ou nº" value="${esc(E.ui.pc.buscaPac)}" data-campo="pc.buscaPac" data-ao="filtraPacs"></label>
-  <table class="tab"><thead><tr><th>Paciente</th><th>Idade</th><th>Celular</th><th>Convênio</th><th>Próxima consulta</th></tr></thead><tbody id="tab-pacs">${linhasPacs(E.ui.pc.buscaPac)}</tbody></table>`;
+  <div class="pacs-barra"><label class="campo-busca">${ic('busca', 18)}<input id="busca-pacs" placeholder="Buscar por nome, CPF, telefone ou nº" value="${esc(E.ui.pc.buscaPac)}" data-campo="pc.buscaPac" data-ao="filtraPacs"></label>
+  ${aba === 'ativos' ? `<span class="pacs-trat"><span class="muted">Tratamento</span><span class="seg">${botT('todos', 'Todos')}${botT('falta', 'Falta concluir', nT('falta'))}${botT('concluido', 'Concluídos', nT('concluido'))}</span></span>` : ''}</div>
+  <table class="tab"><thead><tr><th>Paciente</th><th>Idade</th><th>Celular</th><th>Convênio</th><th>Próxima consulta</th>${aba === 'ativos' && trat !== 'todos' ? '<th>Tratamento</th>' : ''}</tr></thead><tbody id="tab-pacs">${linhasPacs(E.ui.pc.buscaPac)}</tbody></table>`;
 }
 A.abaPacs = ds => { E.ui.pc.abaPacs = ds.v; render(); };
+A.filtroTrat = ds => { E.ui.pc.filtroTrat = ds.v; render(); };
 A.restaurarPac = ds => { const p = pac(ds.id); comDesfazer(`Cadastro restaurado: ${numNome(p)}.`, () => { delete p.excluido; }); };
 const somaDias = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 A.filtraPacs = (ds, el) => { document.getElementById('tab-pacs').innerHTML = linhasPacs(el.value); };
@@ -944,7 +959,7 @@ A.aprovarOrc = () => {
     orcamentos(pid).push({ id: uid(), data: E.d.hoje, itens: c.pl.filter(i => m.sel[i.id]).map(i => i.id), bruto: c.bruto, desconto: c.bruto - c.total, total: c.total, n: c.n, assinado: false, por: E.ui.pc.usuario,
       carteira: c.carteira, foraRegra: foraRegra(c) ? (m.motivoRegra || '').trim() : null });
     // à vista sempre vence hoje: "primeiro" pode ter ficado em "30" de quando estava em Parcelado
-    gerarParcelas(pid, c.total, c.n, m.forma === 'vista' || m.primeiro === 'hoje' ? E.d.hoje : somaMeses(E.d.hoje, 1));
+    gerarParcelas(pid, c.total, c.n, m.forma === 'vista' || m.primeiro === 'hoje' ? E.d.hoje : somaMeses(E.d.hoje, 1), c.carteira);
     E.ui.pc.modal = null; E.ui.pc.aba = 'financeiro';
   });
 };
@@ -1007,7 +1022,7 @@ function abaFinanceiro(p) {
   <table class="tab tab-fin"><thead><tr><th>Parcela</th><th>Vence</th><th class="dir">Valor</th><th class="dir">Pago</th><th class="dir">Falta</th><th>Situação</th></tr></thead><tbody>
   ${ps.map(x => { const s = saldoParcela(x), st = !s ? 'paga' : x.venc < E.d.hoje ? 'vencida' : x.pago ? 'parcial' : 'aberta';
     return `<tr><td>${x.n} de ${x.de}</td><td class="num">${dataBR(x.venc)}</td><td class="num dir">${brl(x.valor)}</td><td class="num dir">${brl(x.pago)}</td><td class="num dir"><b>${brl(s)}</b></td><td><span class="tag ${st}">${{ paga: 'Paga', vencida: 'Vencida', parcial: 'Paga em parte', aberta: 'Em aberto' }[st]}</span></td></tr>`; }).join('') || '<tr><td colspan="6" class="vazio">Sem parcelas.</td></tr>'}</tbody></table>
-  ${recs.length ? `<div class="grupo-tit">Recebimentos</div>${recs.map(r => `<div class="linha"><span class="hora num">hoje ${hhmm(r.hora)}</span>${formaHTML(r.forma)}<span class="acoes num"><b>${brl(r.valor)}</b><button class="btn btn-peq" data-a="abrirRecibo" data-id="${r.id}">${ic('recibo', 15)} Recibo</button></span></div>`).join('')}` : ''}`;
+  ${recs.length ? `<div class="grupo-tit">Recebimentos</div>${recs.map(r => `<div class="linha"><span class="hora num">hoje ${hhmm(r.hora)}</span>${formaHTML(r.forma)}<span class="acoes num"><b>${brl(r.valor)}</b>${r.forma === 'Convênio' ? '' : `<button class="btn btn-peq" data-a="abrirRecibo" data-id="${r.id}">${ic('recibo', 15)} Recibo</button>`}</span></div>`).join('')}` : ''}`;
 }
 /* todos os campos do cadastro, editáveis; "Salvar alterações" só acende se algo mudou */
 const CAMPOS_DADOS = [['nome', 'Nome completo'], ['cel', 'Celular'], ['nascBR', 'Data de nascimento'], ['cpf', 'CPF'], ['rg', 'RG'], ['cns', 'Nº do CNS'],
@@ -1074,27 +1089,34 @@ A.salvarDadosPC = () => { const pc = E.ui.pc, p = pac(pc.dados.id), f = pc.dados
 /* ---------- receber pagamento ---------- */
 A.abrirReceber = ds => { const p = ds.pac ? pac(ds.pac) : null; const ab = p ? parcelasAbertas(p.id) : [];
   const prevista = p && formaPrevistaHoje(p.id);
-  E.ui.pc.modal = { tipo: 'rec', pac: p ? p.id : null, valorTxt: ab[0] ? (saldoParcela(ab[0]) / 100).toFixed(2).replace('.', ',') : '', forma: prevista || null, prevista, okExcesso: false };
+  const pre = ab[0] ? (saldoParcela(ab[0]) / 100).toFixed(2).replace('.', ',') : ''; // a guia não abate parcela: não herda o valor dela
+  E.ui.pc.modal = { tipo: 'rec', pac: p ? p.id : null, valorTxt: prevista === 'Convênio' ? '' : pre, valorPre: pre, forma: prevista || null, prevista, okExcesso: false };
   E.ui.foco = p ? 'rec-valor' : 'rec-busca'; render(); };
 A.recBusca = (ds, el) => { const r = buscarPacientes(el.value); document.getElementById('rec-res').innerHTML = r.map(p => resultadoPac(p, 'recPac')).join(''); };
-A.recPac = ds => { const ab = parcelasAbertas(ds.id), prevista = formaPrevistaHoje(ds.id); Object.assign(E.ui.pc.modal, { pac: ds.id, valorTxt: ab[0] ? (saldoParcela(ab[0]) / 100).toFixed(2).replace('.', ',') : '', prevista, forma: prevista || E.ui.pc.modal.forma }); E.ui.foco = 'rec-valor'; render(); };
+A.recPac = ds => { const ab = parcelasAbertas(ds.id), prevista = formaPrevistaHoje(ds.id), forma = prevista || E.ui.pc.modal.forma, pre = ab[0] ? (saldoParcela(ab[0]) / 100).toFixed(2).replace('.', ',') : ''; Object.assign(E.ui.pc.modal, { pac: ds.id, valorTxt: forma === 'Convênio' ? '' : pre, valorPre: pre, prevista, forma }); E.ui.foco = 'rec-valor'; render(); };
 const verMotivo = () => { const el = document.querySelector('.rec-motivo'); if (el) el.scrollIntoView({ block: 'nearest' }); }; // sem ficar atrás do rodapé fixo
-A.recForma = ds => { const m = E.ui.pc.modal; m.forma = ds.v; m.motivo = null; if (m.forma2 === ds.v) m.forma2 = null; render(); verMotivo(); };
+A.recForma = ds => { const m = E.ui.pc.modal, antes = m.forma; m.forma = ds.v; m.motivo = null; m.okExcesso = false; if (m.forma2 === ds.v) m.forma2 = null;
+  if (ds.v === 'Convênio' && m.valorTxt === m.valorPre) m.valorTxt = ''; else if (antes === 'Convênio' && !m.valorTxt) m.valorTxt = m.valorPre || '';
+  if (ds.v === 'Convênio' && !m.valorTxt) E.ui.foco = 'rec-valor';
+  render(); verMotivo(); if (ds.v === 'Convênio') document.getElementById('rec-plano')?.scrollIntoView({ block: 'nearest' }); };
 A.recMotivo = ds => { E.ui.pc.modal.motivo = ds.v; if (ds.v === 'Outro') E.ui.foco = 'rec-motivo-txt'; render(); verMotivo(); };
 A.recMotivoTxt = () => { const m = E.ui.pc.modal, b = document.getElementById('btn-rec'), r = rotuloRec(m, recPrevia(m)); if (b) { b.textContent = r.txt; b.disabled = r.off; } };
 const totalAberto = pid => parcelasAbertas(pid).reduce((s, x) => s + saldoParcela(x), 0);
 /* ADR-027: 4 formas à vista; as outras em "Mais formas" */
 const FORMAS_BASE = ['Dinheiro', 'Pix', 'Cartão débito', 'Cartão crédito'], FORMAS_MAIS = ['Crédito parcelado', 'Carteira', 'Link de pagamento', 'Convênio'];
 const formasVisiveis = m => m.maisFormas || FORMAS_MAIS.includes(m.forma) ? FORMAS_BASE.concat(FORMAS_MAIS) : FORMAS_BASE;
-A.recMaisFormas = () => { E.ui.pc.modal.maisFormas = true; render(); };
+A.recMaisFormas = () => { E.ui.pc.modal.maisFormas = true; render(); document.querySelector('.chips-forma')?.lastElementChild?.scrollIntoView({ block: 'nearest' }); };
 function recPrevia(m) {
   const v = lerReais(m.valorTxt), { res, sobra } = distribuir(m.pac, v), aberto = totalAberto(m.pac);
+  if (m.forma === 'Convênio') return { v, aberto, excesso: false, html: '' }; // a guia não abate parcela
   return { v, aberto, excesso: aberto > 0 && v > aberto, html: res.filter(r => !r.quita).map(r => `<div class="mini">Parcela ${r.p.n}/${r.p.de} (vence ${dataBR(r.p.venc)}): <b>${brl(r.usa)}</b> ${r.quita ? '→ <span class="res-ok">quitada</span>' : `→ fica faltando ${brl(saldoParcela(r.p) - r.usa)}`}</div>`).join('')
     + (sobra > 0 && res.length ? `<div class="aviso-box aviso">Atenção: isso é <b>mais</b> do que deve (${brl(aberto)}). Sobram ${brl(sobra)}, que ficam como crédito.</div>` : '') };
 }
 function rotuloRec(m, pv) {
-  if (!pv.v) return { txt: 'Digite o valor recebido', off: true };
+  if (!pv.v) return { txt: m.forma === 'Convênio' ? 'Digite o valor da guia' : 'Digite o valor recebido', off: true };
   if (!m.forma) return { txt: 'Escolha a forma de pagamento', off: true };
+  if (m.forma === 'Convênio' && m.prevista && m.forma !== m.prevista && (!m.motivo || (m.motivo === 'Outro' && !(m.motivoTxt || '').trim()))) return { txt: 'Diga por que mudou a forma', off: true };
+  if (m.forma === 'Convênio') return m.planoGuia ? { txt: `Registrar guia de ${brl(pv.v)} · ${conv(m.planoGuia).nome}`, off: false } : { txt: 'Escolha o plano', off: true };
   if (m.dividir) { const v1 = lerReais(m.valor1Txt);
     if (!m.forma2) return { txt: 'Escolha a segunda forma', off: true };
     if (!v1) return { txt: `Diga quanto vai em ${m.forma}`, off: true };
@@ -1115,13 +1137,15 @@ function modalRec() {
   const m = E.ui.pc.modal;
   if (!m.pac) return `<div class="modal"><div class="painel-cab"><h2>Receber pagamento</h2><button class="fechar" data-a="fecharModal" aria-label="Fechar">${ic('x', 20)}</button></div><div class="painel-corpo">
     <div class="campo"><label>De quem?</label><input id="rec-busca" placeholder="Nome, CPF, telefone ou nº" data-ao="recBusca" autocomplete="off"></div><div id="rec-res"></div></div></div>`;
-  const p = pac(m.pac), ab = parcelasAbertas(p.id), pv = recPrevia(m), r = rotuloRec(m, pv);
+  const p = pac(m.pac), ab = parcelasAbertas(p.id);
+  if (m.forma === 'Convênio' && m.planoGuia === undefined) m.planoGuia = p.conv !== 'part' ? p.conv : '';
+  const pv = recPrevia(m), r = rotuloRec(m, pv), guia = m.forma === 'Convênio';
   return `<div class="modal" data-scroll="modal-rec"><div class="painel-cab"><h2>Receber pagamento</h2><button class="fechar" data-a="fecharModal" aria-label="Fechar">${ic('x', 20)}</button></div><div class="painel-corpo">
     <div class="chip-pac"><b>${numNome(p)}</b></div>
     <div class="grupo-tit">Em aberto (mais antiga primeiro)</div>
     ${(m.todasParc ? ab : ab.slice(0, 2)).map(x => `<div class="linha"><span>Parcela ${x.n}/${x.de}</span><span class="mini ${x.venc < E.d.hoje ? 'res-ruim' : 'muted'}">vence ${dataBR(x.venc)}${x.venc < E.d.hoje ? ' · vencida' : ''}</span><span class="acoes num"><b>${brl(saldoParcela(x))}</b></span></div>`).join('') || '<div class="aviso-box info">Nada em aberto. Pode receber um valor avulso.</div>'}
     ${ab.length > 2 ? `<button class="btn-link" data-a="recTodasParc">${m.todasParc ? 'Mostrar só as próximas' : `Ver todas as ${ab.length} parcelas`}</button>` : ''}
-    <div class="campo" style="margin-top:12px"><label>Valor recebido (R$) <span class="muted">— pode ser menos que a parcela</span></label><input id="rec-valor" data-selecionar inputmode="decimal" value="${esc(m.valorTxt)}" data-campo="pc.modal.valorTxt" data-ao="recPreview" style="font-size:20px;font-weight:700"></div>
+    <div class="campo" style="margin-top:12px"><label>${guia ? 'Valor da guia (R$)' : 'Valor recebido (R$) <span class="muted">— pode ser menos que a parcela</span>'}</label><input id="rec-valor" data-selecionar inputmode="decimal" value="${esc(m.valorTxt)}" data-campo="pc.modal.valorTxt" data-ao="recPreview" style="font-size:20px;font-weight:700"></div>
     <div id="rec-prev">${pv.html}</div>
     ${m.okExcesso ? `<div class="aviso-box erro">Confirme: ${esc(p.nome.split(' ')[0])} deve ${brl(pv.aberto)} e você está recebendo ${brl(pv.v)}. Toque de novo para confirmar.</div>` : ''}
     ${m.prevista ? `<div class="aviso-box info" style="margin:12px 0 0">${ic('assinar', 15)} A dentista anotou no comprovante: <b>${esc(m.prevista)}</b>.</div>` : ''}
@@ -1129,7 +1153,8 @@ function modalRec() {
     ${m.prevista && m.forma && m.forma !== m.prevista ? `<div class="campo rec-motivo"><label>Mudou de ${esc(m.prevista)} para ${esc(m.forma)}. Por quê? <span class="obrig">*</span></label>
       <div class="chips">${['O paciente pediu', 'Cartão sem limite', 'Dividiu em duas formas', 'Outro'].map(x => `<button class="${m.motivo === x ? 'on' : ''}" data-a="recMotivo" data-v="${x}">${x}</button>`).join('')}</div>
       ${m.motivo === 'Outro' ? `<input id="rec-motivo-txt" placeholder="Escreva o motivo" value="${esc(m.motivoTxt || '')}" data-campo="pc.modal.motivoTxt" data-ao="recMotivoTxt">` : ''}</div>` : ''}
-    ${m.forma ? (m.dividir ? `<div class="campo rec-dividir"><label>Segunda forma <button class="btn-link" data-a="recDividir">não dividir</button></label>
+    ${guia ? `<div class="campo"><label for="rec-plano">Plano <span class="obrig">*</span></label><select id="rec-plano" data-campo="pc.modal.planoGuia" data-ao="recPreview"><option value="">Escolha o plano</option>${E.d.convenios.filter(c => c.id !== 'part').map(c => `<option value="${c.id}" ${c.id === m.planoGuia ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select></div>` : ''}
+    ${m.forma && !guia ? (m.dividir ? `<div class="campo rec-dividir"><label>Segunda forma <button class="btn-link" data-a="recDividir">não dividir</button></label>
       <div class="chips">${['Dinheiro', 'Pix', 'Cartão débito', 'Cartão crédito'].filter(f => f !== m.forma).map(f => `<button class="${m.forma2 === f ? 'on' : ''}" data-a="recForma2" data-v="${f}">${m.forma2 === f ? ic('check', 16) : ic((FORMAS[f] || ['caixa'])[0], 16)} ${f}</button>`).join('')}</div>
       ${m.forma2 ? `<div class="duas"><div class="campo"><label>Quanto em ${esc(m.forma)}</label><input id="rec-valor1" inputmode="decimal" value="${esc(m.valor1Txt || '')}" data-campo="pc.modal.valor1Txt" data-ao="recPreview" placeholder="0,00"></div>
         <div class="campo"><label>Fica em ${esc(m.forma2)}</label><div class="rec-resto num" id="rec-resto">${(v1 => v1 && v1 < pv.v ? brl(pv.v - v1) : '—')(lerReais(m.valor1Txt))}</div></div></div>` : ''}</div>`
@@ -1139,6 +1164,8 @@ function modalRec() {
 A.confirmarRec = () => { const m = E.ui.pc.modal, pv = recPrevia(m), p = pac(m.pac); if (!pv.v || !m.forma) return;
   if (pv.excesso && !m.okExcesso) { m.okExcesso = true; render(); return; }
   const mudou = m.prevista && m.forma !== m.prevista ? m.prevista : null; if (mudou && (!m.motivo || (m.motivo === 'Outro' && !(m.motivoTxt || '').trim()))) return;
+  if (m.forma === 'Convênio') { if (!m.planoGuia) return;
+    comDesfazer(`Guia de ${brl(pv.v)} registrada: ${esc(p.nome)} · ${esc(conv(m.planoGuia).nome)}.`, () => { receber(m.pac, pv.v, m.forma, m.planoGuia); if (mudou) Object.assign(E.d.recebimentos[E.d.recebimentos.length - 1], { previstaEra: mudou, motivoTroca: m.motivo === 'Outro' ? m.motivoTxt.trim() : m.motivo }); E.ui.pc.modal = null; }); return; }
   if (m.dividir && rotuloRec(m, pv).off) return;
   comDesfazer(`Recebido ${brl(pv.v)} de ${esc(p.nome)} (${m.dividir && m.forma2 ? `${m.forma} + ${m.forma2}` : m.forma}).${mudou ? ` Anotado: a prevista era ${esc(mudou)}.` : ''}`, () => {
     if (m.dividir && m.forma2) { const v1 = lerReais(m.valor1Txt); receber(m.pac, v1, m.forma); receber(m.pac, pv.v - v1, m.forma2); } else receber(m.pac, pv.v, m.forma);
@@ -1184,9 +1211,12 @@ function graficoProf(t) {
   return `<div class="cartao"><h3>Por profissional</h3>${ps.map(([id, v]) => `<div class="rel-barra" title="${esc(id && prof(id) ? prof(id).curto : 'Sem profissional')}: ${brl(v)}"><span>${id && prof(id) ? esc(prof(id).curto) : 'Sem profissional'}</span><span class="rel-trilho"><i style="width:${Math.round(v / max * 100)}%"></i></span><b class="num">${brl(v)}</b></div>`).join('')}
     <p class="nota-leve" style="margin:8px 0 0">${ic('alerta', 15)} É o que foi recebido, não a comissão (essa fica em Relatórios).</p></div>`;
 }
+/* T-021: "ela tem que fechar o movimento do dia": o valor das guias, por plano, separado do que entrou na gaveta */
+const guiasHTML = t => `${Object.entries(t.guias).map(([id, g]) => `<div class="dono-linha"><span>${esc(conv(id).nome)} <span class="guia-mini">${g.guias} ${g.guias === 1 ? 'guia' : 'guias'}</span></span><b class="num">${brl(g.valor)}</b></div>`).join('')}
+  ${Object.keys(t.guias).length > 1 ? `<div class="dono-linha"><span><b>Total das guias</b></span><b class="num">${brl(t.conv)}</b></div>` : ''}`;
 function telaCaixa() {
   const t = totaisDia(), cx = E.d.caixa;
-  const recs = E.d.recebimentos.slice().sort((a, b) => b.hora - a.hora);
+  const recs = E.d.recebimentos.slice().sort((a, b) => b.hora - a.hora), pagos = recs.filter(r => r.forma !== 'Convênio');
   const formas = Object.entries(t.porForma).sort((a, b) => b[1] - a[1]);
   const vencHoje = Object.entries(E.d.parcelas).flatMap(([pid, ps]) => ps.filter(p => p.venc === E.d.hoje && saldoParcela(p) > 0).map(p => ({ pid, p })));
   const status = cx.fechado ? `<span class="cx-status fechado">${ic('cadeado', 14)} Fechado</span>` : `<span class="cx-status aberto"><span class="ponto"></span>Aberto</span>`;
@@ -1197,20 +1227,21 @@ function telaCaixa() {
     <div class="cx-esq"><div class="cartao cx-total">
       <span class="cx-rot">Recebido hoje</span>
       <b class="cx-valor num">${brl(t.total)}</b>
-      <span class="mini muted">${recs.length} pagamento${recs.length === 1 ? '' : 's'} até ${hhmm(E.d.agoraMin)} · ontem, o dia todo: ${brl(E.d.ontem.total)}</span>
+      <span class="mini muted">${pagos.length} pagamento${pagos.length === 1 ? '' : 's'} até ${hhmm(E.d.agoraMin)} · ontem, o dia todo: ${brl(E.d.ontem.total)}</span>
       ${graficoFormas(t)}
     </div>
-    <div class="cx-graficos">${graficoHoras(recs)}${graficoProf(t)}</div></div>
+    <div class="cx-graficos">${graficoHoras(pagos)}${graficoProf(t)}</div></div>
     <div class="cx-lado">
       ${cartaoSaldo(t, cx)}
+      ${t.conv ? `<div class="cartao"><h3>Guias de convênio hoje</h3>${guiasHTML(t)}</div>` : ''}
       <div class="cartao"><h3>Vence hoje e falta receber <span class="h-cont ${vencHoje.length ? 'alerta' : ''}">${vencHoje.length}</span></h3>
         ${vencHoje.map(({ pid, p }) => { const pa = pac(pid); return `<div class="h-atencao"><span class="h-ico aviso">${ic('caixa', 18)}</span><span class="h-pac"><b>${numNome(pa)}</b><span class="h-meta">parcela ${p.n} de ${p.de} · falta ${brl(saldoParcela(p))}</span></span><span class="acoes"><button class="btn btn-peq" data-a="abrirReceber" data-pac="${pid}">Receber</button></span></div>`; }).join('') || '<div class="vazio">Nada vencendo hoje.</div>'}</div>
     </div>
   </div>
-  <div class="cartao" style="margin-top:16px;padding:0"><div class="cartao-cab"><h3>Pagamentos de hoje</h3><span class="cont">${recs.length}</span></div>
+  <div class="cartao" style="margin-top:16px;padding:0"><div class="cartao-cab"><h3>Pagamentos de hoje</h3><span class="cont">${pagos.length}</span></div>
   <table class="tab cx-tab"><thead><tr><th>Hora</th><th>Paciente</th><th>Profissional</th><th>Forma</th><th class="dir">Valor</th><th>Recebido por</th><th></th></tr></thead><tbody>
-    ${recs.map(r => { const p = pac(r.pac); return `<tr class="clic" data-a="abrirFicha" data-id="${p.id}"><td class="num"><b>${hhmm(r.hora)}</b></td><td>nº ${p.numero} · ${esc(p.nome)}${r.depoisFechamento ? ' <span class="tag vencida">depois do fechamento</span>' : ''}</td><td class="muted">${r.prof ? esc(prof(r.prof).curto) : '—'}</td><td>${formaHTML(r.forma)}${r.previstaEra ? `<br><span class="cx-mudou">mudou · previsto ${esc(r.previstaEra)} · ${esc(r.motivoTroca || '')}</span>` : ''}</td><td class="num dir"><b>${brl(r.valor)}</b></td><td class="muted">${esc(usu(r.por).nome)}</td><td class="dir"><button class="btn btn-peq" data-a="abrirRecibo" data-id="${r.id}" aria-label="Recibo de ${brl(r.valor)}">${ic('recibo', 16)} Recibo</button></td></tr>`; }).join('') || '<tr><td colspan="7"><div class="vazio">Nenhum pagamento ainda hoje.</div></td></tr>'}</tbody>
-    ${recs.length ? `<tfoot><tr><td colspan="4"><b>Total</b></td><td class="num dir"><b>${brl(t.total)}</b></td><td></td><td></td></tr></tfoot>` : ''}</table></div>`;
+    ${recs.map(r => { const p = pac(r.pac); return `<tr class="clic" data-a="abrirFicha" data-id="${p.id}"><td class="num"><b>${hhmm(r.hora)}</b></td><td>nº ${p.numero} · ${esc(p.nome)}${r.depoisFechamento ? ' <span class="tag vencida">depois do fechamento</span>' : ''}</td><td class="muted">${r.prof ? esc(prof(r.prof).curto) : '—'}</td><td>${formaHTML(r.forma)}${r.plano ? `<br><span class="guia-mini">${esc(conv(r.plano).nome)} · produzido</span>` : ''}${r.previstaEra ? `<br><span class="cx-mudou">mudou · previsto ${esc(r.previstaEra)} · ${esc(r.motivoTroca || '')}</span>` : ''}</td><td class="num dir"><b>${brl(r.valor)}</b></td><td class="muted">${esc(usu(r.por).nome)}</td><td class="dir">${r.forma === 'Convênio' ? '' : `<button class="btn btn-peq" data-a="abrirRecibo" data-id="${r.id}" aria-label="Recibo de ${brl(r.valor)}">${ic('recibo', 16)} Recibo</button>`}</td></tr>`; }).join('') || '<tr><td colspan="7"><div class="vazio">Nenhum pagamento ainda hoje.</div></td></tr>'}</tbody>
+    ${recs.length ? `<tfoot><tr><td colspan="4"><b>Total</b></td><td class="num dir"><b>${brl(t.total)}</b></td><td></td><td></td></tr>${t.conv ? `<tr><td colspan="4">Guias de convênio <span class="guia-mini">fora do total: o plano paga depois</span></td><td class="num dir">${brl(t.conv)}</td><td></td><td></td></tr>` : ''}</tfoot>` : ''}</table></div>`;
 }
 A.abrirFechar = () => { E.ui.pc.modal = { tipo: 'fechar', gaveta: '', confirmar: false, erro: '' }; E.ui.foco = 'gaveta'; render(); };
 function difGaveta(m) { const din = totaisDia().porForma['Dinheiro'] || 0; return { din, dif: lerReais(m.gaveta) - din }; }
@@ -1225,7 +1256,8 @@ function modalFechar() {
     ${m.erro ? `<div class="aviso-box erro">${m.erro}</div>` : ''}
     <div class="grupo-tit">2. Confira os totais do dia</div>
     ${Object.entries(t.porForma).sort((a, b) => b[1] - a[1]).map(([f, v]) => `<div class="dono-linha"><span>${formaHTML(f)}</span><b class="num">${brl(v)}</b></div>`).join('')}
-    <div class="dono-linha"><span><b>Total</b></span><b class="num">${brl(t.total)}</b></div>
+    <div class="dono-linha"><span><b>Total recebido</b></span><b class="num">${brl(t.total)}</b></div>
+    ${t.conv ? `<div class="grupo-tit">3. Confira as guias de convênio <span class="muted">(o plano paga depois)</span></div>${guiasHTML(t)}` : ''}
     ${m.confirmar ? '<div class="aviso-box aviso" style="margin-top:10px">Tem certeza? Depois de fechado, o que for recebido hoje fica marcado como “depois do fechamento”.</div>' : ''}
   </div><div class="painel-rodape rodape-dir">${m.confirmar ? `<button class="btn" data-a="voltarFechar">Voltar</button> <button class="btn btn-pri" data-a="fecharCaixa">Sim, fechar o caixa de ${brl(t.total)}</button>` : `<button class="btn btn-pri" data-a="pedirFechar">Fechar o caixa de ${brl(t.total)}</button>`}</div></div>`;
 }
@@ -1610,43 +1642,63 @@ const WA_LISTAS = {
     msg: c => `Olá, ${c.nome.split(' ')[0]}! Já faz ${c.meses === 12 ? '1 ano' : `${c.meses || 6} meses`} da sua última consulta na Odonto Vip. Está na hora da revisão. Responda QUERO e a gente agenda para você.`,
     meta: c => `última consulta ${c.ultima} · ${c.prof}` },
 };
+/* T-021: período na lista de retorno ("seria bom que você possa filtrar o período que você quer"). Sem período, os de 6 meses de sempre */
+const isoUltima = c => { const [d, m, a] = String(c.ultima).split('/'); return `${a || E.d.hoje.slice(0, 4)}-${m}-${d}`; };
+function waVisiveis(k) {
+  const l = E.d.whatsapp[k], { waDe: de, waAte: ate } = E.ui.pc;
+  if (k !== 'retornoMes') return l;
+  const ok = s => s && +s.slice(0, 4) >= 2000; // ano ainda sendo digitado não filtra
+  if (!ok(de) && !ok(ate)) return l.filter(c => !c.antigo).sort((x, y) => isoUltima(x).localeCompare(isoUltima(y)));
+  return l.filter(c => { const d = isoUltima(c); return (!ok(de) || d >= de) && (!ok(ate) || d <= ate); }).sort((x, y) => isoUltima(x).localeCompare(isoUltima(y)));
+}
+const waPeriodoHTML = k => { const pc = E.ui.pc; if (k !== 'retornoMes') return '';
+  return `<div class="wa-periodo"><span class="wa-per-tit">Última consulta</span><label>de <input id="wa-de" type="date" max="${E.d.hoje}" value="${esc(pc.waDe || '')}" data-campo="pc.waDe" data-ao="waPer"></label><label>até <input id="wa-ate" type="date" max="${E.d.hoje}" value="${esc(pc.waAte || '')}" data-campo="pc.waAte" data-ao="waPer"></label><span id="wa-per-limpar">${pc.waDe || pc.waAte ? '<button class="btn-link" data-a="waPerLimpar">Voltar aos 6 meses</button>' : ''}</span></div>`; };
+// só redesenha pestanas e lista: os campos de data ficam como estão, com o foco e o que está sendo digitado (R1 do QA)
+A.waPer = () => { const t = document.createElement('div'); t.innerHTML = telaWhatsApp();
+  ['.wa-tabs', '#wa-lista', '#wa-per-limpar'].forEach(q => { const a = document.querySelector(q), b = t.querySelector(q); if (a && b) a.replaceWith(b); }); };
+A.waPerLimpar = () => { E.ui.pc.waDe = E.ui.pc.waAte = ''; render(); };
 function telaWhatsApp() {
   waSincRetornos(); waSincCobranca(); // T-018: retornos que vencem em 30 dias; parcelas atrasadas de agora
-  const pc = E.ui.pc, k = pc.waLista || 'amanha', L = WA_LISTAS[k], w = E.d.whatsapp, lista = w[k];
+  const pc = E.ui.pc, k = pc.waLista || 'amanha', L = WA_LISTAS[k], w = E.d.whatsapp, lista = waVisiveis(k);
   pc.waSel = pc.waSel || {};
-  const sel = lista.filter(c => pc.waSel[c.id] !== false), envio = w.enviados.find(x => x.lista === k);
+  // T-021: com período dá para enviar mais de uma vez na mesma lista; quem já recebeu não entra de novo
+  const envios = w.enviados.filter(x => x.lista === k), envioDe = c => envios.find(x => x.ids.includes(c.id));
+  const sel = lista.filter(c => pc.waSel[c.id] !== false && !envioDe(c)), vistos = envios.filter(x => lista.some(c => x.ids.includes(c.id))), envio = vistos.length ? { ...vistos[vistos.length - 1], ids: vistos.flatMap(x => x.ids), custo: vistos.reduce((t, x) => t + x.custo, 0) } : null, pendentes = lista.filter(c => !envioDe(c)).length;
   const custo = Math.round(sel.length * L.preco), ex = sel[0] || lista[0];
-  if (!lista.length) return `<div class="titulo-tela"><h1>WhatsApp</h1><span class="sub">mensagens para os pacientes</span></div>
-  <div class="tabs wa-tabs" role="tablist">${Object.entries(WA_LISTAS).filter(([id]) => (w[id] || []).length || id === k).slice(0, 6).map(([id, x]) => `<button role="tab" aria-selected="${k === id}" class="${k === id ? 'on' : ''}" data-a="waLista" data-v="${id}">${ic(x.ico, 16)} ${x.rot} <span class="cont">${(w[id] || []).length}</span></button>`).join('')}</div>
-  <div class="cartao"><div class="vazio">${ic('checks', 22)}<br>Ninguém em “${esc(L.rot)}” agora.<br><button class="btn btn-sec" style="margin-top:12px" data-a="waLista" data-v="amanha">Ver “Confirmar amanhã”</button></div></div>`;
+  if (!lista.length) return `<div class="titulo-tela"><h1>WhatsApp</h1><span class="sub">mensagens para os pacientes</span>
+    <span class="titulo-acoes"><span class="tag-ex">${ic('alerta', 14)} protótipo: nada é enviado de verdade</span></span></div>
+  ${E.ui.waDesconectado ? `<div class="wa-caiu" role="alert">${ic('alerta', 22)}<span><b>O WhatsApp da clínica desconectou.</b> Nenhuma mensagem está saindo: elas ficam na fila até reconectar.</span><button class="btn" data-a="waReconectar">Reconectar</button></div>` : ''}
+  <div class="tabs wa-tabs" role="tablist">${Object.entries(WA_LISTAS).filter(([id]) => (waVisiveis(id) || []).length || id === k).slice(0, 6).map(([id, x]) => `<button role="tab" aria-selected="${k === id}" class="${k === id ? 'on' : ''}" data-a="waLista" data-v="${id}">${ic(x.ico, 16)} ${x.rot} <span class="cont">${(waVisiveis(id) || []).length}</span></button>`).join('')}</div>
+  ${waPeriodoHTML(k)}<div id="wa-lista"><div class="cartao"><div class="vazio">${k === 'retornoMes' && pc.waDe && pc.waAte && pc.waDe > pc.waAte ? `${ic('alerta', 22)}<br>A data inicial está depois da data final.` : `${ic('checks', 22)}<br>Ninguém em “${esc(L.rot)}”${k === 'retornoMes' && (pc.waDe || pc.waAte) ? ' nesse período' : ' agora'}.<br><button class="btn btn-sec" style="margin-top:12px" data-a="waLista" data-v="amanha">Ver “Confirmar amanhã”</button>`}</div></div></div>`;
   return `<div class="titulo-tela"><h1>WhatsApp</h1><span class="sub">mensagens para os pacientes</span>
     <span class="titulo-acoes"><span class="tag-ex">${ic('alerta', 14)} protótipo: nada é enviado de verdade</span></span></div>
   ${E.ui.waDesconectado ? `<div class="wa-caiu" role="alert">${ic('alerta', 22)}<span><b>O WhatsApp da clínica desconectou.</b> Nenhuma mensagem está saindo: elas ficam na fila até reconectar.</span><button class="btn" data-a="waReconectar">Reconectar</button></div>` : ''}
   ${(() => { // T-018: as 4 listas de todo dia à vista; as outras em "Mais listas"
-    const aba = ([id, x]) => `<button role="tab" aria-selected="${k === id}" class="${k === id ? 'on' : ''}" data-a="waLista" data-v="${id}">${ic(x.ico, 16)} ${x.rot} <span class="cont">${w[id].length}</span></button>`;
+    const aba = ([id, x]) => `<button role="tab" aria-selected="${k === id}" class="${k === id ? 'on' : ''}" data-a="waLista" data-v="${id}">${ic(x.ico, 16)} ${x.rot} <span class="cont">${waVisiveis(id).length}</span></button>`;
     const todas = Object.entries(WA_LISTAS), fixas = todas.slice(0, 4), mais = todas.slice(4), atual = mais.find(([id]) => id === k);
-    return `<div class="tabs wa-tabs" role="tablist">${fixas.map(aba).join('')}${mais.length ? `<details class="wa-mais"><summary class="${atual ? 'on' : ''}">${atual ? `${ic(atual[1].ico, 16)} ${atual[1].rot} <span class="cont">${w[k].length}</span>` : `Mais listas <span class="cont">${mais.length}</span>`}</summary><div class="wa-mais-menu">${mais.filter(([id]) => id !== k).map(aba).join('')}</div></details>` : ''}</div>`; })()}
-  <div class="grade-wa">
-    <div class="cartao h-lista"><div class="cartao-cab"><h3>${L.rot}</h3><span class="cont">${sel.length} de ${lista.length}</span>
-      <button class="btn-link" style="margin-left:auto" data-a="waTodos">${sel.length === lista.length ? 'Desmarcar todos' : 'Marcar todos'}</button></div>
-      ${lista.map((c, i) => `<label class="wa-linha"><input type="checkbox" ${pc.waSel[c.id] !== false ? 'checked' : ''} data-a="waSel" data-id="${c.id}" ${envio ? 'disabled' : ''}>
+    return `<div class="tabs wa-tabs" role="tablist">${fixas.map(aba).join('')}${mais.length ? `<details class="wa-mais"><summary class="${atual ? 'on' : ''}">${atual ? `${ic(atual[1].ico, 16)} ${atual[1].rot} <span class="cont">${lista.length}</span>` : `Mais listas <span class="cont">${mais.length}</span>`}</summary><div class="wa-mais-menu">${mais.filter(([id]) => id !== k).map(aba).join('')}</div></details>` : ''}</div>`; })()}
+  ${waPeriodoHTML(k)}
+  <div id="wa-lista"><div class="grade-wa">
+    <div class="cartao h-lista"><div class="cartao-cab"><h3>${k === 'retornoMes' && (pc.waDe || pc.waAte) ? 'Retorno · período escolhido' : L.rot}</h3><span class="cont">${sel.length} de ${lista.length}</span>
+      ${pendentes ? `<button class="btn-link" style="margin-left:auto" data-a="waTodos">${sel.length === pendentes ? 'Desmarcar todos' : 'Marcar todos'}</button>` : ''}</div>
+      ${lista.map((c, i) => { const envio = envioDe(c); return `<label class="wa-linha"><input type="checkbox" ${pc.waSel[c.id] !== false ? 'checked' : ''} data-a="waSel" data-id="${c.id}" ${envio ? 'disabled' : ''}>
         <span class="av av${i % 4}">${esc(iniciais(c.nome))}</span><span class="h-pac-txt"><b>${esc(c.nome)}</b><span class="h-meta">${esc(L.meta(c))}</span></span>
-        ${envio && envio.ids.includes(c.id) ? `${L.programa ? `<span class="est est-confirmado">${ic('relogio', 15)} Sai dia ${esc(c.dia)}</span>` : waSaiu(envio) ? `<span class="est est-chegou">${ic('check', 15)} Enviada</span>` : `<span class="est est-confirmado">${ic('relogio', 15)} Na fila</span>`}` : ''}</label>`).join('')}
+        ${envio ? `${L.programa ? `<span class="est est-confirmado">${ic('relogio', 15)} Sai dia ${esc(c.dia)}</span>` : waSaiu(envio) ? `<span class="est est-chegou">${ic('check', 15)} Enviada</span>` : `<span class="est est-confirmado">${ic('relogio', 15)} Na fila</span>`}` : ''}</label>`; }).join('')}
       ${w.naoQuerem ? `<p class="nota-leve wa-nota">${ic('cadeado', 15)} ${w.naoQuerem} paciente pediu para não receber mensagens e fica fora da lista.</p>` : ''}</div>
     <div class="wa-lado">
       <div class="cartao"><h3>Mensagem</h3><div class="wa-fone"><div class="wa-balao">${esc(L.msg(ex))}<span class="wa-hora num">10:40</span></div></div></div>
       ${E.ui.clinicaSemInternet ? `<div class="aviso-box aviso">${ic('semrede', 16)} <b>Sem internet:</b> as mensagens ficam na fila e saem quando a internet voltar.</div>` : ''}
-      ${envio ? `<div class="cartao wa-ok">${ic('checks', 22)}<div><b>${L.programa ? `Programado: cada um recebe no dia do aniversário ·` : waSaiu(envio) ? `Enviado às ${envio.hora} para` : `Na fila de envio às ${envio.hora} ·`} ${envio.ids.length} pacientes</b><span class="muted">custo estimado ${brl(envio.custo)} · ${L.programa || k !== 'amanha' ? 'quem responder QUERO ou REMARCAR aparece para a recepção agendar' : 'as respostas “SIM” confirmam a consulta sozinhas'}</span></div></div>`
-        : `<button class="btn ${E.ui.waDesconectado ? 'btn-sec' : 'btn-pri'} wa-enviar" data-a="waEnviar" ${sel.length ? '' : 'disabled'}>${ic('enviar', 18)} ${sel.length ? `${E.ui.waDesconectado ? 'Pôr na fila:' : L.programa ? 'Programar para' : 'Enviar a'} ${sel.length} ${sel.length === 1 ? 'paciente' : 'pacientes'}` : 'Marque ao menos um paciente'}</button>${sel.length ? `<div class="wa-custo">custo estimado ${brl(custo)}</div>` : ''}`}
+      ${envio ? `<div class="cartao wa-ok">${ic('checks', 22)}<div><b>${L.programa ? `Programado: cada um recebe no dia do aniversário ·` : waSaiu(envio) ? `Enviado às ${envio.hora} para` : `Na fila de envio às ${envio.hora} ·`} ${envio.ids.length} pacientes</b><span class="muted">custo estimado ${brl(envio.custo)} · ${L.programa || k !== 'amanha' ? 'quem responder QUERO ou REMARCAR aparece para a recepção agendar' : 'as respostas “SIM” confirmam a consulta sozinhas'}</span></div></div>` : ''}
+      ${sel.length || !envio ? `<button class="btn ${E.ui.waDesconectado ? 'btn-sec' : 'btn-pri'} wa-enviar" data-a="waEnviar" ${sel.length ? '' : 'disabled'}>${ic('enviar', 18)} ${sel.length ? `${E.ui.waDesconectado ? 'Pôr na fila:' : L.programa ? 'Programar para' : 'Enviar a'} ${sel.length} ${sel.length === 1 ? 'paciente' : 'pacientes'}` : 'Marque ao menos um paciente'}</button>${sel.length ? `<div class="wa-custo">custo estimado ${brl(custo)}</div>` : ''}` : ''}
     </div>
-  </div>`;
+  </div></div>`;
 }
 A.waLista = ds => { E.ui.pc.waLista = ds.v; render(); };
 A.waSel = (ds, el) => { E.ui.pc.waSel[ds.id] = el.checked; render(); };
-A.waTodos = () => { const pc = E.ui.pc, l = E.d.whatsapp[pc.waLista || 'amanha'], todos = l.every(c => pc.waSel[c.id] !== false); l.forEach(c => { pc.waSel[c.id] = !todos; }); render(); };
-A.waEnviar = () => { const pc = E.ui.pc, k = pc.waLista || 'amanha', L = WA_LISTAS[k], ids = E.d.whatsapp[k].filter(c => pc.waSel[c.id] !== false).map(c => c.id);
+A.waTodos = () => { const pc = E.ui.pc, k = pc.waLista || 'amanha', ja = new Set(E.d.whatsapp.enviados.filter(x => x.lista === k).flatMap(x => x.ids)), l = waVisiveis(k).filter(c => !ja.has(c.id)), todos = l.every(c => pc.waSel[c.id] !== false); l.forEach(c => { pc.waSel[c.id] = !todos; }); render(); };
+A.waEnviar = () => { const pc = E.ui.pc, k = pc.waLista || 'amanha', L = WA_LISTAS[k], ja = new Set(E.d.whatsapp.enviados.filter(x => x.lista === k).flatMap(x => x.ids)), ids = waVisiveis(k).filter(c => pc.waSel[c.id] !== false && !ja.has(c.id)).map(c => c.id);
   if (!ids.length) return;
   comDesfazer(L.programa ? `${ids.length} parabéns programados: cada um sai no dia do aniversário.` : `${ids.length} mensagens de “${L.rot}” na fila de envio.`, () => { E.d.whatsapp.enviados.push({ lista: k, ids, hora: hhmm(E.d.agoraMin), custo: Math.round(ids.length * L.preco), criado: Date.now() }); });
   // passados os 10 s do Desfazer, as mensagens saem (sem internet, continuam na fila)
-  setTimeout(() => { if (E.ui.pc.tela === 'whatsapp') render(); }, 10100); };
+  setTimeout(() => { if (E.ui.pc.tela === 'whatsapp') { if (document.getElementById('wa-lista')) A.waPer(); else render(); } }, 10100); };
 const waSaiu = env => !E.ui.clinicaSemInternet && Date.now() - (env.criado || 0) > 10000;
